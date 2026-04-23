@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "TMS Mobile App",
+    "slug": "tms-mobile-app",
+    "scheme": "tmsmobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "rs.softechrs.tms",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "TMS koristi lokaciju tokom aktivne ture kako bi dispecer video poziciju vozila.",
+        "NSLocationWhenInUseUsageDescription": "TMS koristi lokaciju tokom aktivne ture za pracenje transporta.",
+        "UIBackgroundModes": [
+          "location"
+        ]
+      }
+    },
+    "android": {
+      "package": "rs.softechrs.tms",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow TMS to track your location during active tours.",
+          "locationAlwaysPermission": "Allow TMS to track your location in the background during active tours.",
+          "locationWhenInUsePermission": "Allow TMS to access your location for tour tracking.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "replace-with-your-eas-project-id"
+      }
+    }
+  }
+}
