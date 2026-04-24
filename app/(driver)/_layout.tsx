@@ -1,60 +1,70 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Text } from "react-native";
 import { useAuth } from "@/providers/AuthProvider";
-import { useUnreadNotificationsCount } from "@/queries/useNotifications";
-import { useChatThreads } from "@/queries/useChat";
-import { OfflineBanner } from "@/components/OfflineBanner";
-
-function isSuperAdminRole(role: string | null | undefined): boolean {
-  return (role ?? "").toUpperCase() === "SUPERADMIN";
-}
+import { Theme } from "@/lib/theme";
 
 export default function DriverLayout() {
   const { session } = useAuth();
-  const { data: unreadCount } = useUnreadNotificationsCount();
-  const { data: chatThreads } = useChatThreads();
-  const unreadChatCount = (chatThreads ?? []).filter((thread) => thread.hasUnread).length;
 
-  const canAccessDriverArea = Boolean(session?.user.driverId) || isSuperAdminRole(session?.user.role);
-  if (!canAccessDriverArea) {
+  if (!session?.user.driverId) {
     return null;
   }
 
   return (
-    <>
-      <SafeAreaView edges={["top"]} className="bg-white">
-        <OfflineBanner />
-      </SafeAreaView>
-      <Tabs
-        screenOptions={{
-          headerTitleAlign: "center",
-          tabBarActiveTintColor: "#0f766e",
-          tabBarInactiveTintColor: "#64748b",
-          tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
-          tabBarIconStyle: { marginTop: 2 }
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: Theme.accent.primary,
+        tabBarInactiveTintColor: Theme.text.muted,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600"
+        },
+        tabBarStyle: {
+          backgroundColor: Theme.surface.card,
+          borderTopColor: Theme.surface.border
+        }
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Pocetna",
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size ?? 20} color={color} />
         }}
-      >
-        <Tabs.Screen name="index" options={{ title: "Pocetna" }} />
-        <Tabs.Screen name="tours" options={{ title: "Ture", headerShown: false }} />
-        <Tabs.Screen
-          name="chat"
-          options={{
-            title: "Poruke",
-            headerShown: false,
-            tabBarBadge: unreadChatCount > 0 ? unreadChatCount : undefined,
-            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 14 }}>💬</Text>
-          }}
-        />
-        <Tabs.Screen
-          name="notifications"
-          options={{
-            title: "Obavestenja",
-            tabBarBadge: unreadCount && unreadCount > 0 ? unreadCount : undefined
-          }}
-        />
-        <Tabs.Screen name="profile" options={{ title: "Profil" }} />
-      </Tabs>
-    </>
+      />
+      <Tabs.Screen
+        name="tours"
+        options={{
+          title: "Ture",
+          tabBarIcon: ({ color, size }) => <Ionicons name="trail-sign-outline" size={size ?? 20} color={color} />
+        }}
+      />
+      <Tabs.Screen
+        name="chat/index"
+        options={{
+          title: "Poruke",
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" size={size ?? 20} color={color} />
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Obavestenja",
+          tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" size={size ?? 20} color={color} />
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profil",
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size ?? 20} color={color} />
+        }}
+      />
+
+      <Tabs.Screen name="chat" options={{ href: null }} />
+      <Tabs.Screen name="chat/new" options={{ href: null }} />
+      <Tabs.Screen name="chat/[id]" options={{ href: null }} />
+    </Tabs>
   );
 }

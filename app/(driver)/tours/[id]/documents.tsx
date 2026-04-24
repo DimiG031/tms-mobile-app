@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
-import { Alert, Linking, RefreshControl, ScrollView } from "react-native";
+import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import { useLocalSearchParams } from "expo-router";
-import { Pressable, Text, TextInput, View } from "@/components/ui";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Pressable, TextInput } from "@/components/ui";
+import { IOSCard } from "@/components/ios/IOSCard";
+import { IOSGlassPill } from "@/components/ios/IOSGlassPill";
+import { LightTokens as T } from "@/lib/theme";
 import { useCreateTourDocument, useTourDocuments } from "@/queries/useTourDocuments";
 import { uploadFromFileUri } from "@/services/upload";
 import { formatDateTime } from "@/lib/formatters";
@@ -12,6 +15,7 @@ const DOC_TYPES = ["PDF", "JPG", "PNG"] as const;
 
 export default function TourDocumentsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const tourId = params.id;
 
   const { data, isLoading, isError, isRefetching, refetch } = useTourDocuments(tourId);
@@ -163,18 +167,32 @@ export default function TourDocumentsScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-white"
-      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+      style={styles.screen}
+      contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
     >
-      <Text className="text-xl font-bold text-slate-900">Dokumenta ture</Text>
-      <Text className="mt-1 text-slate-500">Slikajte ili izaberite dokument, zatim ga sacuvajte uz turu.</Text>
+      <View style={styles.topRow}>
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+              return;
+            }
+            router.replace(`/tours/${tourId}` as never);
+          }}
+        >
+          <Text style={styles.backText}>{"< Nazad"}</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.title}>Dokumenta ture</Text>
+      <Text style={styles.subtitle}>Slikajte ili izaberite dokument, zatim ga sacuvajte uz turu.</Text>
 
-      <View className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <Text className="font-semibold text-slate-900">Dodaj dokument</Text>
+      <IOSCard glass style={styles.section}>
+        <Text style={styles.sectionTitle}>Dodaj dokument</Text>
 
-        <View className="mt-3 gap-3">
-          <View className="flex-row gap-2">
+        <View style={styles.stack}>
+          <View style={styles.row}>
             <Pressable onPress={onCapturePhoto} disabled={isUploading} className="flex-1 rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
               <Text className="text-center font-semibold text-brand-700">Slikaj</Text>
             </Pressable>
@@ -201,16 +219,16 @@ export default function TourDocumentsScreen() {
             className="rounded-xl border border-slate-200 bg-white px-4 py-3"
           />
 
-          <Text className="text-xs text-slate-500">Tip fajla</Text>
-          <View className="flex-row gap-2">
+          <Text style={styles.helpLabel}>Tip fajla</Text>
+          <View style={styles.rowWrap}>
             {DOC_TYPES.map((option) => (
-              <Pressable
+              <IOSGlassPill
                 key={option}
+                size="sm"
+                label={option}
+                variant={fileType === option ? "accent" : "default"}
                 onPress={() => setFileType(option)}
-                className={`rounded-lg border px-3 py-2 ${fileType === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
-              >
-                <Text className={fileType === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
-              </Pressable>
+              />
             ))}
           </View>
 
@@ -220,12 +238,12 @@ export default function TourDocumentsScreen() {
             </Text>
           </Pressable>
         </View>
-      </View>
+      </IOSCard>
 
-      <View className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-        <Text className="font-semibold text-slate-900">Otpremljena dokumenta</Text>
+      <IOSCard style={styles.section}>
+        <Text style={styles.sectionTitle}>Otpremljena dokumenta</Text>
 
-        {isLoading ? <Text className="mt-2 text-slate-500">Ucitavanje...</Text> : null}
+        {isLoading ? <Text style={styles.loading}>Ucitavanje...</Text> : null}
 
         {isError ? (
           <View className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
@@ -245,8 +263,72 @@ export default function TourDocumentsScreen() {
           </Pressable>
         ))}
 
-        {!isLoading && !sortedDocs.length ? <Text className="mt-2 text-slate-500">Nema dokumenata za ovu turu.</Text> : null}
-      </View>
+        {!isLoading && !sortedDocs.length ? <Text style={styles.loading}>Nema dokumenata za ovu turu.</Text> : null}
+      </IOSCard>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: T.bgApp
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 40
+  },
+  title: {
+    color: T.textPrimary,
+    fontSize: 26,
+    fontWeight: "800"
+  },
+  subtitle: {
+    marginTop: 4,
+    color: T.textSecondary
+  },
+  section: {
+    marginTop: 12
+  },
+  topRow: {
+    marginBottom: 8,
+    flexDirection: "row"
+  },
+  backBtn: {
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  backText: {
+    color: "#334155",
+    fontWeight: "700"
+  },
+  sectionTitle: {
+    color: T.textPrimary,
+    fontWeight: "700",
+    fontSize: 16
+  },
+  stack: {
+    marginTop: 12,
+    gap: 12
+  },
+  row: {
+    flexDirection: "row",
+    gap: 8
+  },
+  rowWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  helpLabel: {
+    color: T.textSecondary,
+    fontSize: 12
+  },
+  loading: {
+    marginTop: 8,
+    color: T.textSecondary
+  }
+});

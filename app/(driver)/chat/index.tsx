@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { FlatList } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Pressable, Text, View } from "@/components/ui";
+import { Pressable } from "@/components/ui";
+import { LightTokens as T } from "@/lib/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatDateTime } from "@/lib/formatters";
 import { useChatThreads } from "@/queries/useChat";
@@ -34,66 +35,189 @@ export default function ChatListScreen() {
   }, [threadsQuery.data]);
 
   return (
-    <View className="flex-1 bg-white px-4 py-4">
-      <Text className="mb-3 text-xl font-bold text-slate-900">Poruke</Text>
-
-      {threadsQuery.isLoading ? <Text className="text-slate-500">Ucitavanje razgovora...</Text> : null}
-      {threadsQuery.isError ? (
-        <View className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3">
-          <Text className="text-red-700">Ucitavanje razgovora nije uspelo.</Text>
-          <Pressable onPress={() => void threadsQuery.refetch()} className="mt-2 self-start rounded-lg border border-red-300 px-3 py-2">
-            <Text className="text-red-700">Pokusaj ponovo</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
+    <View style={styles.screen}>
       <FlatList
         data={threads}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 100, flexGrow: threads.length ? 0 : 1 }}
+        contentContainerStyle={[styles.content, { flexGrow: threads.length ? 0 : 1 }]}
+        ListHeaderComponent={
+          <>
+            <View style={styles.headerRow}>
+              <Text style={styles.title}>Poruke</Text>
+              <Pressable style={styles.newBtn} onPress={() => router.push("/chat/new")}>
+                <Text style={styles.newBtnText}>+ Novi</Text>
+              </Pressable>
+            </View>
+
+            {threadsQuery.isLoading ? <Text style={styles.loading}>Ucitavanje razgovora...</Text> : null}
+            {threadsQuery.isError ? (
+              <View style={[styles.card, styles.errorCard]}>
+                <Text style={styles.errorText}>Ucitavanje razgovora nije uspelo.</Text>
+                <Pressable style={styles.retryBtn} onPress={() => void threadsQuery.refetch()}>
+                  <Text style={styles.retryText}>Pokusaj ponovo</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </>
+        }
         renderItem={({ item }) => {
           const title = threadTitle(item, session?.user.id);
           const preview = item.lastMessage?.body ?? "Nema poruka";
           const timestamp = item.lastMessage?.createdAt ?? item.updatedAt;
+
           return (
-            <Pressable
-              onPress={() => router.push(`/chat/${item.id}` as never)}
-              className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
-            >
-              <View className="flex-row items-center">
-                <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                  <Text className="font-semibold text-brand-700">{initials(title)}</Text>
-                </View>
-                <View className="ml-3 flex-1">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="font-semibold text-slate-900">{title}</Text>
-                    <Text className="text-xs text-slate-500">{formatDateTime(timestamp)}</Text>
+            <Pressable onPress={() => router.push(`/chat/${item.id}` as never)}>
+              <View style={[styles.card, styles.itemCard]}>
+                <View style={styles.itemRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{initials(title)}</Text>
                   </View>
-                  <Text className="mt-1 text-sm text-slate-600" numberOfLines={1}>
-                    {preview}
-                  </Text>
+
+                  <View style={styles.itemContent}>
+                    <View style={styles.itemTop}>
+                      <Text numberOfLines={1} style={styles.itemTitle}>{title}</Text>
+                      <Text style={styles.time}>{formatDateTime(timestamp)}</Text>
+                    </View>
+                    <Text numberOfLines={1} style={styles.preview}>{preview}</Text>
+                  </View>
+
+                  {item.hasUnread ? <View style={styles.unread} /> : null}
                 </View>
-                {item.hasUnread ? <View className="ml-2 h-2.5 w-2.5 rounded-full bg-blue-500" /> : null}
               </View>
             </Pressable>
           );
         }}
         ListEmptyComponent={
           !threadsQuery.isLoading ? (
-            <View className="flex-1 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-6">
-              <Text className="text-center text-slate-600">Nema razgovora. Napravite novi razgovor.</Text>
+            <View style={styles.card}>
+              <Text style={styles.emptyText}>Nema razgovora. Napravite novi razgovor.</Text>
             </View>
           ) : null
         }
       />
-
-      <Pressable
-        onPress={() => router.push("/chat/new")}
-        className="absolute bottom-6 right-6 rounded-full bg-brand-600 px-5 py-4 shadow"
-      >
-        <Text className="text-base font-semibold text-white">+ Novi</Text>
-      </Pressable>
     </View>
   );
 }
 
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: T.bgApp
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingBottom: 18
+  },
+  headerRow: {
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  title: {
+    color: T.textPrimary,
+    fontSize: 26,
+    fontWeight: "800"
+  },
+  loading: {
+    color: T.textSecondary,
+    marginBottom: 8
+  },
+  itemCard: {
+    marginBottom: 10
+  },
+  card: {
+    backgroundColor: T.bgSurface,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 16,
+    padding: 12
+  },
+  newBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#7dd3fc",
+    backgroundColor: "#ecfeff",
+    paddingHorizontal: 12,
+    paddingVertical: 8
+  },
+  newBtnText: {
+    color: "#0e7490",
+    fontWeight: "700",
+    fontSize: 12
+  },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#d1fae5"
+  },
+  avatarText: {
+    color: "#065f46",
+    fontWeight: "700"
+  },
+  itemContent: {
+    marginLeft: 10,
+    flex: 1
+  },
+  itemTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8
+  },
+  itemTitle: {
+    flex: 1,
+    color: T.textPrimary,
+    fontWeight: "700"
+  },
+  time: {
+    color: T.textSecondary,
+    fontSize: 11
+  },
+  preview: {
+    marginTop: 3,
+    color: "#475569",
+    fontSize: 13
+  },
+  unread: {
+    marginLeft: 8,
+    width: 9,
+    height: 9,
+    borderRadius: 99,
+    backgroundColor: "#0d7d72"
+  },
+  emptyText: {
+    color: T.textSecondary,
+    textAlign: "center"
+  },
+  errorCard: {
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2"
+  },
+  errorText: {
+    color: "#b91c1c"
+  },
+  retryBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#fca5a5",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  retryText: {
+    color: "#b91c1c",
+    fontWeight: "700"
+  }
+});

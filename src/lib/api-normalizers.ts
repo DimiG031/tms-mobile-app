@@ -6,6 +6,15 @@ type MaybePaged<T> = {
 
 type GenericObject = Record<string, unknown>;
 
+const srDateTimeFormatter = new Intl.DateTimeFormat("sr-RS", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false
+});
+
 export function normalizeItemsPayload<T>(payload: unknown): T[] {
   if (!payload || typeof payload !== "object") {
     return [];
@@ -98,8 +107,17 @@ function extractFreightOrderCode(obj: GenericObject): string | null {
 }
 
 function formatDateLabel(startDate: string | null, endDate: string | null): string {
-  if (startDate && endDate) return `${startDate} - ${endDate}`;
-  return startDate ?? endDate ?? "-";
+  const formatOne = (value: string | null): string | null => {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return srDateTimeFormatter.format(d).replace(",", ".");
+  };
+
+  const start = formatOne(startDate);
+  const end = formatOne(endDate);
+  if (start && end) return `${start} - ${end}`;
+  return start ?? end ?? "-";
 }
 
 export function normalizeTourSummary(value: unknown) {
@@ -114,7 +132,7 @@ export function normalizeTourSummary(value: unknown) {
     (() => {
       const start = pickString(obj, ["startLocation", "origin", "from"]);
       const end = pickString(obj, ["endLocation", "destination", "to"]);
-      if (start && end) return `${start} -> ${end}`;
+      if (start && end) return `${start} → ${end}`;
       return start ?? end ?? "Bez relacije";
     })();
 
@@ -150,3 +168,4 @@ export function normalizeTourDetailsPayload(payload: unknown) {
     notes: pickString(raw, ["notes"])
   };
 }
+

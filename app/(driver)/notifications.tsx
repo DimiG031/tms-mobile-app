@@ -1,16 +1,16 @@
-import { useCallback, useMemo, useState } from "react";
-import { Alert, FlatList, RefreshControl } from "react-native";
+import { useCallback, useMemo } from "react";
+import { Alert, FlatList } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Pressable, Text, View } from "@/components/ui";
 import type { AppNotification } from "@/lib/types";
-import { formatDateTime, translateSeverity } from "@/lib/formatters";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotificationsInfinite
 } from "@/queries/useNotifications";
 import { resolveNotificationRoute } from "@/services/notifications";
+import { Theme, formatSrDateTime } from "@/lib/theme";
 
 function severityClass(severity: AppNotification["severity"]): string {
   if (severity === "critical") return "border-red-300 bg-red-50";
@@ -24,7 +24,6 @@ export default function NotificationsScreen() {
   const notificationsQuery = useNotificationsInfinite(20);
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
-  const [markingId, setMarkingId] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,33 +39,25 @@ export default function NotificationsScreen() {
   const onOpenNotification = async (notification: AppNotification) => {
     if (!notification.isRead) {
       try {
-        setMarkingId(notification.id);
         await markRead.mutateAsync(notification.id);
       } catch {
         // Continue navigation even if mark-read fails.
-      } finally {
-        setMarkingId(null);
       }
     }
 
     const route = resolveNotificationRoute({
       actionUrl: notification.actionUrl,
       notificationId: notification.id,
-      tourId: notification.metadata?.tourId,
-      metadata: notification.metadata
+      tourId: notification.metadata?.tourId
     });
     router.push(route as never);
   };
 
   const onMarkAsRead = (id: string) => {
-    setMarkingId(id);
     markRead.mutate(id, {
       onError: (error) => {
         const message = error instanceof Error ? error.message : "Azuriranje obavestenja nije uspelo.";
         Alert.alert("Obavestenja", message);
-      },
-      onSettled: () => {
-        setMarkingId(null);
       }
     });
   };
@@ -80,42 +71,38 @@ export default function NotificationsScreen() {
     });
   };
 
+  const unread = items.filter((item) => !item.isRead).length;
+
   return (
-    <View className="flex-1 bg-white px-4 py-5">
+    <View className="flex-1 px-4 py-5" style={{ backgroundColor: Theme.surface.app }}>
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-xl font-bold text-slate-900">Obavestenja</Text>
+        <View>
+          <Text className="text-3xl font-extrabold" style={{ color: Theme.text.primary }}>
+            Obavestenja
+          </Text>
+          <Text className="text-sm" style={{ color: Theme.text.secondary }}>
+            {unread} neprocitana
+          </Text>
+        </View>
         <Pressable
           onPress={onMarkAllRead}
-          disabled={markAllRead.isPending || !items.some((item) => !item.isRead)}
-          className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
+          disabled={markAllRead.isPending}
+          className="rounded-full px-3 py-2 disabled:opacity-60"
+          style={{ borderColor: Theme.accent.primary, borderWidth: 1, backgroundColor: Theme.accent.primaryLight }}
         >
-          <Text className="text-xs font-semibold text-slate-700">
+          <Text className="text-xs font-semibold" style={{ color: Theme.accent.primaryDark }}>
             {markAllRead.isPending ? "Azuriranje..." : "Oznaci sve"}
           </Text>
         </Pressable>
       </View>
 
-      {notificationsQuery.isError ? (
-        <View className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3">
-          <Text className="text-red-700">Ucitavanje obavestenja nije uspelo.</Text>
-          <Pressable onPress={() => void notificationsQuery.refetch()} className="mt-2 self-start rounded-lg border border-red-300 px-3 py-2">
-            <Text className="text-red-700">Pokusaj ponovo</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      {notificationsQuery.isLoading ? <Text className="text-slate-500">Ucitavanje...</Text> : null}
+      {notificationsQuery.isError ? <Text className="text-red-600">Ucitavanje obavestenja nije uspelo.</Text> : null}
 
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 32, flexGrow: items.length ? 0 : 1 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={notificationsQuery.isRefetching}
-            onRefresh={() => {
-              void notificationsQuery.refetch();
-            }}
-          />
-        }
+        contentContainerStyle={{ paddingBottom: 32 }}
         onEndReachedThreshold={0.4}
         onEndReached={() => {
           if (notificationsQuery.hasNextPage && !notificationsQuery.isFetchingNextPage) {
@@ -125,39 +112,30 @@ export default function NotificationsScreen() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => void onOpenNotification(item)}
-            className={`mb-3 rounded-xl border p-3 ${severityClass(item.severity)} ${item.isRead ? "opacity-80" : "opacity-100"}`}
+            className={`mb-3 rounded-2xl border p-3 ${severityClass(item.severity)} ${item.isRead ? "opacity-80" : "opacity-100"}`}
           >
-            <Text className="font-semibold text-slate-900">{item.title}</Text>
+            <View className="flex-row items-start justify-between gap-2">
+              <Text className="font-semibold text-slate-900">{item.title}</Text>
+              <Text className="text-xs text-slate-500">{formatSrDateTime(item.createdAt)}</Text>
+            </View>
             <Text className="mt-1 text-sm text-slate-700">{item.message}</Text>
-            <Text className="mt-2 text-xs uppercase text-slate-500">{translateSeverity(item.severity)}</Text>
-            <Text className="mt-1 text-xs text-slate-500">{formatDateTime(item.createdAt)}</Text>
-
             {!item.isRead ? (
               <Pressable
                 onPress={() => onMarkAsRead(item.id)}
-                disabled={markRead.isPending && markingId === item.id}
-                className="mt-3 self-start rounded-lg border border-brand-500 px-3 py-2 disabled:opacity-60"
+                disabled={markRead.isPending}
+                className="mt-3 self-start rounded-lg px-3 py-2"
+                style={{ borderColor: Theme.accent.primary, borderWidth: 1 }}
               >
-                <Text className="text-xs font-semibold text-brand-600">
-                  {markRead.isPending && markingId === item.id ? "Azuriranje..." : "Oznaci kao procitano"}
+                <Text className="text-xs font-semibold" style={{ color: Theme.accent.primary }}>
+                  {markRead.isPending ? "Azuriranje..." : "Oznaci kao procitano"}
                 </Text>
               </Pressable>
             ) : null}
           </Pressable>
         )}
-        ListEmptyComponent={
-          !notificationsQuery.isLoading ? (
-            <View className="flex-1 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-6">
-              <Text className="text-center text-slate-600">Nemate obavestenja.</Text>
-            </View>
-          ) : (
-            <Text className="text-slate-500">Ucitavanje...</Text>
-          )
-        }
+        ListEmptyComponent={!notificationsQuery.isLoading ? <Text className="text-slate-500">Nema obavestenja.</Text> : null}
         ListFooterComponent={
-          notificationsQuery.isFetchingNextPage ? (
-            <Text className="pb-2 pt-1 text-center text-slate-500">Ucitavanje jos...</Text>
-          ) : null
+          notificationsQuery.isFetchingNextPage ? <Text className="pb-2 pt-1 text-center text-slate-500">Ucitavanje jos...</Text> : null
         }
       />
     </View>

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useNetInfo } from "@react-native-community/netinfo";
-import { Pressable, Text, TextInput, View } from "@/components/ui";
+import { Pressable, TextInput } from "@/components/ui";
+import { LightTokens as T } from "@/lib/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatDateTime } from "@/lib/formatters";
 import { useChatMessages, useMarkThreadRead, useSendChatMessage } from "@/queries/useChat";
@@ -17,9 +18,7 @@ function dedupeAndSortMessages(items: ChatMessage[]): ChatMessage[] {
   for (const item of items) {
     map.set(item.id, item);
   }
-  return Array.from(map.values()).sort((a, b) => {
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  });
+  return Array.from(map.values()).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
 export default function ChatThreadScreen() {
@@ -57,8 +56,7 @@ export default function ChatThreadScreen() {
   useEffect(() => {
     if (!threadId) return;
     markRead.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId]);
+  }, [threadId, markRead]);
 
   useEffect(() => {
     if (!latestMessageId) return;
@@ -74,9 +72,7 @@ export default function ChatThreadScreen() {
     if (latestMessageIdRef.current !== latestMessageId) {
       const shouldScroll = isAtBottomRef.current || shouldScrollAfterSendRef.current;
       latestMessageIdRef.current = latestMessageId;
-      if (shouldScroll) {
-        scrollToBottom();
-      }
+      if (shouldScroll) scrollToBottom();
       shouldScrollAfterSendRef.current = false;
       void markRead.mutateAsync().catch(() => {});
     }
@@ -104,87 +100,161 @@ export default function ChatThreadScreen() {
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const threshold = 48;
-    isAtBottomRef.current =
-      layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold;
+    isAtBottomRef.current = layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold;
   };
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="flex-1 px-4 pt-3">
-        {messagesQuery.isLoading ? <Text className="mb-3 text-slate-500">Ucitavanje poruka...</Text> : null}
-        {messagesQuery.isError ? (
-          <View className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3">
-            <Text className="text-red-700">Ucitavanje poruka nije uspelo.</Text>
-            <Pressable onPress={() => void messagesQuery.refetch()} className="mt-2 self-start rounded-lg border border-red-300 px-3 py-2">
-              <Text className="text-red-700">Pokusaj ponovo</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
+    <View style={styles.screen}>
+      <View style={styles.listWrap}>
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
           onScroll={onScroll}
           scrollEventThrottle={32}
-          contentContainerStyle={{ paddingBottom: 16, flexGrow: messages.length ? 0 : 1 }}
+          contentContainerStyle={[styles.listContent, { flexGrow: messages.length ? 0 : 1 }]}
           ListHeaderComponent={
             hasNextCursor ? (
-              <Pressable
-                onPress={() => void messagesQuery.fetchNextPage()}
-                disabled={messagesQuery.isFetchingNextPage}
-                className="mb-3 self-center rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
-              >
-                <Text className="text-sm text-slate-700">
-                  {messagesQuery.isFetchingNextPage ? "Ucitavanje..." : "Ucitaj starije"}
-                </Text>
+              <Pressable style={styles.moreBtn} onPress={() => void messagesQuery.fetchNextPage()} disabled={messagesQuery.isFetchingNextPage}>
+                <Text style={styles.moreText}>{messagesQuery.isFetchingNextPage ? "Ucitavanje..." : "Ucitaj starije"}</Text>
               </Pressable>
             ) : null
           }
           renderItem={({ item }) => {
             const mine = item.senderId === session?.user.id;
             return (
-              <View className={`mb-2 ${mine ? "items-end" : "items-start"}`}>
-                {!mine ? <Text className="mb-1 text-xs text-slate-500">{senderName(item)}</Text> : null}
-                <View
-                  className={`max-w-[82%] rounded-2xl px-3 py-2 ${mine ? "bg-blue-500" : "bg-slate-200"}`}
-                >
-                  <Text className={mine ? "text-white" : "text-slate-900"}>{item.body}</Text>
+              <View style={[styles.messageLine, mine ? styles.right : styles.left]}>
+                {!mine ? <Text style={styles.sender}>{senderName(item)}</Text> : null}
+                <View style={[styles.bubble, mine ? styles.mineBubble : styles.otherBubble]}>
+                  <Text style={mine ? styles.mineText : styles.otherText}>{item.body}</Text>
                 </View>
-                <Text className="mt-1 text-xs text-slate-500">{formatDateTime(item.createdAt)}</Text>
+                <Text style={styles.metaTime}>{formatDateTime(item.createdAt)}</Text>
               </View>
             );
           }}
-          ListEmptyComponent={
-            !messagesQuery.isLoading ? (
-              <View className="flex-1 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-6">
-                <Text className="text-center text-slate-600">Nema poruka. Posaljite prvu poruku.</Text>
-              </View>
-            ) : null
-          }
+          ListEmptyComponent={!messagesQuery.isLoading ? <View style={styles.emptyCard}><Text style={styles.empty}>Nema poruka. Posaljite prvu poruku.</Text></View> : null}
         />
       </View>
 
-      <View className="border-t border-slate-200 bg-white px-4 pb-4 pt-3">
-        <View className="flex-row items-end gap-2">
-          <TextInput
-            value={body}
-            onChangeText={setBody}
-            placeholder={netInfo.isConnected ? "Unesite poruku..." : "Offline - slanje nije dostupno"}
-            editable={Boolean(netInfo.isConnected)}
-            multiline
-            className="max-h-28 min-h-[44px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2"
-          />
-          <Pressable
-            onPress={onSend}
-            disabled={!netInfo.isConnected || !body.trim() || sendMessage.isPending}
-            className="rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"
-          >
-            <Text className="font-semibold text-white">{sendMessage.isPending ? "..." : "Posalji"}</Text>
-          </Pressable>
-        </View>
+      <View style={styles.inputBar}>
+        <TextInput
+          value={body}
+          onChangeText={setBody}
+          placeholder={netInfo.isConnected ? "Unesite poruku..." : "Offline - slanje nije dostupno"}
+          editable={Boolean(netInfo.isConnected)}
+          multiline
+          className="max-h-28 min-h-[44px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2"
+        />
+        <Pressable style={[styles.sendBtn, (!netInfo.isConnected || !body.trim() || sendMessage.isPending) ? styles.disabled : null]} onPress={onSend} disabled={!netInfo.isConnected || !body.trim() || sendMessage.isPending}>
+          <Text style={styles.sendText}>{sendMessage.isPending ? "..." : "Posalji"}</Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: T.bgApp
+  },
+  listWrap: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingTop: 12
+  },
+  listContent: {
+    paddingBottom: 14
+  },
+  moreBtn: {
+    alignSelf: "center",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  moreText: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  messageLine: {
+    marginBottom: 10,
+    maxWidth: "86%"
+  },
+  left: {
+    alignSelf: "flex-start"
+  },
+  right: {
+    alignSelf: "flex-end"
+  },
+  sender: {
+    marginBottom: 4,
+    marginLeft: 2,
+    color: T.textSecondary,
+    fontSize: 11,
+    fontWeight: "700"
+  },
+  bubble: {
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1
+  },
+  mineBubble: {
+    backgroundColor: "#0d7d72",
+    borderColor: "#0d7d72"
+  },
+  otherBubble: {
+    backgroundColor: "#e2e8f0",
+    borderColor: "#cbd5e1"
+  },
+  mineText: {
+    color: "#fff"
+  },
+  otherText: {
+    color: T.textPrimary
+  },
+  metaTime: {
+    marginTop: 4,
+    color: T.textSecondary,
+    fontSize: 11
+  },
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 14
+  },
+  sendBtn: {
+    borderRadius: 10,
+    backgroundColor: "#0d7d72",
+    paddingHorizontal: 14,
+    paddingVertical: 12
+  },
+  sendText: {
+    color: "#fff",
+    fontWeight: "700"
+  },
+  disabled: {
+    opacity: 0.6
+  },
+  empty: {
+    textAlign: "center",
+    color: T.textSecondary
+  },
+  emptyCard: {
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 16,
+    backgroundColor: T.bgSurface,
+    padding: 12
+  }
+});

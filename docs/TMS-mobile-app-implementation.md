@@ -191,3 +191,28 @@ Manual QA (potrebno odraditi):
 - `COMPLETED` mora ostati blokiran dok je sheet `OPEN`.
 - Sve mutacije i dalje kroz `src/lib/api.ts`.
 - UI copy ostaje srpski kao default.
+
+## 10) iOS Design Preview (izolovan UI mod)
+
+Implementirano kao bezbedan, izolovan preview koji ne menja poslovnu logiku aplikacije:
+
+- Nova ruta: `app/(driver)/design-preview.tsx`
+- Pristup iz profila preko dugmeta `iOS Design Preview`
+- Ruta je sakrivena iz tab bara (`href: null`)
+- Vizuelne komponente (samo UI):
+  - `src/components/ios/IOSDeviceFrame.tsx`
+  - `src/components/ios/IOSStatusBar.tsx`
+  - `src/components/ios/IOSNavBar.tsx`
+  - `src/components/ios/IOSGlassPill.tsx`
+  - `src/components/ios/IOSList.tsx`
+  - `src/components/ios/IOSKeyboardMock.tsx`
+- Tema/tokeni:
+  - `src/lib/theme.ts`
+
+Napomena:
+- Preview sluzi za dizajn iteracije i demonstraciju stila.
+- Ne koristi API mutacije, ne dira auth/session flow i ne menja postojece query/mutation logike.
+- Design preview: dodate animacije prelaza izmedju modova (fade + blagi slide), bez uticaja na poslovnu logiku.
+- UI redesign promoted to main driver experience (Home, Tours, Tour Details, Notifications, Profile, Chat list/new/thread), using IOSCard + IOSGlassPill while preserving all existing business logic and API/query flows.
+- Expense i Documents ekrani su takodje uskladjeni sa glavnim iOS glass vizuelnim stilom (bez izmene API/mutation logike).
+- Expense modal UX polish: unified bottom-sheet styling, glass-style chip selectors, and consistent primary/secondary action buttons.

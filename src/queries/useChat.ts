@@ -14,6 +14,51 @@ type ChatMessagesPage = {
   limit: number;
 };
 
+function asObj(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  return value as Record<string, unknown>;
+}
+
+function pickString(obj: Record<string, unknown> | null, keys: string[]): string {
+  if (!obj) return "";
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "string" && value.trim().length) return value;
+  }
+  return "";
+}
+
+function normalizeChatMessage(value: unknown): ChatMessage | null {
+  const obj = asObj(value);
+  if (!obj) return null;
+
+  const id = pickString(obj, ["id"]);
+  const senderId = pickString(obj, ["senderId", "userId"]);
+  const body = pickString(obj, ["body", "content", "message", "text"]);
+  const createdAt = pickString(obj, ["createdAt", "timestamp"]);
+
+  if (!id || !senderId || !createdAt) return null;
+
+  const senderObj = asObj(obj.sender);
+  const sender = senderObj
+    ? {
+        id: pickString(senderObj, ["id"]),
+        name: pickString(senderObj, ["name"]),
+        email: pickString(senderObj, ["email"]),
+        avatarUrl: typeof senderObj.avatarUrl === "string" ? senderObj.avatarUrl : null,
+        role: pickString(senderObj, ["role"])
+      }
+    : null;
+
+  return {
+    id,
+    senderId,
+    body: body || "(bez teksta)",
+    createdAt,
+    sender
+  };
+}
+
 function normalizeThreadList(payload: unknown): ChatThread[] {
   if (!payload || typeof payload !== "object") return [];
   const root = payload as { data?: unknown };
@@ -34,8 +79,11 @@ function normalizeMessagesPage(payload: unknown): ChatMessagesPage {
   if (!root.data || typeof root.data !== "object") return { items: [], nextCursor: null, limit: 40 };
 
   const data = root.data as { items?: unknown; nextCursor?: unknown; limit?: unknown };
+  const rawItems = Array.isArray(data.items) ? data.items : [];
+  const items = rawItems.map(normalizeChatMessage).filter((item): item is ChatMessage => Boolean(item));
+
   return {
-    items: Array.isArray(data.items) ? (data.items as ChatMessage[]) : [],
+    items,
     nextCursor: typeof data.nextCursor === "string" ? data.nextCursor : null,
     limit: typeof data.limit === "number" ? data.limit : 40
   };
@@ -179,4 +227,3 @@ export function useMarkThreadRead(threadId?: string) {
     }
   });
 }
-

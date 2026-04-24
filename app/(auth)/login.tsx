@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { Alert } from "react-native";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, router } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
+import { Theme } from "@/lib/theme";
 
 const schema = z.object({
   email: z.string().email("Unesite ispravan email"),
@@ -34,10 +35,10 @@ export default function LoginScreen() {
   const onSubmit = async (values: LoginValues) => {
     try {
       await signIn(values.email, values.password);
-      router.replace("/");
+      router.replace("/(driver)");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Prijava nije uspela";
-      Alert.alert("Greška pri prijavi", message);
+      Alert.alert("Prijava", message);
     }
   };
 
@@ -45,66 +46,87 @@ export default function LoginScreen() {
     try {
       const ok = await unlockWithBiometrics();
       if (ok) {
-        router.replace("/");
+        router.replace("/(driver)");
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Biometrijsko otključavanje nije uspelo";
-      Alert.alert("Biometrijska greška", message);
+      const message = error instanceof Error ? error.message : "Biometrija nije uspela";
+      Alert.alert("Biometrija", message);
     }
   };
 
   if (isHydrating) {
-    return <View className="flex-1 bg-white" />;
+    return <View className="flex-1" style={{ backgroundColor: Theme.surface.app }} />;
   }
 
   return (
-    <View className="flex-1 justify-center bg-brand-50 px-6">
-      <View className="rounded-2xl bg-white p-6 shadow-sm">
-        <Text className="text-2xl font-bold text-brand-700">Prijava vozača</Text>
-        <Text className="mt-1 text-sm text-slate-500">Prijavite se nalogom svoje kompanije.</Text>
+    <View className="flex-1" style={{ backgroundColor: Theme.surface.app }}>
+      <View className="rounded-b-3xl px-6 pb-7 pt-11" style={{ backgroundColor: Theme.accent.primary }}>
+        <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.82)" }}>
+          TMS DRIVER
+        </Text>
+        <Text className="mt-2 text-4xl font-extrabold" style={{ color: Theme.text.inverse }}>
+          Dobrodosli nazad
+        </Text>
+        <Text className="mt-1 text-base" style={{ color: "rgba(255,255,255,0.86)" }}>
+          Prijavite se nalogom vase kompanije
+        </Text>
+      </View>
 
-        <View className="mt-6 gap-3">
-          <TextInput
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholder="Email"
-            value={email}
-            onChangeText={(v: string) => setValue("email", v, { shouldDirty: true })}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
-          />
-          {errors.email ? <Text className="text-xs text-red-500">{errors.email.message}</Text> : null}
+      <View className="px-6 pb-6 pt-6">
+        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "#4f6480" }}>
+          Email adresa
+        </Text>
+        <TextInput
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="vozac@kompanija.rs"
+          value={email}
+          onChangeText={(v: string) => setValue("email", v, { shouldDirty: true })}
+          className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+        />
+        {errors.email ? <Text className="mt-1 text-xs text-red-600">{errors.email.message}</Text> : null}
 
-          <TextInput
-            secureTextEntry
-            placeholder="Lozinka"
-            value={password}
-            onChangeText={(v: string) => setValue("password", v, { shouldDirty: true })}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
-          />
-          {errors.password ? <Text className="text-xs text-red-500">{errors.password.message}</Text> : null}
+        <Text className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#4f6480" }}>
+          Lozinka
+        </Text>
+        <TextInput
+          secureTextEntry
+          placeholder="Unesite lozinku"
+          value={password}
+          onChangeText={(v: string) => setValue("password", v, { shouldDirty: true })}
+          className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+        />
+        {errors.password ? <Text className="mt-1 text-xs text-red-600">{errors.password.message}</Text> : null}
 
+        <Pressable
+          onPress={handleSubmit(onSubmit)}
+          disabled={isSubmitting}
+          className="mt-4 rounded-xl px-4 py-3 disabled:opacity-60"
+          style={{ backgroundColor: Theme.accent.primary }}
+        >
+          <Text className="text-center text-lg font-semibold text-white">
+            {isSubmitting ? "Prijava..." : "Prijavi se"}
+          </Text>
+        </Pressable>
+
+        {hasBiometricSession ? (
           <Pressable
-            onPress={handleSubmit(onSubmit)}
-            disabled={isSubmitting}
-            className="rounded-xl bg-brand-600 px-4 py-3"
+            onPress={onBiometricUnlock}
+            className="mt-3 rounded-xl border px-4 py-3"
+            style={{ borderColor: Theme.accent.primary }}
           >
-            <Text className="text-center font-semibold text-white">
-              {isSubmitting ? "Prijava..." : "Prijavi se"}
+            <Text className="text-center text-base font-semibold" style={{ color: Theme.accent.primary }}>
+              Otkljucaj biometrijom
             </Text>
           </Pressable>
+        ) : null}
 
-          {hasBiometricSession ? (
-            <Pressable onPress={onBiometricUnlock} className="rounded-xl border border-brand-500 px-4 py-3">
-              <Text className="text-center font-semibold text-brand-600">Otključaj biometrijom</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        <Link href="/forgot-password" style={{ marginTop: 16, alignSelf: "center" }}>
-          <Text className="text-center text-sm text-brand-600">Zaboravljena lozinka?</Text>
+        <Link href="/(auth)/forgot-password" style={{ marginTop: 16, alignSelf: "center" }}>
+          <Text className="text-center text-sm" style={{ color: Theme.accent.primary }}>
+            Zaboravljena lozinka?
+          </Text>
         </Link>
       </View>
     </View>
   );
 }
-

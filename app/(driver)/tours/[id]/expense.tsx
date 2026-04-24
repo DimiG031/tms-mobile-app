@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { Alert, Image, Modal, ScrollView } from "react-native";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useTourDetails } from "@/queries/useTourDetails";
 import {
@@ -12,16 +11,27 @@ import {
   useUpdateExpenseItem,
   useUpdateExpenseSheet
 } from "@/queries/useExpenseSheet";
-import type { ExpenseItem, ExpenseSheetStatus } from "@/lib/types";
+import type { ExpenseItem } from "@/lib/types";
+import { formatRouteLabel } from "@/lib/formatters";
 import { uploadFromFileUri } from "@/services/upload";
-import { getOfflineWriteQueue, subscribeOfflineQueueCount } from "@/lib/offline-queue";
 
 type Currency = "EUR" | "RSD";
 type PaymentType = "CASH" | "CARD";
 
 const CATEGORY_OPTIONS = ["Gorivo", "Putarina", "Carina", "Spedicija", "Smestaj", "Dnevnica", "Ostalo"] as const;
 const CURRENCY_OPTIONS: Currency[] = ["EUR", "RSD"];
-const COUNTRY_OPTIONS = ["RS", "HR", "AT", "DE", "SI", "HU", "IT", "FR", "BA", "ME"] as const;
+const COUNTRY_OPTIONS = [
+  { code: "RS", label: "Srbija", flag: "ðŸ‡·ðŸ‡¸" },
+  { code: "HR", label: "Hrvatska", flag: "ðŸ‡­ðŸ‡·" },
+  { code: "AT", label: "Austrija", flag: "ðŸ‡¦ðŸ‡¹" },
+  { code: "DE", label: "Nemacka", flag: "ðŸ‡©ðŸ‡ª" },
+  { code: "SI", label: "Slovenija", flag: "ðŸ‡¸ðŸ‡®" },
+  { code: "HU", label: "Madjarska", flag: "ðŸ‡­ðŸ‡º" },
+  { code: "IT", label: "Italija", flag: "ðŸ‡®ðŸ‡¹" },
+  { code: "FR", label: "Francuska", flag: "ðŸ‡«ðŸ‡·" },
+  { code: "BA", label: "Bosna i Hercegovina", flag: "ðŸ‡§ðŸ‡¦" },
+  { code: "ME", label: "Crna Gora", flag: "ðŸ‡²ðŸ‡ª" }
+] as const;
 
 type ItemDraft = {
   country: string;
@@ -29,13 +39,22 @@ type ItemDraft = {
   paymentType: PaymentType;
   amount: string;
   currency: Currency;
+  date: string;
   note: string;
   receiptUrl: string;
-  date: string;
 };
 
-type ImagePickerAsset = { uri: string; fileName?: string | null; mimeType?: string | null };
-type ImagePickerResult = { canceled: boolean; assets?: ImagePickerAsset[] };
+type ImagePickerAsset = {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+};
+
+type ImagePickerResult = {
+  canceled: boolean;
+  assets?: ImagePickerAsset[];
+};
+
 type ImagePickerModule = {
   MediaTypeOptions: { Images: string };
   requestCameraPermissionsAsync: () => Promise<{ granted: boolean }>;
@@ -61,63 +80,34 @@ function parseAmount(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function toStartOfDayIso(date: Date): string {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)).toISOString();
-}
-
-function formatDateLabel(value: string | null | undefined): string {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getFullYear()}.`;
-}
-
 function formatTotals(values: Record<string, number>): string {
-  const entries = Object.entries(values).filter(([, amount]) => Math.abs(amount) > 0.0001);
+  const entries = Object.entries(values).filter(([, value]) => Math.abs(value) > 0.0001);
   if (!entries.length) return "0";
-  return entries.map(([currency, amount]) => `${amount.toFixed(2)} ${currency}`).join(" + ");
+  return entries.map(([currency, value]) => `${value.toFixed(2)} ${currency}`).join(" + ");
 }
 
-function statusClass(status: ExpenseSheetStatus): string {
+function getCountryMeta(code: string): { label: string; flag: string } {
+  const found = COUNTRY_OPTIONS.find((country) => country.code === code);
+  return found ? { label: found.label, flag: found.flag } : { label: code, flag: "ðŸŒ" };
+}
+
+function statusBadgeClass(status: string): string {
   if (status === "OPEN") return "bg-green-100 text-green-700";
-  if (status === "SUBMITTED") return "bg-slate-200 text-slate-700";
-  if (status === "APPROVED") return "bg-blue-100 text-blue-700";
-  return "bg-black text-white";
+  if (status === "SUBMITTED") return "bg-blue-100 text-blue-700";
+  if (status === "APPROVED") return "bg-emerald-100 text-emerald-700";
+  return "bg-slate-200 text-slate-700";
 }
 
-function statusLabel(status: ExpenseSheetStatus): string {
-  if (status === "OPEN") return "Aktivan";
-  if (status === "SUBMITTED") return "Zakljucan";
-  if (status === "APPROVED") return "Odobreno";
-  return "Zatvoreno";
-}
-
-function defaultDraft(): ItemDraft {
+function createDefaultDraft(): ItemDraft {
   return {
     country: "RS",
     category: "Gorivo",
     paymentType: "CARD",
     amount: "",
     currency: "EUR",
+    date: new Date().toISOString(),
     note: "",
-    receiptUrl: "",
-    date: toStartOfDayIso(new Date())
-  };
-}
-
-function buildItemPayload(draft: ItemDraft) {
-  const amount = parseAmount(draft.amount);
-  if (!amount || amount <= 0) return null;
-
-  return {
-    country: draft.country,
-    category: draft.category,
-    date: draft.date,
-    cashAmount: draft.paymentType === "CASH" ? amount : null,
-    cardAmount: draft.paymentType === "CARD" ? amount : null,
-    currency: draft.currency,
-    note: draft.note.trim() || null,
-    receiptUrl: draft.receiptUrl.trim() || null
+    receiptUrl: ""
   };
 }
 
@@ -133,10 +123,9 @@ export default function TourExpenseScreen() {
   const updateItem = useUpdateExpenseItem(sheet?.id, tourId);
   const deleteItem = useDeleteExpenseItem(sheet?.id, tourId);
 
-  const [isCreateModalVisible, setCreateModalVisible] = useState(false);
+  const [isCreateSheetModalVisible, setCreateSheetModalVisible] = useState(false);
   const [isAdvanceModalVisible, setAdvanceModalVisible] = useState(false);
   const [isItemModalVisible, setItemModalVisible] = useState(false);
-  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
   const [advance, setAdvance] = useState("500");
@@ -144,80 +133,93 @@ export default function TourExpenseScreen() {
   const [sheetNotes, setSheetNotes] = useState("");
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [itemDraft, setItemDraft] = useState<ItemDraft>(defaultDraft());
+  const [itemDraft, setItemDraft] = useState<ItemDraft>(createDefaultDraft());
   const [isUploadingReceipt, setUploadingReceipt] = useState(false);
-  const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(new Set());
-  const [hasPendingExpenseWrites, setHasPendingExpenseWrites] = useState(false);
 
   const isReadOnly = sheet ? sheet.status !== "OPEN" : false;
-  const saveItemPending = createItem.isPending || updateItem.isPending;
+  const isItemMutationPending = createItem.isPending || updateItem.isPending || deleteItem.isPending;
+  const normalizedItems = useMemo(() => {
+    const source = sheet?.items ?? [];
+    const uniqueById = new Map<string, ExpenseItem>();
+    for (const item of source) {
+      uniqueById.set(item.id, item);
+    }
+
+    // Keep newest row per logical key to avoid visual duplicates from optimistic/offline merges.
+    const uniqueLogical = new Map<string, ExpenseItem>();
+    for (const item of uniqueById.values()) {
+      const normalizedDate =
+        typeof item.date === "string" && item.date.length >= 10 ? item.date.slice(0, 10) : String(item.date ?? "");
+      const cash = item.cashAmount == null ? "" : Number(item.cashAmount).toFixed(2);
+      const card = item.cardAmount == null ? "" : Number(item.cardAmount).toFixed(2);
+      const logicalKey = [item.country ?? "", item.sequence ?? "", item.category ?? "", item.currency ?? "", cash, card, normalizedDate].join("|");
+
+      const existing = uniqueLogical.get(logicalKey);
+      if (!existing || item.id > existing.id) {
+        uniqueLogical.set(logicalKey, item);
+      }
+    }
+
+    return Array.from(uniqueLogical.values());
+  }, [sheet?.items]);
+
+  const maxSequence = useMemo(() => {
+    const items = normalizedItems;
+    if (!items.length) return 0;
+    return Math.max(...items.map((item) => item.sequence || 0));
+  }, [normalizedItems]);
 
   const groupedItems = useMemo(() => {
     const map = new Map<string, ExpenseItem[]>();
-    for (const item of sheet?.items ?? []) {
+    for (const item of normalizedItems) {
       const key = item.country || "N/A";
-      const list = map.get(key) ?? [];
-      list.push(item);
-      map.set(key, list);
+      const next = map.get(key) ?? [];
+      next.push(item);
+      map.set(key, next);
     }
-    return Array.from(map.entries());
-  }, [sheet?.items]);
+    return Array.from(map.entries())
+      .map(([country, items]) => [country, [...items].sort((a, b) => a.sequence - b.sequence)] as const)
+      .sort(([a], [b]) => a.localeCompare(b));
+  }, [normalizedItems]);
 
   const totals = useMemo(() => {
-    const cash: Record<string, number> = {};
-    const card: Record<string, number> = {};
-    for (const item of sheet?.items ?? []) {
+    const cashTotals: Record<string, number> = {};
+    const cardTotals: Record<string, number> = {};
+    for (const item of normalizedItems) {
       const currency = item.currency || "EUR";
-      if (item.cashAmount != null) cash[currency] = (cash[currency] ?? 0) + item.cashAmount;
-      if (item.cardAmount != null) card[currency] = (card[currency] ?? 0) + item.cardAmount;
-    }
-    const advCurrency = (sheet?.advanceCurrency ?? "EUR") as Currency;
-    const adv = sheet?.advance ?? 0;
-    const remaining = adv - (cash[advCurrency] ?? 0);
-    return { cash, card, advCurrency, adv, remaining };
-  }, [sheet?.advance, sheet?.advanceCurrency, sheet?.items]);
-
-  const resetDraft = () => {
-    setEditingItemId(null);
-    setItemDraft(defaultDraft());
-    setDatePickerVisible(false);
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const refreshPendingState = async () => {
-      const queue = await getOfflineWriteQueue();
-      if (!isMounted) return;
-
-      const itemIdSet = new Set<string>();
-      let hasExpenseWrites = false;
-
-      for (const entry of queue) {
-        if (!entry.path.includes(`/api/tours/${tourId}/expense-sheet`)) continue;
-        hasExpenseWrites = true;
-        const match = entry.path.match(/\/items\/([^/]+)$/);
-        if (match?.[1]) {
-          itemIdSet.add(match[1]);
-        }
+      if (item.cashAmount != null) {
+        cashTotals[currency] = (cashTotals[currency] ?? 0) + item.cashAmount;
       }
+      if (item.cardAmount != null) {
+        cardTotals[currency] = (cardTotals[currency] ?? 0) + item.cardAmount;
+      }
+    }
+    const currentAdvanceCurrency = (sheet?.advanceCurrency ?? "EUR") as Currency;
+    const advanceValue = sheet?.advance ?? 0;
+    const spentFromAdvance = cashTotals[currentAdvanceCurrency] ?? 0;
+    const remainingAdvance = advanceValue - spentFromAdvance;
+    return { cashTotals, cardTotals, currentAdvanceCurrency, advanceValue, remainingAdvance };
+  }, [normalizedItems, sheet?.advance, sheet?.advanceCurrency]);
 
-      setHasPendingExpenseWrites(hasExpenseWrites);
-      setPendingItemIds(itemIdSet);
-    };
+  const safeAdvanceValue =
+    typeof sheet?.advance === "number"
+      ? sheet.advance
+      : Number.isFinite(Number(sheet?.advance))
+      ? Number(sheet?.advance)
+      : 0;
 
-    void refreshPendingState();
-    const unsubscribe = subscribeOfflineQueueCount(() => {
-      void refreshPendingState();
-    });
+  function resetItemDraft() {
+    setEditingItemId(null);
+    setItemDraft(createDefaultDraft());
+  }
 
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
-  }, [tourId]);
+  function onOpenCreateItem() {
+    if (isReadOnly) return;
+    resetItemDraft();
+    setItemModalVisible(true);
+  }
 
-  const onCreateSheet = () => {
+  function onCreateSheet() {
     const parsedAdvance = parseAmount(advance);
     createSheet.mutate(
       {
@@ -227,16 +229,17 @@ export default function TourExpenseScreen() {
       },
       {
         onSuccess: () => {
-          setCreateModalVisible(false);
+          setCreateSheetModalVisible(false);
         },
         onError: (error) => {
-          Alert.alert("Troskovnik", error instanceof Error ? error.message : "Kreiranje nije uspelo.");
+          const message = error instanceof Error ? error.message : "Neuspesno kreiranje troskovnika.";
+          Alert.alert("Troskovnik", message);
         }
       }
     );
-  };
+  }
 
-  const onUpdateAdvance = () => {
+  function onSaveAdvance() {
     if (!sheet || isReadOnly) return;
     const parsedAdvance = parseAmount(advance);
     updateSheet.mutate(
@@ -246,31 +249,83 @@ export default function TourExpenseScreen() {
         notes: sheetNotes.trim() || null
       },
       {
-        onSuccess: () => setAdvanceModalVisible(false),
+        onSuccess: () => {
+          setAdvanceModalVisible(false);
+        },
         onError: (error) => {
-          Alert.alert("Troskovnik", error instanceof Error ? error.message : "Izmena akontacije nije uspela.");
+          const message = error instanceof Error ? error.message : "Neuspesna izmena akontacije.";
+          Alert.alert("Troskovnik", message);
         }
       }
     );
-  };
+  }
 
-  const onSaveItem = () => {
+  function onEditItem(item: ExpenseItem) {
+    if (isReadOnly) return;
+    setEditingItemId(item.id);
+    setItemDraft({
+      country: item.country || "RS",
+      category: item.category || "Gorivo",
+      paymentType: item.cashAmount != null && item.cashAmount > 0 ? "CASH" : "CARD",
+      amount: (item.cashAmount ?? item.cardAmount ?? "").toString(),
+      currency: (item.currency as Currency) || "EUR",
+      date: item.date ?? new Date().toISOString(),
+      note: item.note ?? "",
+      receiptUrl: item.receiptUrl ?? ""
+    });
+    setItemModalVisible(true);
+  }
+
+  function onDeleteItem(itemId: string) {
+    if (isReadOnly) return;
+    Alert.alert("Brisanje stavke", "Da li ste sigurni da zelite da obrisete stavku?", [
+      { text: "Odustani", style: "cancel" },
+      {
+        text: "Obrisi",
+        style: "destructive",
+        onPress: () => {
+          deleteItem.mutate(itemId, {
+            onError: (error) => {
+              const message = error instanceof Error ? error.message : "Neuspesno brisanje stavke.";
+              Alert.alert("Troskovnik", message);
+            }
+          });
+        }
+      }
+    ]);
+  }
+
+  function onSaveItem() {
     if (!sheet || isReadOnly) return;
-
-    const payload = buildItemPayload(itemDraft);
-    if (!payload) {
+    const amount = parseAmount(itemDraft.amount);
+    if (!amount || amount <= 0) {
       Alert.alert("Troskovnik", "Unesite validan iznos.");
       return;
     }
+
+    const payload = {
+      country: itemDraft.country,
+      sequence: editingItemId
+        ? (normalizedItems.find((item) => item.id === editingItemId)?.sequence ?? maxSequence + 1)
+        : maxSequence + 1,
+      category: itemDraft.category,
+      date: itemDraft.date,
+      note: itemDraft.note.trim() || null,
+      cardAmount: itemDraft.paymentType === "CARD" ? amount : null,
+      cashAmount: itemDraft.paymentType === "CASH" ? amount : null,
+      currency: itemDraft.currency,
+      receiptUrl: itemDraft.receiptUrl.trim() || null
+    };
 
     if (!editingItemId) {
       createItem.mutate(payload, {
         onSuccess: () => {
           setItemModalVisible(false);
-          resetDraft();
+          resetItemDraft();
         },
         onError: (error) => {
-          Alert.alert("Troskovnik", error instanceof Error ? error.message : "Dodavanje stavke nije uspelo.");
+          const message = error instanceof Error ? error.message : "Neuspesno dodavanje stavke.";
+          Alert.alert("Troskovnik", message);
         }
       });
       return;
@@ -281,84 +336,41 @@ export default function TourExpenseScreen() {
       {
         onSuccess: () => {
           setItemModalVisible(false);
-          resetDraft();
+          resetItemDraft();
         },
         onError: (error) => {
-          Alert.alert("Troskovnik", error instanceof Error ? error.message : "Izmena stavke nije uspela.");
+          const message = error instanceof Error ? error.message : "Neuspesna izmena stavke.";
+          Alert.alert("Troskovnik", message);
         }
       }
     );
-  };
+  }
 
-  const onDeleteItem = (itemId: string) => {
-    if (isReadOnly) return;
-    Alert.alert("Brisanje stavke", "Da li ste sigurni?", [
-      { text: "Odustani", style: "cancel" },
-      {
-        text: "Obrisi",
-        style: "destructive",
-        onPress: () => {
-          deleteItem.mutate(itemId, {
-            onError: (error) => {
-              Alert.alert("Troskovnik", error instanceof Error ? error.message : "Brisanje nije uspelo.");
-            }
-          });
-        }
-      }
-    ]);
-  };
-
-  const onLockSheet = () => {
+  function onSubmitSheet() {
     if (!sheet || isReadOnly) return;
-    Alert.alert("Zakljucaj troskovnik", "Nakon zakljucavanja troskovnik je read-only. Nastaviti?", [
+    Alert.alert("Predaja troskovnika", "Nakon predaje troskovnik postaje read-only. Nastaviti?", [
       { text: "Odustani", style: "cancel" },
       {
-        text: "Zakljucaj",
+        text: "Predaj",
         onPress: () => {
           updateSheet.mutate(
             { status: "SUBMITTED" },
             {
               onError: (error) => {
-                Alert.alert("Troskovnik", error instanceof Error ? error.message : "Zakljucavanje nije uspelo.");
+                const message = error instanceof Error ? error.message : "Neuspesna predaja troskovnika.";
+                Alert.alert("Troskovnik", message);
               }
             }
           );
         }
       }
     ]);
-  };
+  }
 
-  const onEditItem = (item: ExpenseItem) => {
-    if (isReadOnly) return;
-    setEditingItemId(item.id);
-    setItemDraft({
-      country: item.country,
-      category: item.category,
-      paymentType: item.cashAmount != null ? "CASH" : "CARD",
-      amount: (item.cashAmount ?? item.cardAmount ?? "").toString(),
-      currency: (item.currency as Currency) ?? "EUR",
-      note: item.note ?? "",
-      receiptUrl: item.receiptUrl ?? "",
-      date: item.date ?? toStartOfDayIso(new Date())
-    });
-    setItemModalVisible(true);
-  };
-
-  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (event.type === "dismissed") {
-      setDatePickerVisible(false);
-      return;
-    }
-    if (selectedDate) {
-      setItemDraft((prev) => ({ ...prev, date: toStartOfDayIso(selectedDate) }));
-    }
-    setDatePickerVisible(false);
-  };
-
-  const pickReceipt = async (source: "camera" | "library") => {
+  async function pickReceipt(source: "camera" | "library") {
     const imagePicker = getImagePicker();
     if (!imagePicker) {
-      Alert.alert("Racun", "Nedostaje expo-image-picker.");
+      Alert.alert("Upload racuna", "Nedostaje paket expo-image-picker. Instaliraj ga pre testiranja kamere/galerije.");
       return;
     }
 
@@ -368,38 +380,47 @@ export default function TourExpenseScreen() {
         : await imagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert("Dozvola", "Dozvola nije odobrena.");
+      Alert.alert("Dozvola", "Nije odobrena dozvola za pristup kameri/galeriji.");
       return;
     }
 
     const result =
       source === "camera"
-        ? await imagePicker.launchCameraAsync({ quality: 0.75, mediaTypes: imagePicker.MediaTypeOptions.Images })
-        : await imagePicker.launchImageLibraryAsync({ quality: 0.75, mediaTypes: imagePicker.MediaTypeOptions.Images });
+        ? await imagePicker.launchCameraAsync({
+            quality: 0.75,
+            mediaTypes: imagePicker.MediaTypeOptions.Images
+          })
+        : await imagePicker.launchImageLibraryAsync({
+            quality: 0.75,
+            mediaTypes: imagePicker.MediaTypeOptions.Images
+          });
 
     if (result.canceled || !result.assets?.length) return;
 
     const asset = result.assets[0];
     setUploadingReceipt(true);
     try {
+      const filename = asset.fileName ?? `receipt_${Date.now()}.jpg`;
+      const mimeType = asset.mimeType ?? "image/jpeg";
       const upload = await uploadFromFileUri({
         uri: asset.uri,
-        filename: asset.fileName ?? `receipt_${Date.now()}.jpg`,
-        mimeType: asset.mimeType ?? "image/jpeg",
+        filename,
+        mimeType,
         folder: "receipts"
       });
       setItemDraft((prev) => ({ ...prev, receiptUrl: upload.fileUrl }));
     } catch (error) {
-      Alert.alert("Racun", error instanceof Error ? error.message : "Upload nije uspeo.");
+      const message = error instanceof Error ? error.message : "Upload racuna nije uspeo.";
+      Alert.alert("Upload racuna", message);
     } finally {
       setUploadingReceipt(false);
     }
-  };
+  }
 
   if (isLoading) {
     return (
       <View className="flex-1 bg-white px-4 py-5">
-        <Text className="text-slate-600">Ucitavanje...</Text>
+        <Text className="text-slate-600">Ucitavanje troskovnika...</Text>
       </View>
     );
   }
@@ -407,7 +428,7 @@ export default function TourExpenseScreen() {
   if (isError) {
     return (
       <View className="flex-1 bg-white px-4 py-5">
-        <Text className="text-red-600">Greska pri ucitavanju.</Text>
+        <Text className="text-red-600">Greska pri ucitavanju troskovnika.</Text>
       </View>
     );
   }
@@ -416,18 +437,20 @@ export default function TourExpenseScreen() {
     return (
       <View className="flex-1 bg-white px-4 py-5">
         <Text className="text-xl font-bold text-slate-900">Troskovnik</Text>
-        <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ?? "Nepoznata relacija"}</Text>
-        <Text className="mt-5 text-slate-600">Troskovnik nije kreiran.</Text>
+        <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
+        <Text className="mt-5 text-slate-600">Troskovnik jos nije kreiran za ovu turu.</Text>
 
-        <Pressable className="mt-4 rounded-xl bg-brand-600 px-4 py-3" onPress={() => setCreateModalVisible(true)}>
+        <Pressable
+          className="mt-4 rounded-xl bg-brand-600 px-4 py-3"
+          onPress={() => setCreateSheetModalVisible(true)}
+        >
           <Text className="text-center font-semibold text-white">Kreiraj troskovnik</Text>
         </Pressable>
 
-        <Modal visible={isCreateModalVisible} transparent animationType="slide" onRequestClose={() => setCreateModalVisible(false)}>
+        <Modal visible={isCreateSheetModalVisible} transparent animationType="slide" onRequestClose={() => setCreateSheetModalVisible(false)}>
           <View className="flex-1 justify-end bg-black/40">
             <View className="rounded-t-3xl bg-white px-4 pb-8 pt-5">
               <Text className="text-lg font-semibold text-slate-900">Nova akontacija</Text>
-
               <TextInput
                 value={advance}
                 onChangeText={setAdvance}
@@ -435,32 +458,40 @@ export default function TourExpenseScreen() {
                 placeholder="Akontacija"
                 className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
               />
-
               <View className="mt-3 flex-row gap-2">
                 {CURRENCY_OPTIONS.map((option) => (
                   <Pressable
                     key={option}
                     onPress={() => setAdvanceCurrency(option)}
-                    className={`rounded-lg border px-3 py-2 ${advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+                    className={`rounded-lg border px-3 py-2 ${
+                      advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                    }`}
                   >
                     <Text className={advanceCurrency === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
                   </Pressable>
                 ))}
               </View>
-
               <TextInput
                 value={sheetNotes}
                 onChangeText={setSheetNotes}
                 placeholder="Napomena (opciono)"
                 className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
               />
-
               <View className="mt-4 flex-row gap-2">
-                <Pressable className="flex-1 rounded-xl border border-slate-300 px-4 py-3" onPress={() => setCreateModalVisible(false)}>
+                <Pressable
+                  className="flex-1 rounded-xl border border-slate-300 px-4 py-3"
+                  onPress={() => setCreateSheetModalVisible(false)}
+                >
                   <Text className="text-center font-semibold text-slate-700">Odustani</Text>
                 </Pressable>
-                <Pressable className="flex-1 rounded-xl bg-brand-600 px-4 py-3" onPress={onCreateSheet} disabled={createSheet.isPending}>
-                  <Text className="text-center font-semibold text-white">{createSheet.isPending ? "Kreiranje..." : "Kreiraj"}</Text>
+                <Pressable
+                  className="flex-1 rounded-xl bg-brand-600 px-4 py-3"
+                  onPress={onCreateSheet}
+                  disabled={createSheet.isPending}
+                >
+                  <Text className="text-center font-semibold text-white">
+                    {createSheet.isPending ? "Kreiranje..." : "Kreiraj"}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -471,166 +502,165 @@ export default function TourExpenseScreen() {
   }
 
   return (
-    <>
-      <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
-        <Text className="text-xl font-bold text-slate-900">Troskovnik</Text>
-        <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ?? "Nepoznata relacija"}</Text>
+    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <Text className="text-xl font-bold text-slate-900">Troskovnik</Text>
+      <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
 
-        <View className="mt-3 flex-row items-center justify-between">
-          <Text className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(sheet.status)}`}>{statusLabel(sheet.status)}</Text>
+      <View className="mt-3 flex-row items-center justify-between">
+        <Text className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(sheet.status)}`}>{sheet.status}</Text>
+      </View>
+
+      <View className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <View className="flex-row items-center justify-between">
+          <Text className="font-semibold text-slate-900">
+            Akontacija: {safeAdvanceValue.toFixed(2)} {sheet.advanceCurrency}
+          </Text>
           <Pressable
-            disabled={isReadOnly}
             onPress={() => {
-              setAdvance((sheet.advance ?? 0).toString());
+              setAdvance(String(safeAdvanceValue));
               setAdvanceCurrency((sheet.advanceCurrency as Currency) ?? "EUR");
               setSheetNotes(sheet.notes ?? "");
               setAdvanceModalVisible(true);
             }}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 disabled:opacity-50"
+            disabled={isReadOnly}
+            className="rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-50"
           >
-            <Text className="text-xs font-semibold text-slate-700">Izmeni akontaciju</Text>
+            <Text className="text-xs font-semibold text-slate-700">Izmeni</Text>
           </Pressable>
         </View>
+      </View>
 
-        <Text className="mt-3 text-slate-700">Akontacija: {(sheet.advance ?? 0).toFixed(2)} {sheet.advanceCurrency}</Text>
-
-        {sheet.status === "SUBMITTED" ? (
-          <View className="mt-3 rounded-xl border border-slate-300 bg-slate-100 p-3">
-            <Text className="text-slate-700">Troskovnik je zakljucan. Mozes zavrsiti turu.</Text>
-          </View>
-        ) : null}
-        {hasPendingExpenseWrites ? (
-          <View className="mt-3 rounded-xl border border-slate-300 bg-slate-100 p-3">
-            <Text className="text-xs italic text-slate-600">Postoje lokalne izmene koje cekaju sinhronizaciju.</Text>
-          </View>
-        ) : null}
-
-        <View className="mt-4 gap-3">
-          {groupedItems.map(([country, items]) => (
-            <View key={country} className="rounded-xl border border-slate-200 p-3">
-              <Text className="text-sm font-semibold text-slate-800">{country}</Text>
-              <View className="mt-2 gap-2">
-                {items.map((item, index) => (
-                  <View key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <Text className="text-sm font-semibold text-slate-900">
-                      {item.sequence ?? index + 1}. {item.category}
+      <View className="mt-4 gap-3">
+        {groupedItems.map(([country, items]) => {
+          const countryMeta = getCountryMeta(country);
+          return (
+            <View key={country} className="rounded-xl border border-slate-200 bg-white p-3">
+              <Text className="font-semibold text-slate-900">
+                {countryMeta.flag} {countryMeta.label.toUpperCase()}
+              </Text>
+              {items.map((item) => {
+                const amountType = item.cashAmount != null ? "Gotovina" : "Kartica";
+                const amountValue = item.cashAmount ?? item.cardAmount ?? 0;
+                return (
+                  <View key={item.id} className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <Text className="font-medium text-slate-900">
+                      {item.sequence}. {item.category}
                     </Text>
-                    <Text className="mt-1 text-xs text-slate-600">Datum: {formatDateLabel(item.date)}</Text>
-                    <Text className="mt-1 text-xs text-slate-600">
-                      {item.cashAmount != null
-                        ? `Gotovina: ${item.cashAmount.toFixed(2)} ${item.currency}`
-                        : `Kartica: ${(item.cardAmount ?? 0).toFixed(2)} ${item.currency}`}
+                    <Text className="mt-1 text-slate-600">
+                      {amountType}: {amountValue.toFixed(2)} {item.currency}
                     </Text>
-                    {pendingItemIds.has(item.id) ? (
-                      <Text className="mt-1 text-xs italic text-slate-500">Sinhronizacija na cekanju...</Text>
-                    ) : null}
-                    {item.note ? <Text className="mt-1 text-xs text-slate-600">Napomena: {item.note}</Text> : null}
+                    {item.note ? <Text className="mt-1 text-slate-500">Napomena: {item.note}</Text> : null}
 
                     {item.receiptUrl ? (
-                      <Pressable onPress={() => setPreviewReceiptUrl(item.receiptUrl ?? null)} className="mt-2 self-start">
-                        <Image source={{ uri: item.receiptUrl }} style={{ width: 72, height: 72, borderRadius: 8 }} />
+                      <Pressable onPress={() => setPreviewReceiptUrl(item.receiptUrl)} className="mt-2 self-start overflow-hidden rounded-md border border-slate-300">
+                        <Image
+                          source={{ uri: item.receiptUrl }}
+                          style={{ width: 64, height: 64, backgroundColor: "#e2e8f0" }}
+                          resizeMode="cover"
+                        />
                       </Pressable>
                     ) : null}
 
-                    {!isReadOnly ? (
-                      <View className="mt-3 flex-row gap-2">
-                        <Pressable className="rounded-lg border border-slate-300 px-3 py-2" onPress={() => onEditItem(item)}>
-                          <Text className="text-xs font-semibold text-slate-700">Izmeni</Text>
-                        </Pressable>
-                        <Pressable
-                          className="rounded-lg border border-red-300 px-3 py-2 disabled:opacity-50"
-                          onPress={() => onDeleteItem(item.id)}
-                          disabled={deleteItem.isPending}
-                        >
-                          <Text className="text-xs font-semibold text-red-600">Obrisi</Text>
-                        </Pressable>
-                      </View>
-                    ) : null}
+                    <View className="mt-3 flex-row gap-2">
+                      <Pressable
+                        className="rounded-md border border-slate-300 px-3 py-2 disabled:opacity-50"
+                        onPress={() => onEditItem(item)}
+                        disabled={isReadOnly || isItemMutationPending}
+                      >
+                        <Text className="text-xs font-semibold text-slate-700">Izmeni</Text>
+                      </Pressable>
+                      <Pressable
+                        className="rounded-md border border-red-300 px-3 py-2 disabled:opacity-50"
+                        onPress={() => onDeleteItem(item.id)}
+                        disabled={isReadOnly || isItemMutationPending}
+                      >
+                        <Text className="text-xs font-semibold text-red-700">Obrisi</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                ))}
-              </View>
+                );
+              })}
             </View>
-          ))}
-        </View>
+          );
+        })}
 
-        <View className="mt-5 rounded-xl border border-slate-200 p-3">
-          <Text className="text-sm font-semibold text-slate-800">Obracun</Text>
-          <Text className="mt-2 text-sm text-slate-700">Ukupno gotovina: {formatTotals(totals.cash)}</Text>
-          <Text className="mt-1 text-sm text-slate-700">Akontacija: {totals.adv.toFixed(2)} {totals.advCurrency}</Text>
-          <Text className="mt-1 text-sm text-slate-700">Ostatak: {totals.remaining.toFixed(2)} {totals.advCurrency}</Text>
-          <Text className="mt-2 text-sm text-slate-700">Ukupno kartica: {formatTotals(totals.card)}</Text>
-        </View>
+        {!normalizedItems.length ? (
+          <View className="rounded-xl border border-dashed border-slate-300 p-4">
+            <Text className="text-slate-600">Jos nema stavki troskovnika.</Text>
+          </View>
+        ) : null}
+      </View>
 
-        <View className="mt-5 flex-row gap-2">
-          <Pressable
-            disabled={isReadOnly}
-            onPress={() => {
-              resetDraft();
-              setItemModalVisible(true);
-            }}
-            className="flex-1 rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-50"
-          >
-            <Text className="text-center font-semibold text-brand-600">+ Dodaj stavku</Text>
-          </Pressable>
+      <View className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <Text className="font-semibold text-slate-900">Obracun</Text>
+        <Text className="mt-2 text-slate-600">Ukupno gotovina: {formatTotals(totals.cashTotals)}</Text>
+        <Text className="text-slate-600">
+          Akontacija: {totals.advanceValue.toFixed(2)} {totals.currentAdvanceCurrency}
+        </Text>
+        <Text className="text-slate-700">
+          Ostatak: {totals.remainingAdvance.toFixed(2)} {totals.currentAdvanceCurrency}
+        </Text>
+        <Text className="mt-2 text-slate-600">Ukupno kartica: {formatTotals(totals.cardTotals)}</Text>
+      </View>
 
-          {sheet.status === "OPEN" ? (
-            <Pressable
-              onPress={onLockSheet}
-              disabled={updateSheet.isPending}
-              className="flex-1 rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"
-            >
-              <Text className="text-center font-semibold text-white">
-                {updateSheet.isPending ? "Zakljucavanje..." : "Zakljucaj troskovnik"}
-              </Text>
-            </Pressable>
-          ) : (
-            <View className="flex-1 rounded-xl border border-slate-300 px-4 py-3">
-              <Text className="text-center font-semibold text-slate-600">Zakljucano ?</Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+      <View className="mt-4 flex-row gap-2">
+        <Pressable
+          onPress={onOpenCreateItem}
+          disabled={isReadOnly || isItemMutationPending}
+          className="flex-1 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-60"
+        >
+          <Text className="text-center font-semibold text-slate-700">+ Dodaj stavku</Text>
+        </Pressable>
+        <Pressable
+          onPress={onSubmitSheet}
+          disabled={isReadOnly || updateSheet.isPending}
+          className="flex-1 rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"
+        >
+          <Text className="text-center font-semibold text-white">
+            {updateSheet.isPending ? "Predaja..." : isReadOnly ? `Status: ${sheet.status}` : "Predaj troskovnik"}
+          </Text>
+        </Pressable>
+      </View>
 
       <Modal visible={isAdvanceModalVisible} transparent animationType="slide" onRequestClose={() => setAdvanceModalVisible(false)}>
         <View className="flex-1 justify-end bg-black/40">
           <View className="rounded-t-3xl bg-white px-4 pb-8 pt-5">
             <Text className="text-lg font-semibold text-slate-900">Izmena akontacije</Text>
-
             <TextInput
               value={advance}
               onChangeText={setAdvance}
               keyboardType="numeric"
               placeholder="Akontacija"
               className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
-              editable={!isReadOnly}
             />
-
             <View className="mt-3 flex-row gap-2">
               {CURRENCY_OPTIONS.map((option) => (
                 <Pressable
                   key={option}
                   onPress={() => setAdvanceCurrency(option)}
-                  disabled={isReadOnly}
-                  className={`rounded-lg border px-3 py-2 ${advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+                  className={`rounded-lg border px-3 py-2 ${
+                    advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                  }`}
                 >
                   <Text className={advanceCurrency === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
                 </Pressable>
               ))}
             </View>
-
             <TextInput
               value={sheetNotes}
               onChangeText={setSheetNotes}
               placeholder="Napomena (opciono)"
               className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
-              editable={!isReadOnly}
             />
-
             <View className="mt-4 flex-row gap-2">
               <Pressable className="flex-1 rounded-xl border border-slate-300 px-4 py-3" onPress={() => setAdvanceModalVisible(false)}>
-                <Text className="text-center font-semibold text-slate-700">Zatvori</Text>
+                <Text className="text-center font-semibold text-slate-700">Odustani</Text>
               </Pressable>
-              <Pressable className="flex-1 rounded-xl bg-brand-600 px-4 py-3" onPress={onUpdateAdvance} disabled={updateSheet.isPending || isReadOnly}>
+              <Pressable
+                className="flex-1 rounded-xl bg-brand-600 px-4 py-3"
+                onPress={onSaveAdvance}
+                disabled={updateSheet.isPending}
+              >
                 <Text className="text-center font-semibold text-white">{updateSheet.isPending ? "Cuvanje..." : "Sacuvaj"}</Text>
               </Pressable>
             </View>
@@ -638,154 +668,155 @@ export default function TourExpenseScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={isItemModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          setItemModalVisible(false);
-          resetDraft();
-        }}
-      >
+      <Modal visible={isItemModalVisible} transparent animationType="slide" onRequestClose={() => setItemModalVisible(false)}>
         <View className="flex-1 justify-end bg-black/40">
-          <View className="rounded-t-3xl bg-white px-4 pb-8 pt-5">
+          <ScrollView className="max-h-[90%] rounded-t-3xl bg-white px-4 pt-5" contentContainerStyle={{ paddingBottom: 32 }}>
             <Text className="text-lg font-semibold text-slate-900">{editingItemId ? "Izmena stavke" : "Nova stavka"}</Text>
 
-            <Text className="mt-3 text-xs font-semibold text-slate-600">Zemlja</Text>
-            <View className="mt-1 flex-row flex-wrap gap-2">
-              {COUNTRY_OPTIONS.map((option) => (
+            <Text className="mt-4 text-xs text-slate-500">Zemlja</Text>
+            <View className="mt-2 flex-row flex-wrap gap-2">
+              {COUNTRY_OPTIONS.map((country) => (
                 <Pressable
-                  key={option}
-                  onPress={() => setItemDraft((prev) => ({ ...prev, country: option }))}
-                  className={`rounded-lg border px-3 py-2 ${itemDraft.country === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+                  key={country.code}
+                  onPress={() => setItemDraft((prev) => ({ ...prev, country: country.code }))}
+                  className={`rounded-lg border px-3 py-2 ${
+                    itemDraft.country === country.code ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                  }`}
                 >
-                  <Text className={itemDraft.country === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
+                  <Text className={itemDraft.country === country.code ? "text-brand-700" : "text-slate-700"}>
+                    {country.flag} {country.code}
+                  </Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text className="mt-3 text-xs font-semibold text-slate-600">Kategorija</Text>
-            <View className="mt-1 flex-row flex-wrap gap-2">
-              {CATEGORY_OPTIONS.map((option) => (
+            <Text className="mt-4 text-xs text-slate-500">Kategorija</Text>
+            <View className="mt-2 flex-row flex-wrap gap-2">
+              {CATEGORY_OPTIONS.map((category) => (
                 <Pressable
-                  key={option}
-                  onPress={() => setItemDraft((prev) => ({ ...prev, category: option }))}
-                  className={`rounded-lg border px-3 py-2 ${itemDraft.category === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+                  key={category}
+                  onPress={() => setItemDraft((prev) => ({ ...prev, category }))}
+                  className={`rounded-lg border px-3 py-2 ${
+                    itemDraft.category === category ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                  }`}
                 >
-                  <Text className={itemDraft.category === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
+                  <Text className={itemDraft.category === category ? "text-brand-700" : "text-slate-700"}>{category}</Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text className="mt-3 text-xs font-semibold text-slate-600">Datum</Text>
-            <Pressable
-              className="mt-1 rounded-xl border border-slate-200 px-4 py-3"
-              onPress={() => setDatePickerVisible(true)}
-            >
-              <Text className="text-slate-700">{formatDateLabel(itemDraft.date)}</Text>
-            </Pressable>
-
-            {isDatePickerVisible ? (
-              <DateTimePicker
-                value={new Date(itemDraft.date)}
-                mode="date"
-                display="default"
-                onChange={onDateChange}
-              />
-            ) : null}
-
-            <Text className="mt-3 text-xs font-semibold text-slate-600">Tip placanja</Text>
-            <View className="mt-1 flex-row gap-2">
-              {([
-                { label: "Gotovina", value: "CASH" },
-                { label: "Kartica", value: "CARD" }
-              ] as const).map((option) => (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setItemDraft((prev) => ({ ...prev, paymentType: option.value }))}
-                  className={`rounded-lg border px-3 py-2 ${itemDraft.paymentType === option.value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
-                >
-                  <Text className={itemDraft.paymentType === option.value ? "text-brand-700" : "text-slate-700"}>{option.label}</Text>
-                </Pressable>
-              ))}
+            <Text className="mt-4 text-xs text-slate-500">Tip</Text>
+            <View className="mt-2 flex-row gap-2">
+              <Pressable
+                onPress={() => setItemDraft((prev) => ({ ...prev, paymentType: "CASH" }))}
+                className={`rounded-lg border px-3 py-2 ${
+                  itemDraft.paymentType === "CASH" ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                }`}
+              >
+                <Text className={itemDraft.paymentType === "CASH" ? "text-brand-700" : "text-slate-700"}>Gotovina</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setItemDraft((prev) => ({ ...prev, paymentType: "CARD" }))}
+                className={`rounded-lg border px-3 py-2 ${
+                  itemDraft.paymentType === "CARD" ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                }`}
+              >
+                <Text className={itemDraft.paymentType === "CARD" ? "text-brand-700" : "text-slate-700"}>Kartica</Text>
+              </Pressable>
             </View>
 
             <TextInput
               value={itemDraft.amount}
-              onChangeText={(value) => setItemDraft((prev) => ({ ...prev, amount: value }))}
+              onChangeText={(amount) => setItemDraft((prev) => ({ ...prev, amount }))}
               keyboardType="numeric"
               placeholder="Iznos"
-              className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
             />
 
-            <View className="mt-3 flex-row gap-2">
-              {CURRENCY_OPTIONS.map((option) => (
+            <Text className="mt-4 text-xs text-slate-500">Valuta</Text>
+            <View className="mt-2 flex-row gap-2">
+              {CURRENCY_OPTIONS.map((currency) => (
                 <Pressable
-                  key={option}
-                  onPress={() => setItemDraft((prev) => ({ ...prev, currency: option }))}
-                  className={`rounded-lg border px-3 py-2 ${itemDraft.currency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+                  key={currency}
+                  onPress={() => setItemDraft((prev) => ({ ...prev, currency }))}
+                  className={`rounded-lg border px-3 py-2 ${
+                    itemDraft.currency === currency ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                  }`}
                 >
-                  <Text className={itemDraft.currency === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
+                  <Text className={itemDraft.currency === currency ? "text-brand-700" : "text-slate-700"}>{currency}</Text>
                 </Pressable>
               ))}
             </View>
 
             <TextInput
               value={itemDraft.note}
-              onChangeText={(value) => setItemDraft((prev) => ({ ...prev, note: value }))}
+              onChangeText={(note) => setItemDraft((prev) => ({ ...prev, note }))}
               placeholder="Napomena (opciono)"
-              className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
             />
 
-            <View className="mt-3 flex-row gap-2">
-              <Pressable className="rounded-lg border border-slate-300 px-3 py-2" onPress={() => void pickReceipt("camera")}>
-                <Text className="text-xs font-semibold text-slate-700">Fotografisi</Text>
+            <Text className="mt-4 text-xs text-slate-500">Racun</Text>
+            <View className="mt-2 flex-row gap-2">
+              <Pressable
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
+                onPress={() => pickReceipt("camera")}
+                disabled={isUploadingReceipt}
+              >
+                <Text className="text-center text-slate-700">Fotografisi</Text>
               </Pressable>
-              <Pressable className="rounded-lg border border-slate-300 px-3 py-2" onPress={() => void pickReceipt("library")}>
-                <Text className="text-xs font-semibold text-slate-700">Galerija</Text>
+              <Pressable
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
+                onPress={() => pickReceipt("library")}
+                disabled={isUploadingReceipt}
+              >
+                <Text className="text-center text-slate-700">Iz galerije</Text>
               </Pressable>
             </View>
 
-            {isUploadingReceipt ? <Text className="mt-2 text-xs text-slate-500">Upload racuna...</Text> : null}
-
             {itemDraft.receiptUrl ? (
-              <Pressable className="mt-2 self-start" onPress={() => setPreviewReceiptUrl(itemDraft.receiptUrl)}>
-                <Image source={{ uri: itemDraft.receiptUrl }} style={{ width: 72, height: 72, borderRadius: 8 }} />
+              <Pressable className="mt-3 self-start overflow-hidden rounded-md border border-slate-300" onPress={() => setPreviewReceiptUrl(itemDraft.receiptUrl)}>
+                <Image source={{ uri: itemDraft.receiptUrl }} style={{ width: 72, height: 72, backgroundColor: "#e2e8f0" }} resizeMode="cover" />
               </Pressable>
             ) : null}
 
-            <View className="mt-4 flex-row gap-2">
-              <Pressable
-                className="flex-1 rounded-xl border border-slate-300 px-4 py-3"
-                onPress={() => {
-                  setItemModalVisible(false);
-                  resetDraft();
-                }}
-              >
+            <TextInput
+              value={itemDraft.receiptUrl}
+              onChangeText={(receiptUrl) => setItemDraft((prev) => ({ ...prev, receiptUrl }))}
+              placeholder="Ili direktni URL racuna (opciono)"
+              className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
+            />
+
+            <View className="mt-5 flex-row gap-2">
+              <Pressable className="flex-1 rounded-xl border border-slate-300 px-4 py-3" onPress={() => setItemModalVisible(false)}>
                 <Text className="text-center font-semibold text-slate-700">Odustani</Text>
               </Pressable>
               <Pressable
                 className="flex-1 rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"
                 onPress={onSaveItem}
-                disabled={saveItemPending || isReadOnly}
+                disabled={isUploadingReceipt || isItemMutationPending}
               >
                 <Text className="text-center font-semibold text-white">
-                  {saveItemPending ? "Cuvanje..." : editingItemId ? "Sacuvaj" : "Dodaj"}
+                  {isUploadingReceipt ? "Upload..." : editingItemId ? "Sacuvaj" : "Dodaj"}
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
       <Modal visible={Boolean(previewReceiptUrl)} transparent animationType="fade" onRequestClose={() => setPreviewReceiptUrl(null)}>
-        <View className="flex-1 items-center justify-center bg-black/80 px-4">
-          <Pressable className="absolute right-5 top-12 rounded-full border border-white px-3 py-1" onPress={() => setPreviewReceiptUrl(null)}>
-            <Text className="text-white">Zatvori</Text>
+        <View className="flex-1 bg-black">
+          <Pressable className="px-4 pb-3 pt-14" onPress={() => setPreviewReceiptUrl(null)}>
+            <Text className="text-base font-semibold text-white">Zatvori</Text>
           </Pressable>
-          {previewReceiptUrl ? <Image source={{ uri: previewReceiptUrl }} style={{ width: "100%", height: "80%" }} resizeMode="contain" /> : null}
+          {previewReceiptUrl ? (
+            <Image source={{ uri: previewReceiptUrl }} style={{ flex: 1, width: "100%" }} resizeMode="contain" />
+          ) : null}
         </View>
       </Modal>
-    </>
+    </ScrollView>
   );
 }
+
+
+

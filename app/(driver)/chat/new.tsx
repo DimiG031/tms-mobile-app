@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Alert, FlatList } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Pressable, Text, TextInput, View } from "@/components/ui";
+import { Pressable, TextInput } from "@/components/ui";
+import { LightTokens as T } from "@/lib/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatUsers, useCreateChatThread } from "@/queries/useChat";
 
@@ -23,9 +24,7 @@ export default function NewChatScreen() {
     const filtered = items.filter((item) => item.id !== session?.user.id);
     const q = search.trim().toLowerCase();
     if (!q) return filtered;
-    return filtered.filter((item) => {
-      return item.name.toLowerCase().includes(q) || item.email.toLowerCase().includes(q);
-    });
+    return filtered.filter((item) => item.name.toLowerCase().includes(q) || item.email.toLowerCase().includes(q));
   }, [search, session?.user.id, usersQuery.data]);
 
   const onCreateThread = (userId: string) => {
@@ -44,55 +43,98 @@ export default function NewChatScreen() {
   };
 
   return (
-    <View className="flex-1 bg-white px-4 py-4">
-      <TextInput
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Pretrazi korisnike..."
-        className="rounded-xl border border-slate-200 bg-white px-4 py-3"
-      />
+    <View style={styles.screen}>
+      <TextInput value={search} onChangeText={setSearch} placeholder="Pretrazi korisnike..." className="rounded-xl border border-slate-200 bg-white px-4 py-3" />
 
-      {usersQuery.isLoading ? <Text className="mt-3 text-slate-500">Ucitavanje korisnika...</Text> : null}
-      {usersQuery.isError ? (
-        <View className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
-          <Text className="text-red-700">Ucitavanje korisnika nije uspelo.</Text>
-          <Pressable onPress={() => void usersQuery.refetch()} className="mt-2 self-start rounded-lg border border-red-300 px-3 py-2">
-            <Text className="text-red-700">Pokusaj ponovo</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      {usersQuery.isLoading ? <Text style={styles.loading}>Ucitavanje korisnika...</Text> : null}
 
       <FlatList
         data={users}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 24, flexGrow: users.length ? 0 : 1 }}
+        contentContainerStyle={[styles.content, { flexGrow: users.length ? 0 : 1 }]}
         renderItem={({ item }) => (
-          <Pressable
-            onPress={() => onCreateThread(item.id)}
-            disabled={createThread.isPending}
-            className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 disabled:opacity-60"
-          >
-            <View className="flex-row items-center">
-              <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                <Text className="font-semibold text-brand-700">{initials(item.name)}</Text>
+          <Pressable onPress={() => onCreateThread(item.id)} disabled={createThread.isPending}>
+            <View style={[styles.card, styles.itemCard]}>
+              <View style={styles.row}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials(item.name)}</Text>
+                </View>
+                <View style={styles.main}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <Text style={styles.mail}>{item.email}</Text>
+                </View>
+                <Text style={styles.role}>{item.role}</Text>
               </View>
-              <View className="ml-3 flex-1">
-                <Text className="font-semibold text-slate-900">{item.name}</Text>
-                <Text className="text-sm text-slate-600">{item.email}</Text>
-              </View>
-              <Text className="text-xs uppercase text-slate-500">{item.role}</Text>
             </View>
           </Pressable>
         )}
-        ListEmptyComponent={
-          !usersQuery.isLoading ? (
-            <View className="flex-1 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-6">
-              <Text className="text-center text-slate-600">Nema korisnika za razgovor.</Text>
-            </View>
-          ) : null
-        }
+        ListEmptyComponent={!usersQuery.isLoading ? <View style={styles.card}><Text style={styles.empty}>Nema korisnika za razgovor.</Text></View> : null}
       />
     </View>
   );
 }
 
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: T.bgApp,
+    padding: 16
+  },
+  loading: {
+    marginTop: 8,
+    color: T.textSecondary
+  },
+  content: {
+    paddingTop: 12,
+    paddingBottom: 20
+  },
+  itemCard: {
+    marginBottom: 10
+  },
+  card: {
+    backgroundColor: T.bgSurface,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 16,
+    padding: 12
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#d1fae5"
+  },
+  avatarText: {
+    color: "#065f46",
+    fontWeight: "700"
+  },
+  main: {
+    marginLeft: 10,
+    flex: 1
+  },
+  name: {
+    color: T.textPrimary,
+    fontWeight: "700"
+  },
+  mail: {
+    color: "#475569",
+    fontSize: 13,
+    marginTop: 2
+  },
+  role: {
+    color: T.textSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase"
+  },
+  empty: {
+    textAlign: "center",
+    color: T.textSecondary
+  }
+});

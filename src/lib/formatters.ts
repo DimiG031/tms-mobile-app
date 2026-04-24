@@ -9,7 +9,8 @@ const srDateTimeFormatter = new Intl.DateTimeFormat("sr-RS", {
   month: "2-digit",
   year: "numeric",
   hour: "2-digit",
-  minute: "2-digit"
+  minute: "2-digit",
+  hour12: false
 });
 
 export function formatDate(value?: string | null): string {
@@ -24,6 +25,14 @@ export function formatDateTime(value?: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return srDateTimeFormatter.format(date);
+}
+
+export function formatTourDateRange(value?: string | null): string {
+  if (!value) return "-";
+  const parts = value.split(" - ").map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return value;
+  if (parts.length === 1) return formatDateTime(parts[0]);
+  return `${formatDateTime(parts[0])} - ${formatDateTime(parts[1])}`;
 }
 
 export function formatMoney(value?: number | null, currency: string = "EUR"): string {
@@ -53,3 +62,17 @@ export function translateSeverity(severity?: string | null): string {
   return "Informacija";
 }
 
+export function formatRouteLabel(value?: string | null): string {
+  if (!value) return "Bez relacije";
+  const normalized = value.replace(/\s*(?:->|→)\s*/g, " → ").trim();
+  return normalized || "Bez relacije";
+}
+
+export function splitRouteLabel(value?: string | null): { from: string; to: string } {
+  const normalized = formatRouteLabel(value);
+  const parts = normalized.split("→").map((part) => part.trim()).filter(Boolean);
+  return {
+    from: parts[0] ?? "Polazište",
+    to: parts[1] ?? "Odredište"
+  };
+}
