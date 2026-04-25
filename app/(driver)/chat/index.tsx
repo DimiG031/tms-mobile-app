@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Pressable } from "@/components/ui";
 import { LightTokens as T } from "@/lib/theme";
@@ -24,6 +24,16 @@ export default function ChatListScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const threadsQuery = useChatThreads();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  async function onRefresh() {
+    setIsRefreshing(true);
+    try {
+      await threadsQuery.refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   const threads = useMemo(() => {
     const items = [...(threadsQuery.data ?? [])];
@@ -40,6 +50,14 @@ export default function ChatListScreen() {
         data={threads}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.content, { flexGrow: threads.length ? 0 : 1 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={T.accent}
+            colors={[T.accent]}
+          />
+        }
         ListHeaderComponent={
           <>
             <View style={styles.headerRow}>
@@ -88,7 +106,7 @@ export default function ChatListScreen() {
           );
         }}
         ListEmptyComponent={
-          !threadsQuery.isLoading ? (
+          threadsQuery.isSuccess ? (
             <View style={styles.card}>
               <Text style={styles.emptyText}>Nema razgovora. Napravite novi razgovor.</Text>
             </View>

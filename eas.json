@@ -7,18 +7,18 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.x.x:3000"
+        "EXPO_PUBLIC_API_URL": "http://192.168.1.11:3000"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.yourdomain.com"
+        "EXPO_PUBLIC_API_URL": "https://tms.softechrs.com"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://yourdomain.com"
+        "EXPO_PUBLIC_API_URL": "https://tms.softechrs.com"
       }
     }
   }

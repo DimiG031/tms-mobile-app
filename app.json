@@ -6,6 +6,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f2c4a"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -22,11 +28,20 @@
     },
     "android": {
       "package": "rs.softechrs.tms",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f2c4a"
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE"
+        "FOREGROUND_SERVICE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "plugins": [
@@ -47,8 +62,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "replace-with-your-eas-project-id"
-      }
-    }
+        "projectId": "b622376b-4950-4cc7-9d87-ff4bf586d9a8"
+      },
+      "router": {}
+    },
+    "owner": "dimirs"
   }
 }

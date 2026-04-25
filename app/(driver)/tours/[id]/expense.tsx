@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { Alert, Image, Modal, ScrollView } from "react-native";
+import { Alert, Image, Modal, Platform, ScrollView } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useTourDetails } from "@/queries/useTourDetails";
 import {
@@ -12,7 +13,7 @@ import {
   useUpdateExpenseSheet
 } from "@/queries/useExpenseSheet";
 import type { ExpenseItem } from "@/lib/types";
-import { formatRouteLabel } from "@/lib/formatters";
+import { formatDate, formatRouteLabel } from "@/lib/formatters";
 import { uploadFromFileUri } from "@/services/upload";
 
 type Currency = "EUR" | "RSD";
@@ -135,6 +136,7 @@ export default function TourExpenseScreen() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemDraft, setItemDraft] = useState<ItemDraft>(createDefaultDraft());
   const [isUploadingReceipt, setUploadingReceipt] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const isReadOnly = sheet ? sheet.status !== "OPEN" : false;
   const isItemMutationPending = createItem.isPending || updateItem.isPending || deleteItem.isPending;
@@ -211,6 +213,7 @@ export default function TourExpenseScreen() {
   function resetItemDraft() {
     setEditingItemId(null);
     setItemDraft(createDefaultDraft());
+    setShowDatePicker(false);
   }
 
   function onOpenCreateItem() {
@@ -747,6 +750,26 @@ export default function TourExpenseScreen() {
                 </Pressable>
               ))}
             </View>
+
+            <Text className="mt-4 text-xs text-slate-500">Datum</Text>
+            <Pressable
+              className="mt-2 flex-row items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
+              onPress={() => setShowDatePicker((v) => !v)}
+            >
+              <Text className="text-slate-900">{formatDate(itemDraft.date)}</Text>
+              <Text className="text-slate-400">📅</Text>
+            </Pressable>
+            {showDatePicker && (
+              <DateTimePicker
+                value={(() => { const d = new Date(itemDraft.date); return Number.isNaN(d.getTime()) ? new Date() : d; })()}
+                mode="date"
+                display={Platform.OS === "ios" ? "inline" : "default"}
+                onChange={(_, selectedDate) => {
+                  if (Platform.OS !== "ios") setShowDatePicker(false);
+                  if (selectedDate) setItemDraft((prev) => ({ ...prev, date: selectedDate.toISOString() }));
+                }}
+              />
+            )}
 
             <TextInput
               value={itemDraft.note}

@@ -1,70 +1,127 @@
-import type { ReactNode } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React from "react";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { BlurView } from "expo-blur";
-import { LightTokens as T, Radius, Shadows } from "@/lib/theme";
+import { LightTokens as T, Radius, Shadows, Typography } from "@/lib/theme";
 
-type IOSListProps = {
+// ─── IOSList ──────────────────────────────────────────────────
+
+interface IOSListProps {
   header?: string;
   footer?: string;
   glass?: boolean;
-  children: ReactNode;
-};
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}
 
-type IOSListRowProps = {
-  label: string;
-  detail?: string;
-  icon?: string;
-  chevron?: boolean;
-  onPress?: () => void;
-  isLast?: boolean;
-  rightElement?: ReactNode;
-};
-
-export function IOSList({ header, footer, glass = false, children }: IOSListProps) {
+export function IOSList({
+  header,
+  footer,
+  glass = false,
+  children,
+  style,
+}: Readonly<IOSListProps>): React.JSX.Element {
   const useBlur = glass && Platform.OS === "ios";
 
+  const inner = <View style={styles.listInner}>{children}</View>;
+
   return (
-    <View style={styles.wrap}>
-      {header ? <Text style={styles.header}>{header.toUpperCase()}</Text> : null}
-      <View style={[styles.card, Shadows.card]}>
+    <View style={[styles.listOuter, style]}>
+      {header ? (
+        <Text style={styles.header}>{header.toUpperCase()}</Text>
+      ) : null}
+
+      <View style={[styles.listContainer, Shadows.card]}>
         {useBlur ? (
-          <BlurView intensity={65} tint="light" style={styles.blur}>
-            {children}
+          <BlurView intensity={70} tint="light" style={styles.blur}>
+            {inner}
           </BlurView>
         ) : (
-          <View style={styles.solid}>{children}</View>
+          <View style={styles.solidBg}>{inner}</View>
         )}
       </View>
-      {footer ? <Text style={styles.footer}>{footer}</Text> : null}
+
+      {footer ? (
+        <Text style={styles.footer}>{footer}</Text>
+      ) : null}
     </View>
   );
 }
 
-export function IOSListRow({ label, detail, icon, chevron = false, onPress, isLast = false, rightElement }: IOSListRowProps) {
+// ─── IOSListRow ───────────────────────────────────────────────
+
+interface IOSListRowProps {
+  label: string;
+  detail?: string;
+  chevron?: boolean;
+  onPress?: () => void;
+  icon?: string;
+  iconColor?: string;
+  rightElement?: React.ReactNode;
+  destructive?: boolean;
+  isLast?: boolean;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function IOSListRow({
+  label,
+  detail,
+  chevron = false,
+  onPress,
+  icon,
+  iconColor,
+  rightElement,
+  destructive = false,
+  isLast = false,
+  style,
+}: Readonly<IOSListRowProps>): React.JSX.Element {
+  const labelColor   = destructive ? T.danger : T.textPrimary;
+  const isInteractive = Boolean(onPress);
+
   const content = (
-    <View style={styles.row}>
+    <View style={[styles.rowInner, style]}>
       {icon ? (
-        <View style={styles.iconBadge}>
-          <Text style={styles.icon}>{icon}</Text>
+        <View style={[styles.iconBadge, { backgroundColor: iconColor ?? T.accentLight }]}>
+          <Text style={styles.iconText}>{icon}</Text>
         </View>
       ) : null}
 
-      <Text numberOfLines={1} style={styles.label}>
+      <Text style={[styles.rowLabel, { color: labelColor }]} numberOfLines={1}>
         {label}
       </Text>
 
-      <View style={styles.right}>
-        {rightElement ?? (detail ? <Text style={styles.detail}>{detail}</Text> : null)}
-        {chevron ? <Text style={styles.chevron}>{">"}</Text> : null}
+      <View style={styles.rightSide}>
+        {rightElement ?? (
+          <>
+            {detail ? (
+              <Text style={styles.detail} numberOfLines={1}>{detail}</Text>
+            ) : null}
+            {chevron ? (
+              <Text style={styles.chevron}>{"›"}</Text>
+            ) : null}
+          </>
+        )}
       </View>
 
-      {!isLast ? <View style={[styles.sep, { left: icon ? 60 : 16 }]} /> : null}
+      {isLast ? null : (
+        <View style={[styles.separator, { left: icon ? 58 : 16 }]} />
+      )}
     </View>
   );
 
-  if (onPress) {
+  if (isInteractive) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => (pressed ? styles.pressed : null)}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => (pressed ? styles.pressed : undefined)}
+      >
         {content}
       </Pressable>
     );
@@ -74,82 +131,92 @@ export function IOSListRow({ label, detail, icon, chevron = false, onPress, isLa
 }
 
 const styles = StyleSheet.create({
-  wrap: {
+  listOuter: {
     marginHorizontal: 16,
-    marginBottom: 12
+    marginBottom:     8,
   },
   header: {
-    marginBottom: 6,
-    marginLeft: 4,
-    fontSize: 11,
+    ...Typography.caption2,
+    color:         T.textSecondary,
     letterSpacing: 0.5,
-    color: T.textSecondary,
-    fontWeight: "700"
+    marginBottom:  6,
+    marginLeft:    4,
+    fontWeight:    "600",
   },
   footer: {
-    marginTop: 6,
+    ...Typography.caption2,
+    color:      T.textSecondary,
+    marginTop:  6,
     marginLeft: 4,
-    fontSize: 12,
-    color: T.textSecondary
+    lineHeight: 16,
   },
-  card: {
-    borderRadius: Radius.xl,
-    overflow: "hidden"
+  listContainer: {
+    borderRadius: Radius.lg,
+    overflow:     "hidden",
   },
   blur: {
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.glassBorder
+    borderRadius: Radius.lg,
+    overflow:     "hidden",
+    borderWidth:  StyleSheet.hairlineWidth,
+    borderColor:  "rgba(255,255,255,0.55)",
   },
-  solid: {
-    backgroundColor: T.bgSurface
+  solidBg: {
+    backgroundColor: T.bgSurface,
   },
-  row: {
-    minHeight: 52,
+  listInner: {},
+
+  rowInner: {
+    flexDirection:     "row",
+    alignItems:        "center",
+    minHeight:         48,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    position: "relative"
+    paddingVertical:   12,
+    position:          "relative",
   },
   iconBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: "#e6f4f1",
-    alignItems: "center",
+    width:          32,
+    height:         32,
+    borderRadius:   8,
+    alignItems:     "center",
     justifyContent: "center",
-    marginRight: 10
+    marginRight:    12,
   },
-  icon: {
-    fontSize: 14
+  iconText: {
+    fontSize:   17,
+    lineHeight: 20,
   },
-  label: {
-    flex: 1,
-    color: T.textPrimary,
-    fontSize: 16
+  rowLabel: {
+    flex:       1,
+    ...Typography.subhead,
+    fontWeight: "400",
   },
-  right: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4
+  rightSide: {
+    flexDirection:  "row",
+    alignItems:     "center",
+    gap:            4,
+    marginLeft:     8,
+    flexShrink:     0,
   },
   detail: {
-    color: T.textSecondary,
-    fontSize: 15
+    ...Typography.subhead,
+    color:      T.textSecondary,
+    fontWeight: "400",
+    maxWidth:   140,
   },
   chevron: {
-    color: T.textSecondary,
-    fontSize: 18
+    fontSize:    20,
+    color:       T.textTertiary,
+    lineHeight:  22,
+    marginRight: -4,
   },
-  sep: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: T.border
+  separator: {
+    position:        "absolute",
+    bottom:          0,
+    right:           0,
+    height:          StyleSheet.hairlineWidth,
+    backgroundColor: T.border,
   },
   pressed: {
-    opacity: 0.7
-  }
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
 });

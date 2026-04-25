@@ -1,86 +1,136 @@
-import type { ReactNode } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React from "react";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { BlurView } from "expo-blur";
-import { LightTokens as T, Radius } from "@/lib/theme";
+import { LightTokens as T, Radius, Shadows } from "@/lib/theme";
 
-type Props = {
-  title: string;
-  dark?: boolean;
+interface IOSNavBarProps {
+  title?: string;
   onBack?: () => void;
-  rightElement?: ReactNode;
-};
+  backLabel?: string;
+  rightElement?: React.ReactNode;
+  dark?: boolean;
+  style?: StyleProp<ViewStyle>;
+}
 
-export function IOSNavBar({ title, dark = false, onBack, rightElement }: Props) {
-  const fg = dark ? "#ffffff" : T.textPrimary;
-  const subtle = dark ? "rgba(255,255,255,0.9)" : T.textSecondary;
+export function IOSNavBar({
+  title,
+  onBack,
+  backLabel = "Nazad",
+  rightElement,
+  dark = false,
+  style,
+}: Readonly<IOSNavBarProps>): React.JSX.Element {
+  const textColor   = dark ? T.textInverse : T.textPrimary;
+  const accentColor = dark ? "rgba(255,255,255,0.9)" : T.accent;
 
   const content = (
-    <View style={styles.inner}>
+    <View style={[styles.inner, style]}>
       <View style={styles.side}>
         {onBack ? (
-          <Pressable onPress={onBack} hitSlop={10} style={({ pressed }) => [styles.backBtn, pressed ? styles.pressed : null]}>
-            <Text style={[styles.chevron, { color: subtle }]}>{"<"}</Text>
+          <Pressable
+            onPress={onBack}
+            hitSlop={12}
+            style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          >
+            <Text style={[styles.chevron, { color: accentColor }]}>{"‹"}</Text>
+            <Text style={[styles.backLabel, { color: accentColor }]}>{backLabel}</Text>
           </Pressable>
         ) : null}
       </View>
 
-      <Text numberOfLines={1} style={[styles.title, { color: fg }]}>
-        {title}
-      </Text>
+      {title ? (
+        <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
+          {title}
+        </Text>
+      ) : (
+        <View />
+      )}
 
-      <View style={[styles.side, styles.sideRight]}>{rightElement ?? null}</View>
+      <View style={[styles.side, styles.sideRight]}>
+        {rightElement ?? null}
+      </View>
     </View>
   );
 
   if (Platform.OS === "ios") {
     return (
-      <BlurView intensity={70} tint={dark ? "dark" : "light"} style={styles.wrap}>
+      <BlurView
+        intensity={80}
+        tint={dark ? "dark" : "light"}
+        style={[styles.container, Shadows.glass]}
+      >
         {content}
       </BlurView>
     );
   }
 
-  return <View style={[styles.wrap, { backgroundColor: dark ? T.accentDark : T.bgSurface }]}>{content}</View>;
+  return (
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: dark ? T.accentDark : T.bgSurface },
+        Shadows.card,
+      ]}
+    >
+      {content}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
+  container: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(0,0,0,0.12)"
+    borderBottomColor: "rgba(0,0,0,0.12)",
+    overflow:          "hidden",
   },
   inner: {
-    height: 56,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between"
+    flexDirection:     "row",
+    alignItems:        "center",
+    justifyContent:    "space-between",
+    height:            56,
+    paddingHorizontal: 8,
   },
   side: {
-    minWidth: 56,
+    minWidth:      80,
     flexDirection: "row",
-    alignItems: "center"
+    alignItems:    "center",
   },
   sideRight: {
-    justifyContent: "flex-end"
+    justifyContent: "flex-end",
   },
   backBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.full,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  chevron: {
-    fontSize: 22,
-    marginTop: -1
-  },
-  title: {
-    flexShrink: 1,
-    textAlign: "center",
-    fontSize: 17,
-    fontWeight: "700"
+    flexDirection: "row",
+    alignItems:    "center",
+    padding:       8,
+    borderRadius:  Radius.sm,
+    gap:           2,
   },
   pressed: {
-    opacity: 0.6
-  }
+    opacity: 0.55,
+  },
+  chevron: {
+    fontSize:   26,
+    fontWeight: "300",
+    lineHeight: 30,
+    marginTop:  -2,
+  },
+  backLabel: {
+    fontSize:   17,
+    fontWeight: "400",
+  },
+  title: {
+    fontSize:      17,
+    fontWeight:    "600",
+    letterSpacing: -0.2,
+    flexShrink:    1,
+    textAlign:     "center",
+  },
 });

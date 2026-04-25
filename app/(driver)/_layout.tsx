@@ -3,6 +3,24 @@ import { Tabs } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
 import { Theme } from "@/lib/theme";
 
+type IconProps = Readonly<{ color: string; size?: number }>;
+
+function HomeIcon({ color, size }: IconProps) {
+  return <Ionicons name="home-outline" size={size ?? 20} color={color} />;
+}
+function ToursIcon({ color, size }: IconProps) {
+  return <Ionicons name="trail-sign-outline" size={size ?? 20} color={color} />;
+}
+function ChatIcon({ color, size }: IconProps) {
+  return <Ionicons name="chatbubble-ellipses-outline" size={size ?? 20} color={color} />;
+}
+function NotificationsIcon({ color, size }: IconProps) {
+  return <Ionicons name="notifications-outline" size={size ?? 20} color={color} />;
+}
+function ProfileIcon({ color, size }: IconProps) {
+  return <Ionicons name="person-outline" size={size ?? 20} color={color} />;
+}
+
 export default function DriverLayout() {
   const { session } = useAuth();
 
@@ -28,43 +46,24 @@ export default function DriverLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: "Pocetna",
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size ?? 20} color={color} />
-        }}
+        options={{ title: "Početna", tabBarIcon: HomeIcon }}
       />
       <Tabs.Screen
         name="tours"
-        options={{
-          title: "Ture",
-          tabBarIcon: ({ color, size }) => <Ionicons name="trail-sign-outline" size={size ?? 20} color={color} />
-        }}
+        options={{ title: "Ture", tabBarIcon: ToursIcon }}
       />
       <Tabs.Screen
-        name="chat/index"
-        options={{
-          title: "Poruke",
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" size={size ?? 20} color={color} />
-        }}
+        name="chat"
+        options={{ title: "Poruke", tabBarIcon: ChatIcon }}
       />
       <Tabs.Screen
         name="notifications"
-        options={{
-          title: "Obavestenja",
-          tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" size={size ?? 20} color={color} />
-        }}
+        options={{ title: "Obaveštenja", tabBarIcon: NotificationsIcon }}
       />
       <Tabs.Screen
         name="profile"
-        options={{
-          title: "Profil",
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size ?? 20} color={color} />
-        }}
+        options={{ title: "Profil", tabBarIcon: ProfileIcon }}
       />
-
-      <Tabs.Screen name="chat" options={{ href: null }} />
-      <Tabs.Screen name="chat/new" options={{ href: null }} />
-      <Tabs.Screen name="chat/[id]" options={{ href: null }} />
     </Tabs>
   );
 }
