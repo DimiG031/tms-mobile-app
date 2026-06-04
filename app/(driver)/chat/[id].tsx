@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { Pressable, TextInput } from "@/components/ui";
 import { LightTokens as T } from "@/lib/theme";
@@ -32,12 +32,24 @@ export default function ChatThreadScreen() {
   const latestMessageIdRef = useRef<string | null>(null);
   const didInitialScrollRef = useRef(false);
   const shouldScrollAfterSendRef = useRef(false);
+  const markReadRef = useRef<ReturnType<typeof useMarkThreadRead> | null>(null);
 
   const [body, setBody] = useState("");
 
   const messagesQuery = useChatMessages(threadId);
   const markRead = useMarkThreadRead(threadId);
   const sendMessage = useSendChatMessage(threadId, session?.user);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!threadId) return;
+      void messagesQuery.refetch();
+    }, [messagesQuery.refetch, threadId])
+  );
+
+  useEffect(() => {
+    markReadRef.current = markRead;
+  }, [markRead]);
 
   const messages = useMemo(() => {
     const flat = messagesQuery.data?.pages.flatMap((page) => page.items) ?? [];
@@ -54,9 +66,10 @@ export default function ChatThreadScreen() {
   };
 
   useEffect(() => {
-    if (!threadId) return;
-    markRead.mutate();
-  }, [threadId, markRead]);
+    didInitialScrollRef.current = false;
+    latestMessageIdRef.current = null;
+    shouldScrollAfterSendRef.current = false;
+  }, [threadId]);
 
   useEffect(() => {
     if (!latestMessageId) return;
@@ -65,7 +78,7 @@ export default function ChatThreadScreen() {
       didInitialScrollRef.current = true;
       latestMessageIdRef.current = latestMessageId;
       scrollToBottom();
-      void markRead.mutateAsync().catch(() => {});
+      void markReadRef.current?.mutateAsync().catch(() => {});
       return;
     }
 
@@ -74,9 +87,9 @@ export default function ChatThreadScreen() {
       latestMessageIdRef.current = latestMessageId;
       if (shouldScroll) scrollToBottom();
       shouldScrollAfterSendRef.current = false;
-      void markRead.mutateAsync().catch(() => {});
+      void markReadRef.current?.mutateAsync().catch(() => {});
     }
-  }, [latestMessageId, markRead]);
+  }, [latestMessageId]);
 
   const onSend = () => {
     const trimmed = body.trim();
@@ -116,7 +129,7 @@ export default function ChatThreadScreen() {
           ListHeaderComponent={
             hasNextCursor ? (
               <Pressable style={styles.moreBtn} onPress={() => void messagesQuery.fetchNextPage()} disabled={messagesQuery.isFetchingNextPage}>
-                <Text style={styles.moreText}>{messagesQuery.isFetchingNextPage ? "Ucitavanje..." : "Ucitaj starije"}</Text>
+                <Text style={styles.moreText}>{messagesQuery.isFetchingNextPage ? "Učitavanje..." : "Učitaj starije"}</Text>
               </Pressable>
             ) : null
           }
@@ -132,7 +145,7 @@ export default function ChatThreadScreen() {
               </View>
             );
           }}
-          ListEmptyComponent={!messagesQuery.isLoading ? <View style={styles.emptyCard}><Text style={styles.empty}>Nema poruka. Posaljite prvu poruku.</Text></View> : null}
+          ListEmptyComponent={!messagesQuery.isLoading ? <View style={styles.emptyCard}><Text style={styles.empty}>Nema poruka. Pošaljite prvu poruku.</Text></View> : null}
         />
       </View>
 
@@ -146,7 +159,7 @@ export default function ChatThreadScreen() {
           className="max-h-28 min-h-[44px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2"
         />
         <Pressable style={[styles.sendBtn, (!netInfo.isConnected || !body.trim() || sendMessage.isPending) ? styles.disabled : null]} onPress={onSend} disabled={!netInfo.isConnected || !body.trim() || sendMessage.isPending}>
-          <Text style={styles.sendText}>{sendMessage.isPending ? "..." : "Posalji"}</Text>
+          <Text style={styles.sendText}>{sendMessage.isPending ? "..." : "Pošalji"}</Text>
         </Pressable>
       </View>
     </View>

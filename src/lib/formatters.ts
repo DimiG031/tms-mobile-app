@@ -1,32 +1,23 @@
-const srDateFormatter = new Intl.DateTimeFormat("sr-RS", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric"
-});
-
-const srDateTimeFormatter = new Intl.DateTimeFormat("sr-RS", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false
-});
-
 const MONTHS_SR = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "avg", "sep", "okt", "nov", "dec"];
 
 export function formatDate(value?: string | null): string {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return srDateFormatter.format(date);
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  return `${d}.${m}.${date.getFullYear()}.`;
 }
 
 export function formatDateTime(value?: string | null): string {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return srDateTimeFormatter.format(date);
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return `${d}.${m}.${date.getFullYear()}. ${h}:${min}`;
 }
 
 export function formatTourDateRange(value?: string | null): string {
@@ -51,25 +42,27 @@ export function formatMoney(value?: number | null, currency: string = "EUR"): st
 }
 
 export function translateTourStatus(status?: string | null): string {
-  if (status === "PLANNED")    return "Planirano";
-  if (status === "CONFIRMED")  return "Potvrđeno";
-  if (status === "IN_TRANSIT") return "U tranzitu";
-  if (status === "COMPLETED")  return "Završeno";
-  if (status === "CANCELLED")  return "Otkazano";
+  const normalized = status?.toUpperCase();
+  if (normalized === "PLANNED") return "Planirano";
+  if (normalized === "CONFIRMED") return "Potvrđeno";
+  if (normalized === "IN_TRANSIT") return "U tranzitu";
+  if (normalized === "COMPLETED") return "Završeno";
+  if (normalized === "CANCELLED" || normalized === "CANCELED") return "Otkazano";
   return status ?? "-";
 }
 
 export function tourStatusClass(status?: string | null): string {
-  if (status === "PLANNED")    return "bg-slate-100 text-slate-700";
-  if (status === "CONFIRMED")  return "bg-blue-100 text-blue-700";
-  if (status === "IN_TRANSIT") return "bg-amber-100 text-amber-700";
-  if (status === "COMPLETED")  return "bg-emerald-100 text-emerald-700";
+  const normalized = status?.toUpperCase();
+  if (normalized === "PLANNED") return "bg-slate-100 text-slate-700";
+  if (normalized === "CONFIRMED") return "bg-blue-100 text-blue-700";
+  if (normalized === "IN_TRANSIT") return "bg-amber-100 text-amber-700";
+  if (normalized === "COMPLETED") return "bg-emerald-100 text-emerald-700";
   return "bg-slate-100 text-slate-700";
 }
 
 export function translateSeverity(severity?: string | null): string {
   if (severity === "critical") return "Kritično";
-  if (severity === "warning")  return "Upozorenje";
+  if (severity === "warning") return "Upozorenje";
   return "Informacija";
 }
 
@@ -84,6 +77,6 @@ export function splitRouteLabel(value?: string | null): { from: string; to: stri
   const parts = normalized.split("→").map((part) => part.trim()).filter(Boolean);
   return {
     from: parts[0] ?? "Polazište",
-    to:   parts[1] ?? "Odredište"
+    to: parts[1] ?? "Odredište"
   };
 }

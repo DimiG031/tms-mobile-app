@@ -112,12 +112,12 @@ Implementirano:
 - Chat lista (`/api/chat/threads`):
   - sortiranje po zadnjoj poruci
   - preview + timestamp + unread indikator
-  - polling 5s
+  - osvežavanje na focus, app resume, ručni refresh i `CHAT_MESSAGE` push
 - Novi razgovor (`/api/chat/users` + `/api/chat/threads`)
 - Thread ekran (`/api/chat/threads/:id/messages`):
   - poruke staro -> novo
-  - `Ucitaj starije` (cursor)
-  - polling 3s
+  - `Učitaj starije` (cursor)
+  - bez stalnog polling-a; osvežavanje na focus i `CHAT_MESSAGE` push za konkretan `threadId`
   - mark read (`PATCH /api/chat/threads/:id/read`) pri otvaranju i novim porukama
   - slanje poruka (`POST /api/chat/threads/:id/messages`)
   - optimisticki append
@@ -126,8 +126,61 @@ Implementirano:
   - read iz cache-a ostaje dostupno
 - Push/deeplink za chat:
   - podrzan `threadId`
-  - podrzan `type: chat`
+  - podrzan `type: CHAT_MESSAGE`
   - ruta `/chat/:threadId`
+
+### Detaljnije informacije o turi
+
+Implementiran je ekran:
+
+- `app/(driver)/tours/[id]/details.tsx`
+- pristup preko dugmeta `Detaljnije` na osnovnom ekranu ture
+
+Ekran prikazuje:
+
+- osnovne podatke i status ture
+- stanice ture
+- špediciju i carinu
+- dokumenta sa otvaranjem fajla
+- operativne napomene za vozača
+
+Mobile normalizer podržava više mogućih backend naziva polja, uključujući `routeStops`, `stops`, `documents`, `forwarder`, `customsOffice` i podatke unutar `freightOrder`.
+
+Backend endpoint `GET /api/tours/:id` treba da vrati sledeće podatke kada postoje:
+
+```json
+{
+  "id": "...",
+  "reference": "...",
+  "status": "PLANNED",
+  "startLocation": "...",
+  "endLocation": "...",
+  "startDate": "...",
+  "endDate": "...",
+  "vehicle": {},
+  "trailer": {},
+  "freightOrder": {},
+  "routeStops": [],
+  "documents": [],
+  "forwarder": {},
+  "customsOffice": {},
+  "notes": "...",
+  "internalNote": "...",
+  "driverNote": "...",
+  "loadingNote": "...",
+  "unloadingNote": "...",
+  "customsNote": "..."
+}
+```
+
+Ako endpoint ne vrati neko polje, mobile ekran prikazuje `Nije uneto`.
+
+API audit (`C:\Users\goran\transport-website-app`):
+
+- `GET /api/tours/:id` trenutno vraća osnovna polja ture, vozilo, prikolicu, početnu/krajnju lokaciju i samo ID vrednosti povezanih dokumenata.
+- `GET /api/route-stops?tourId=:id` vraća pune stanice sa lokacijom, partnerom, carinom i špediterom. Mobile `Detaljnije` ekran koristi ovaj endpoint.
+- `GET /api/documents?relatedType=tour&relatedId=:id` vraća puna dokumenta i već se koristi na mobile strani.
+- `GET /api/freight-orders` trenutno nema `tourId` filter, a `GET /api/tours/:id` ne uključuje pune naloge za utovar. Za kompletne podatke naloga, kontakata utovara/istovara i uvozne/izvozne špedicije potrebno je proširiti jedan od ova dva endpointa.
 
 ## 6) Kljucni fajlovi promenjeni u Fazi 5 i 6
 
@@ -171,7 +224,7 @@ Kodom pokriveno:
 - reconnect flush + interval flush
 - PDF picker upload flow
 - EAS config
-- chat tab + thread flow + polling + read status + offline send block
+- chat tab + thread flow + push/focus osvežavanje + read status + offline send block
 
 Manual QA (potrebno odraditi):
 
@@ -187,7 +240,7 @@ Manual QA (potrebno odraditi):
 ## 9) Napomene za drugi AI tool
 
 - Ne menjati API shape bez backend potvrde.
-- Tro�kovnik lifecycle mora ostati striktan.
+- Troškovnik lifecycle mora ostati striktan.
 - `COMPLETED` mora ostati blokiran dok je sheet `OPEN`.
 - Sve mutacije i dalje kroz `src/lib/api.ts`.
 - UI copy ostaje srpski kao default.

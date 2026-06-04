@@ -79,7 +79,7 @@ export default function LoginScreen() {
         <TextInput
           autoCapitalize="none"
           keyboardType="email-address"
-          placeholder="vozac@kompanija.rs"
+          placeholder="vozač@kompanija.rs"
           value={email}
           onChangeText={(v: string) => setValue("email", v, { shouldDirty: true })}
           className="rounded-xl border border-slate-300 bg-white px-4 py-3"
@@ -116,7 +116,7 @@ export default function LoginScreen() {
             style={{ borderColor: Theme.accent.primary }}
           >
             <Text className="text-center text-base font-semibold" style={{ color: Theme.accent.primary }}>
-              Otkljucaj biometrijom
+              Otključaj biometrijom
             </Text>
           </Pressable>
         ) : null}

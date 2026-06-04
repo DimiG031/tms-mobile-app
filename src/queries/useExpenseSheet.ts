@@ -13,11 +13,38 @@ type ExpenseItemPayload = {
   receiptUrl: string | null;
 };
 
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeExpenseItem(item: ExpenseItem): ExpenseItem {
+  return {
+    ...item,
+    cashAmount: toNumberOrNull(item.cashAmount),
+    cardAmount: toNumberOrNull(item.cardAmount)
+  };
+}
+
+function normalizeExpenseSheetNumbers(sheet: ExpenseSheet): ExpenseSheet {
+  return {
+    ...sheet,
+    advance: toNumberOrNull(sheet.advance),
+    items: (sheet.items ?? []).map(normalizeExpenseItem)
+  };
+}
+
 function normalizeExpenseSheet(payload: unknown): ExpenseSheet | null {
   if (!payload || typeof payload !== "object") return null;
   const root = payload as { data?: unknown };
   if (!root.data || typeof root.data !== "object") return null;
-  return root.data as ExpenseSheet;
+  return normalizeExpenseSheetNumbers(root.data as ExpenseSheet);
 }
 
 function normalizeExpenseItems(payload: unknown): ExpenseItem[] {
@@ -26,13 +53,13 @@ function normalizeExpenseItems(payload: unknown): ExpenseItem[] {
   if (!root.data) return [];
 
   if (Array.isArray(root.data)) {
-    return root.data as ExpenseItem[];
+    return root.data.map(normalizeExpenseItem) as ExpenseItem[];
   }
 
   if (typeof root.data === "object") {
     const dataObj = root.data as { items?: unknown };
     if (Array.isArray(dataObj.items)) {
-      return dataObj.items as ExpenseItem[];
+      return dataObj.items.map(normalizeExpenseItem) as ExpenseItem[];
     }
   }
 

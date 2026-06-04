@@ -100,8 +100,7 @@ export function useChatThreads() {
       const result = await api.get<unknown>("/api/chat/threads");
       return normalizeThreadList(result);
     },
-    staleTime: 10_000,
-    refetchInterval: 5_000
+    staleTime: 10_000
   });
 }
 
@@ -145,8 +144,7 @@ export function useChatMessages(threadId?: string) {
     initialPageParam: null,
     getNextPageParam: (lastPage) => lastPage.nextCursor || null,
     enabled: Boolean(threadId),
-    staleTime: 5_000,
-    refetchInterval: 3_000
+    staleTime: 5_000
   });
 }
 

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { AppNotification, Tour } from "@/lib/types";
 import { normalizeItemsPayload, normalizeTourSummary } from "@/lib/api-normalizers";
+import { isChatNotification } from "@/queries/useNotifications";
 
 export function useDashboardData(driverId?: string | null) {
   return useQuery({
@@ -11,25 +12,30 @@ export function useDashboardData(driverId?: string | null) {
         return { activeTour: null as Tour | null, upcomingTours: [] as Tour[], unreadNotificationsCount: 0 };
       }
 
-      const today = new Date().toISOString().slice(0, 10);
-      const [active, upcoming, notifications] = await Promise.all([
-        api.get<unknown>(`/api/tours?driverId=${driverId}&status=IN_TRANSIT&limit=1`),
-        api.get<unknown>(`/api/tours?driverId=${driverId}&dateFrom=${today}&limit=5`),
-        api.get<unknown>("/api/notifications?limit=5&isRead=0")
+      const [toursRaw, notifications] = await Promise.all([
+        api.get<unknown>(`/api/tours?driverId=${driverId}&limit=30`),
+        api.get<unknown>(`/api/notifications?limit=5&isRead=0&driverId=${driverId}`)
       ]);
 
-      const activeItems = normalizeItemsPayload<unknown>(active)
+      const allTours = normalizeItemsPayload<unknown>(toursRaw)
         .map(normalizeTourSummary)
         .filter((tour): tour is Tour => Boolean(tour));
-      const upcomingItems = normalizeItemsPayload<unknown>(upcoming)
-        .map(normalizeTourSummary)
-        .filter((tour): tour is Tour => Boolean(tour));
+
+      const activeTour =
+        allTours.find((t) => t.status === "IN_TRANSIT") ??
+        allTours.find((t) => t.status === "CONFIRMED") ??
+        null;
+
+      const upcomingTours = allTours
+        .filter((t) => t.status === "PLANNED")
+        .slice(0, 5);
+
       const notificationItems = normalizeItemsPayload<AppNotification>(notifications);
 
       return {
-        activeTour: activeItems[0] ?? null,
-        upcomingTours: upcomingItems,
-        unreadNotificationsCount: notificationItems.filter((n) => !n.isRead).length
+        activeTour,
+        upcomingTours,
+        unreadNotificationsCount: notificationItems.filter((n) => !n.isRead && !isChatNotification(n)).length
       };
     },
     enabled: Boolean(driverId),

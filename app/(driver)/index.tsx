@@ -2,6 +2,7 @@ import { Link } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
+import { useChatThreads } from "@/queries/useChat";
 import { useDashboardData } from "@/queries/useDashboardData";
 import { Theme } from "@/lib/theme";
 import {
@@ -101,10 +102,12 @@ function tourAvatar(routeLabel?: string | null) {
 export default function DriverHomeScreen() {
   const { session } = useAuth();
   const { data, isLoading, isError } = useDashboardData(session?.user.driverId);
+  const chatThreadsQuery = useChatThreads();
 
   const active   = data?.activeTour;
   const upcoming = data?.upcomingTours ?? [];
   const unread   = data?.unreadNotificationsCount ?? 0;
+  const unreadMessages = chatThreadsQuery.data?.filter((thread) => thread.hasUnread).length ?? 0;
   const progress = statusProgress(active?.status);
   const activeStatusTone = statusTone(active?.status);
   const { from: fromLabel, to: toLabel } = splitRouteLabel(active?.routeLabel);
@@ -192,7 +195,7 @@ export default function DriverHomeScreen() {
           </Text>
           <View className="flex-row flex-wrap gap-2">
             {quickAction("/(driver)/tours",         "Sve ture",     "truck-outline")}
-            {quickAction("/(driver)/chat",          "Poruke",       "message-text-outline")}
+            {quickAction("/(driver)/chat",          "Poruke",       "message-text-outline", unreadMessages)}
             {quickAction("/(driver)/notifications", "Obaveštenja",  "bell-outline", unread)}
             {quickAction("/(driver)/profile",       "Profil",       "account-outline")}
           </View>

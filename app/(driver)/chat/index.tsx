@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Pressable } from "@/components/ui";
 import { LightTokens as T } from "@/lib/theme";
 import { useAuth } from "@/providers/AuthProvider";
@@ -25,6 +25,12 @@ export default function ChatListScreen() {
   const { session } = useAuth();
   const threadsQuery = useChatThreads();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      void threadsQuery.refetch();
+    }, [threadsQuery.refetch])
+  );
 
   async function onRefresh() {
     setIsRefreshing(true);
@@ -67,12 +73,12 @@ export default function ChatListScreen() {
               </Pressable>
             </View>
 
-            {threadsQuery.isLoading ? <Text style={styles.loading}>Ucitavanje razgovora...</Text> : null}
+            {threadsQuery.isLoading ? <Text style={styles.loading}>Učitavanje razgovora...</Text> : null}
             {threadsQuery.isError ? (
               <View style={[styles.card, styles.errorCard]}>
-                <Text style={styles.errorText}>Ucitavanje razgovora nije uspelo.</Text>
+                <Text style={styles.errorText}>Učitavanje razgovora nije uspelo.</Text>
                 <Pressable style={styles.retryBtn} onPress={() => void threadsQuery.refetch()}>
-                  <Text style={styles.retryText}>Pokusaj ponovo</Text>
+                  <Text style={styles.retryText}>Pokušaj ponovo</Text>
                 </Pressable>
               </View>
             ) : null}

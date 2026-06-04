@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { api } from "@/lib/api";
 import type { AppNotification } from "@/lib/types";
 import { normalizeItemsPayload, normalizePagedPayload } from "@/lib/api-normalizers";
+import { useAuth } from "@/providers/AuthProvider";
 
 type NotificationsPage = {
   items: AppNotification[];
@@ -9,43 +10,44 @@ type NotificationsPage = {
   limit: number;
 };
 
-function normalizeUnreadCount(payload: unknown): number {
-  if (!payload || typeof payload !== "object") return 0;
-  const root = payload as { data?: unknown };
-  if (!root.data || typeof root.data !== "object") return 0;
-  const data = root.data as { unreadCount?: unknown; count?: unknown };
-  if (typeof data.unreadCount === "number") return data.unreadCount;
-  if (typeof data.count === "number") return data.count;
-  return 0;
+export function isChatNotification(notification: AppNotification): boolean {
+  return (
+    notification.type === "CHAT_MESSAGE" ||
+    Boolean(notification.metadata?.threadId) ||
+    Boolean(notification.actionUrl?.includes("/chat/"))
+  );
 }
 
-export function useNotificationsInfinite(limit = 20) {
+export function useNotificationsInfinite(limit = 20, driverId?: string | null) {
   return useInfiniteQuery({
-    queryKey: ["notifications", "infinite", limit],
+    queryKey: ["notifications", "infinite", limit, driverId],
     queryFn: async ({ pageParam }: { pageParam: string | null }) => {
       const cursorParam = pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : "";
-      const result = await api.get<unknown>(`/api/notifications?limit=${limit}${cursorParam}`);
-      return normalizePagedPayload<AppNotification>(result) as NotificationsPage;
+      const driverParam = driverId ? `&driverId=${encodeURIComponent(driverId)}` : "";
+      const result = await api.get<unknown>(`/api/notifications?limit=${limit}${cursorParam}${driverParam}`);
+      const page = normalizePagedPayload<AppNotification>(result) as NotificationsPage;
+      return {
+        ...page,
+        items: page.items.filter((item) => !isChatNotification(item))
+      };
     },
     initialPageParam: null,
     getNextPageParam: (lastPage) => lastPage.nextCursor || null,
-    staleTime: 2 * 60 * 1000
+    staleTime: 2 * 60 * 1000,
+    enabled: driverId !== undefined ? Boolean(driverId) : true
   });
 }
 
-export function useUnreadNotificationsCount() {
+export function useUnreadNotificationsCount(driverId?: string | null) {
   return useQuery({
-    queryKey: ["notifications", "unread-count"],
+    queryKey: ["notifications", "unread-count", driverId],
     queryFn: async () => {
-      try {
-        const result = await api.get<unknown>("/api/notifications/unread-count");
-        return normalizeUnreadCount(result);
-      } catch {
-        const fallback = await api.get<unknown>("/api/notifications?limit=50&isRead=0");
-        return normalizeItemsPayload<AppNotification>(fallback).filter((item) => !item.isRead).length;
-      }
+      const driverParam = driverId ? `&driverId=${encodeURIComponent(driverId)}` : "";
+      const fallback = await api.get<unknown>(`/api/notifications?limit=100&isRead=0${driverParam}`);
+      return normalizeItemsPayload<AppNotification>(fallback).filter((item) => !item.isRead && !isChatNotification(item)).length;
     },
-    staleTime: 2 * 60 * 1000
+    staleTime: 2 * 60 * 1000,
+    enabled: driverId !== undefined ? Boolean(driverId) : true
   });
 }
 
@@ -66,10 +68,26 @@ export function useMarkNotificationRead() {
 
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
   return useMutation({
     mutationFn: async () => {
-      await api.post("/api/notifications/mark-all-read");
+      const driverParam = session?.user.driverId
+        ? `&driverId=${encodeURIComponent(session.user.driverId)}`
+        : "";
+      let cursor: string | null = null;
+
+      do {
+        const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+        const result = await api.get<unknown>(`/api/notifications?limit=50&isRead=0${driverParam}${cursorParam}`);
+        const page = normalizePagedPayload<AppNotification>(result) as NotificationsPage;
+        const ids = page.items
+          .filter((item) => !item.isRead && !isChatNotification(item))
+          .map((item) => item.id);
+
+        await Promise.all(ids.map((id) => api.patch(`/api/notifications/${id}`, { isRead: true })));
+        cursor = page.nextCursor;
+      } while (cursor);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["notifications"] });

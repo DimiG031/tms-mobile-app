@@ -46,7 +46,7 @@ export default function NewChatScreen() {
     <View style={styles.screen}>
       <TextInput value={search} onChangeText={setSearch} placeholder="Pretrazi korisnike..." className="rounded-xl border border-slate-200 bg-white px-4 py-3" />
 
-      {usersQuery.isLoading ? <Text style={styles.loading}>Ucitavanje korisnika...</Text> : null}
+      {usersQuery.isLoading ? <Text style={styles.loading}>Učitavanje korisnika...</Text> : null}
 
       <FlatList
         data={users}

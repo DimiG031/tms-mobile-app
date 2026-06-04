@@ -19,21 +19,20 @@ import { uploadFromFileUri } from "@/services/upload";
 type Currency = "EUR" | "RSD";
 type PaymentType = "CASH" | "CARD";
 
-const CATEGORY_OPTIONS = ["Gorivo", "Putarina", "Carina", "Spedicija", "Smestaj", "Dnevnica", "Ostalo"] as const;
+const CATEGORY_OPTIONS = ["Gorivo", "Putarina", "Carina", "Špedicija", "Smeštaj", "Dnevnica", "Ostalo"] as const;
 const CURRENCY_OPTIONS: Currency[] = ["EUR", "RSD"];
 const COUNTRY_OPTIONS = [
-  { code: "RS", label: "Srbija", flag: "ðŸ‡·ðŸ‡¸" },
-  { code: "HR", label: "Hrvatska", flag: "ðŸ‡­ðŸ‡·" },
-  { code: "AT", label: "Austrija", flag: "ðŸ‡¦ðŸ‡¹" },
-  { code: "DE", label: "Nemacka", flag: "ðŸ‡©ðŸ‡ª" },
-  { code: "SI", label: "Slovenija", flag: "ðŸ‡¸ðŸ‡®" },
-  { code: "HU", label: "Madjarska", flag: "ðŸ‡­ðŸ‡º" },
-  { code: "IT", label: "Italija", flag: "ðŸ‡®ðŸ‡¹" },
-  { code: "FR", label: "Francuska", flag: "ðŸ‡«ðŸ‡·" },
-  { code: "BA", label: "Bosna i Hercegovina", flag: "ðŸ‡§ðŸ‡¦" },
-  { code: "ME", label: "Crna Gora", flag: "ðŸ‡²ðŸ‡ª" }
+  { code: "RS", label: "Srbija", flag: "🇷🇸" },
+  { code: "HR", label: "Hrvatska", flag: "🇭🇷" },
+  { code: "AT", label: "Austrija", flag: "🇦🇹" },
+  { code: "DE", label: "Nemačka", flag: "🇩🇪" },
+  { code: "SI", label: "Slovenija", flag: "🇸🇮" },
+  { code: "HU", label: "Mađarska", flag: "🇭🇺" },
+  { code: "IT", label: "Italija", flag: "🇮🇹" },
+  { code: "FR", label: "Francuska", flag: "🇫🇷" },
+  { code: "BA", label: "Bosna i Hercegovina", flag: "🇧🇦" },
+  { code: "ME", label: "Crna Gora", flag: "🇲🇪" }
 ] as const;
-
 type ItemDraft = {
   country: string;
   category: string;
@@ -89,7 +88,7 @@ function formatTotals(values: Record<string, number>): string {
 
 function getCountryMeta(code: string): { label: string; flag: string } {
   const found = COUNTRY_OPTIONS.find((country) => country.code === code);
-  return found ? { label: found.label, flag: found.flag } : { label: code, flag: "ðŸŒ" };
+  return found ? { label: found.label, flag: found.flag } : { label: code, flag: "" };
 }
 
 function statusBadgeClass(status: string): string {
@@ -235,8 +234,8 @@ export default function TourExpenseScreen() {
           setCreateSheetModalVisible(false);
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : "Neuspesno kreiranje troskovnika.";
-          Alert.alert("Troskovnik", message);
+          const message = error instanceof Error ? error.message : "Neuspešno kreiranje troškovnika.";
+          Alert.alert("Troškovnik", message);
         }
       }
     );
@@ -256,8 +255,8 @@ export default function TourExpenseScreen() {
           setAdvanceModalVisible(false);
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : "Neuspesna izmena akontacije.";
-          Alert.alert("Troskovnik", message);
+          const message = error instanceof Error ? error.message : "Neuspešna izmena akontacije.";
+          Alert.alert("Troškovnik", message);
         }
       }
     );
@@ -281,16 +280,16 @@ export default function TourExpenseScreen() {
 
   function onDeleteItem(itemId: string) {
     if (isReadOnly) return;
-    Alert.alert("Brisanje stavke", "Da li ste sigurni da zelite da obrisete stavku?", [
+    Alert.alert("Brisanje stavke", "Da li ste sigurni da želite da obrišete stavku?", [
       { text: "Odustani", style: "cancel" },
       {
-        text: "Obrisi",
+        text: "Obriši",
         style: "destructive",
         onPress: () => {
           deleteItem.mutate(itemId, {
             onError: (error) => {
-              const message = error instanceof Error ? error.message : "Neuspesno brisanje stavke.";
-              Alert.alert("Troskovnik", message);
+              const message = error instanceof Error ? error.message : "Neuspešno brisanje stavke.";
+              Alert.alert("Troškovnik", message);
             }
           });
         }
@@ -302,7 +301,7 @@ export default function TourExpenseScreen() {
     if (!sheet || isReadOnly) return;
     const amount = parseAmount(itemDraft.amount);
     if (!amount || amount <= 0) {
-      Alert.alert("Troskovnik", "Unesite validan iznos.");
+      Alert.alert("Troškovnik", "Unesite validan iznos.");
       return;
     }
 
@@ -327,8 +326,8 @@ export default function TourExpenseScreen() {
           resetItemDraft();
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : "Neuspesno dodavanje stavke.";
-          Alert.alert("Troskovnik", message);
+          const message = error instanceof Error ? error.message : "Neuspešno dodavanje stavke.";
+          Alert.alert("Troškovnik", message);
         }
       });
       return;
@@ -342,8 +341,8 @@ export default function TourExpenseScreen() {
           resetItemDraft();
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : "Neuspesna izmena stavke.";
-          Alert.alert("Troskovnik", message);
+          const message = error instanceof Error ? error.message : "Neuspešna izmena stavke.";
+          Alert.alert("Troškovnik", message);
         }
       }
     );
@@ -351,7 +350,7 @@ export default function TourExpenseScreen() {
 
   function onSubmitSheet() {
     if (!sheet || isReadOnly) return;
-    Alert.alert("Predaja troskovnika", "Nakon predaje troskovnik postaje read-only. Nastaviti?", [
+    Alert.alert("Predaja troškovnika", "Nakon predaje troškovnik postaje samo za čitanje. Nastaviti?", [
       { text: "Odustani", style: "cancel" },
       {
         text: "Predaj",
@@ -360,8 +359,8 @@ export default function TourExpenseScreen() {
             { status: "SUBMITTED" },
             {
               onError: (error) => {
-                const message = error instanceof Error ? error.message : "Neuspesna predaja troskovnika.";
-                Alert.alert("Troskovnik", message);
+                const message = error instanceof Error ? error.message : "Neuspešna predaja troškovnika.";
+                Alert.alert("Troškovnik", message);
               }
             }
           );
@@ -373,7 +372,7 @@ export default function TourExpenseScreen() {
   async function pickReceipt(source: "camera" | "library") {
     const imagePicker = getImagePicker();
     if (!imagePicker) {
-      Alert.alert("Upload racuna", "Nedostaje paket expo-image-picker. Instaliraj ga pre testiranja kamere/galerije.");
+      Alert.alert("Upload računa", "Nedostaje paket expo-image-picker. Instaliraj ga pre testiranja kamere/galerije.");
       return;
     }
 
@@ -413,8 +412,8 @@ export default function TourExpenseScreen() {
       });
       setItemDraft((prev) => ({ ...prev, receiptUrl: upload.fileUrl }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Upload racuna nije uspeo.";
-      Alert.alert("Upload racuna", message);
+      const message = error instanceof Error ? error.message : "Upload računa nije uspeo.";
+      Alert.alert("Upload računa", message);
     } finally {
       setUploadingReceipt(false);
     }
@@ -423,7 +422,7 @@ export default function TourExpenseScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-white px-4 py-5">
-        <Text className="text-slate-600">Ucitavanje troskovnika...</Text>
+        <Text className="text-slate-600">Učitavanje troškovnika...</Text>
       </View>
     );
   }
@@ -431,7 +430,7 @@ export default function TourExpenseScreen() {
   if (isError) {
     return (
       <View className="flex-1 bg-white px-4 py-5">
-        <Text className="text-red-600">Greska pri ucitavanju troskovnika.</Text>
+        <Text className="text-red-600">Greška pri učitavanju troškovnika.</Text>
       </View>
     );
   }
@@ -439,15 +438,15 @@ export default function TourExpenseScreen() {
   if (!sheet) {
     return (
       <View className="flex-1 bg-white px-4 py-5">
-        <Text className="text-xl font-bold text-slate-900">Troskovnik</Text>
+        <Text className="text-xl font-bold text-slate-900">Troškovnik</Text>
         <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
-        <Text className="mt-5 text-slate-600">Troskovnik jos nije kreiran za ovu turu.</Text>
+        <Text className="mt-5 text-slate-600">Troškovnik još nije kreiran za ovu turu.</Text>
 
         <Pressable
           className="mt-4 rounded-xl bg-brand-600 px-4 py-3"
           onPress={() => setCreateSheetModalVisible(true)}
         >
-          <Text className="text-center font-semibold text-white">Kreiraj troskovnik</Text>
+          <Text className="text-center font-semibold text-white">Kreiraj troškovnik</Text>
         </Pressable>
 
         <Modal visible={isCreateSheetModalVisible} transparent animationType="slide" onRequestClose={() => setCreateSheetModalVisible(false)}>
@@ -506,7 +505,7 @@ export default function TourExpenseScreen() {
 
   return (
     <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
-      <Text className="text-xl font-bold text-slate-900">Troskovnik</Text>
+      <Text className="text-xl font-bold text-slate-900">Troškovnik</Text>
       <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
 
       <View className="mt-3 flex-row items-center justify-between">
@@ -577,7 +576,7 @@ export default function TourExpenseScreen() {
                         onPress={() => onDeleteItem(item.id)}
                         disabled={isReadOnly || isItemMutationPending}
                       >
-                        <Text className="text-xs font-semibold text-red-700">Obrisi</Text>
+                        <Text className="text-xs font-semibold text-red-700">Obriši</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -589,13 +588,13 @@ export default function TourExpenseScreen() {
 
         {!normalizedItems.length ? (
           <View className="rounded-xl border border-dashed border-slate-300 p-4">
-            <Text className="text-slate-600">Jos nema stavki troskovnika.</Text>
+            <Text className="text-slate-600">Još nema stavki troškovnika.</Text>
           </View>
         ) : null}
       </View>
 
       <View className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <Text className="font-semibold text-slate-900">Obracun</Text>
+        <Text className="font-semibold text-slate-900">Obračun</Text>
         <Text className="mt-2 text-slate-600">Ukupno gotovina: {formatTotals(totals.cashTotals)}</Text>
         <Text className="text-slate-600">
           Akontacija: {totals.advanceValue.toFixed(2)} {totals.currentAdvanceCurrency}
@@ -620,7 +619,7 @@ export default function TourExpenseScreen() {
           className="flex-1 rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"
         >
           <Text className="text-center font-semibold text-white">
-            {updateSheet.isPending ? "Predaja..." : isReadOnly ? `Status: ${sheet.status}` : "Predaj troskovnik"}
+            {updateSheet.isPending ? "Predaja..." : isReadOnly ? `Status: ${sheet.status}` : "Predaj troškovnik"}
           </Text>
         </Pressable>
       </View>
@@ -664,7 +663,7 @@ export default function TourExpenseScreen() {
                 onPress={onSaveAdvance}
                 disabled={updateSheet.isPending}
               >
-                <Text className="text-center font-semibold text-white">{updateSheet.isPending ? "Cuvanje..." : "Sacuvaj"}</Text>
+                <Text className="text-center font-semibold text-white">{updateSheet.isPending ? "Čuvanje..." : "Sačuvaj"}</Text>
               </Pressable>
             </View>
           </View>
@@ -778,14 +777,14 @@ export default function TourExpenseScreen() {
               className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
             />
 
-            <Text className="mt-4 text-xs text-slate-500">Racun</Text>
+            <Text className="mt-4 text-xs text-slate-500">Račun</Text>
             <View className="mt-2 flex-row gap-2">
               <Pressable
                 className="flex-1 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
                 onPress={() => pickReceipt("camera")}
                 disabled={isUploadingReceipt}
               >
-                <Text className="text-center text-slate-700">Fotografisi</Text>
+                <Text className="text-center text-slate-700">Fotografiši</Text>
               </Pressable>
               <Pressable
                 className="flex-1 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
@@ -805,7 +804,7 @@ export default function TourExpenseScreen() {
             <TextInput
               value={itemDraft.receiptUrl}
               onChangeText={(receiptUrl) => setItemDraft((prev) => ({ ...prev, receiptUrl }))}
-              placeholder="Ili direktni URL racuna (opciono)"
+              placeholder="Ili direktni URL računa (opciono)"
               className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
             />
 
@@ -819,7 +818,7 @@ export default function TourExpenseScreen() {
                 disabled={isUploadingReceipt || isItemMutationPending}
               >
                 <Text className="text-center font-semibold text-white">
-                  {isUploadingReceipt ? "Upload..." : editingItemId ? "Sacuvaj" : "Dodaj"}
+                  {isUploadingReceipt ? "Upload..." : editingItemId ? "Sačuvaj" : "Dodaj"}
                 </Text>
               </Pressable>
             </View>

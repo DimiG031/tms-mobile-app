@@ -7,14 +7,15 @@ import { useTours } from "@/queries/useTours";
 import { Theme } from "@/lib/theme";
 import { formatRouteLabel, formatTourDateRange, translateTourStatus } from "@/lib/formatters";
 
-const FILTERS = ["Sve", "Aktivne", "Planirane", "Zavrsene"] as const;
+const FILTERS = ["Sve", "Aktivne", "Planirane", "Završene"] as const;
 type FilterType = (typeof FILTERS)[number];
 
 function matchFilter(filter: FilterType, status: string): boolean {
   if (filter === "Sve") return true;
   if (filter === "Aktivne") return status === "IN_TRANSIT" || status === "CONFIRMED";
   if (filter === "Planirane") return status === "PLANNED";
-  return status === "COMPLETED";
+  if (filter === "Završene") return status === "COMPLETED";
+  return false;
 }
 
 export default function ToursListScreen() {

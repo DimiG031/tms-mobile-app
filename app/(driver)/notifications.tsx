@@ -11,6 +11,7 @@ import {
 } from "@/queries/useNotifications";
 import { resolveNotificationRoute } from "@/services/notifications";
 import { Theme, formatSrDateTime } from "@/lib/theme";
+import { useAuth } from "@/providers/AuthProvider";
 
 function severityClass(severity: AppNotification["severity"]): string {
   if (severity === "critical") return "border-red-300 bg-red-50";
@@ -21,10 +22,12 @@ function severityClass(severity: AppNotification["severity"]): string {
 export default function NotificationsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const notificationsQuery = useNotificationsInfinite(20);
+  const { session } = useAuth();
+  const notificationsQuery = useNotificationsInfinite(20, session?.user.driverId);
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pendingNotificationId, setPendingNotificationId] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,16 +61,22 @@ export default function NotificationsScreen() {
     const route = resolveNotificationRoute({
       actionUrl: notification.actionUrl,
       notificationId: notification.id,
+      metadata: notification.metadata,
+      threadId: notification.metadata?.threadId,
       tourId: notification.metadata?.tourId
     });
     router.push(route as never);
   };
 
   const onMarkAsRead = (id: string) => {
+    setPendingNotificationId(id);
     markRead.mutate(id, {
       onError: (error) => {
-        const message = error instanceof Error ? error.message : "Ažuriranje obavještenja nije uspjelo.";
-        Alert.alert("Obavještenja", message);
+        const message = error instanceof Error ? error.message : "Ažuriranje obaveštenja nije uspelo.";
+        Alert.alert("Obaveštenja", message);
+      },
+      onSettled: () => {
+        setPendingNotificationId((current) => (current === id ? null : current));
       }
     });
   };
@@ -75,8 +84,8 @@ export default function NotificationsScreen() {
   const onMarkAllRead = () => {
     markAllRead.mutate(undefined, {
       onError: (error) => {
-        const message = error instanceof Error ? error.message : "Označavanje svih obavještenja nije uspjelo.";
-        Alert.alert("Obavještenja", message);
+        const message = error instanceof Error ? error.message : "Označavanje svih obaveštenja nije uspelo.";
+        Alert.alert("Obaveštenja", message);
       }
     });
   };
@@ -88,26 +97,26 @@ export default function NotificationsScreen() {
       <View className="mb-3 flex-row items-center justify-between">
         <View>
           <Text className="text-3xl font-extrabold" style={{ color: Theme.text.primary }}>
-            Obavještenja
+            Obaveštenja
           </Text>
           <Text className="text-sm" style={{ color: Theme.text.secondary }}>
-            {unread} nepročitana
+            {unread} nepročitanih
           </Text>
         </View>
         <Pressable
           onPress={onMarkAllRead}
           disabled={markAllRead.isPending}
-          className="rounded-full px-3 py-2 disabled:opacity-60"
+          className="max-w-[132px] rounded-full px-3 py-2 disabled:opacity-60"
           style={{ borderColor: Theme.accent.primary, borderWidth: 1, backgroundColor: Theme.accent.primaryLight }}
         >
-          <Text className="text-xs font-semibold" style={{ color: Theme.accent.primaryDark }}>
-            {markAllRead.isPending ? "Ažuriranje..." : "Označi sve"}
+          <Text className="text-center text-xs font-semibold" style={{ color: Theme.accent.primaryDark }}>
+            {markAllRead.isPending ? "Ažuriranje..." : "Označi sve kao pročitano"}
           </Text>
         </Pressable>
       </View>
 
       {notificationsQuery.isLoading ? <Text className="text-slate-500">Učitavanje...</Text> : null}
-      {notificationsQuery.isError ? <Text className="text-red-600">Učitavanje obavještenja nije uspjelo.</Text> : null}
+      {notificationsQuery.isError ? <Text className="text-red-600">Učitavanje obaveštenja nije uspelo.</Text> : null}
 
       <FlatList
         data={items}
@@ -139,19 +148,22 @@ export default function NotificationsScreen() {
             <Text className="mt-1 text-sm text-slate-700">{item.message}</Text>
             {item.isRead ? null : (
               <Pressable
-                onPress={() => onMarkAsRead(item.id)}
-                disabled={markRead.isPending}
-                className="mt-3 self-start rounded-lg px-3 py-2"
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onMarkAsRead(item.id);
+                }}
+                disabled={pendingNotificationId === item.id}
+                className="mt-3 self-start rounded-lg px-3 py-2 disabled:opacity-60"
                 style={{ borderColor: Theme.accent.primary, borderWidth: 1 }}
               >
                 <Text className="text-xs font-semibold" style={{ color: Theme.accent.primary }}>
-                  {markRead.isPending ? "Ažuriranje..." : "Označi kao pročitano"}
+                  {pendingNotificationId === item.id ? "Ažuriranje..." : "Označi kao pročitano"}
                 </Text>
               </Pressable>
             )}
           </Pressable>
         )}
-        ListEmptyComponent={notificationsQuery.isLoading ? null : <Text className="text-slate-500">Nema obavještenja.</Text>}
+        ListEmptyComponent={notificationsQuery.isLoading ? null : <Text className="text-slate-500">Nema obaveštenja.</Text>}
         ListFooterComponent={
           notificationsQuery.isFetchingNextPage
             ? <Text className="pb-2 pt-1 text-center text-slate-500">Učitavanje još...</Text>

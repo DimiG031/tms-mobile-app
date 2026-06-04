@@ -24,6 +24,13 @@ export type NotificationResponse = {
   notification: Notification;
 };
 
+export type ChatMessageNotificationPayload = {
+  type: "CHAT_MESSAGE";
+  threadId: string;
+  messageId?: string;
+  senderId?: string;
+};
+
 function isExpoGo(): boolean {
   return Constants.appOwnership === "expo";
 }
@@ -209,16 +216,81 @@ export async function markNotificationAsReadFromPayload(data: unknown): Promise<
   await api.patch(`/api/notifications/${notificationId}`, { isRead: true });
 }
 
+export function getChatMessageNotificationPayload(data: unknown): ChatMessageNotificationPayload | null {
+  if (!data || typeof data !== "object") return null;
+  const payload = data as {
+    type?: unknown;
+    threadId?: unknown;
+    messageId?: unknown;
+    senderId?: unknown;
+    metadata?: unknown;
+  };
+  const metadata =
+    payload.metadata && typeof payload.metadata === "object"
+      ? (payload.metadata as { type?: unknown; threadId?: unknown; messageId?: unknown; senderId?: unknown })
+      : null;
+
+  const type = typeof payload.type === "string" ? payload.type : metadata?.type;
+  const threadId = typeof payload.threadId === "string" ? payload.threadId : metadata?.threadId;
+
+  if (type !== "CHAT_MESSAGE" || typeof threadId !== "string" || !threadId.trim()) {
+    return null;
+  }
+
+  const messageId = typeof payload.messageId === "string" ? payload.messageId : metadata?.messageId;
+  const senderId = typeof payload.senderId === "string" ? payload.senderId : metadata?.senderId;
+
+  return {
+    type: "CHAT_MESSAGE",
+    threadId,
+    messageId: typeof messageId === "string" ? messageId : undefined,
+    senderId: typeof senderId === "string" ? senderId : undefined
+  };
+}
+
 type ResolveNotificationRouteParams = {
   actionUrl?: unknown;
+  messageId?: unknown;
   notificationId?: unknown;
+  metadata?: unknown;
+  senderId?: unknown;
+  type?: unknown;
+  threadId?: unknown;
   tourId?: unknown;
 };
 
 export function resolveNotificationRoute(params: ResolveNotificationRouteParams): string {
+  const chatPayload = getChatMessageNotificationPayload(params);
+  if (chatPayload) {
+    return `/(driver)/chat/${chatPayload.threadId}`;
+  }
+
   const actionUrl = typeof params.actionUrl === "string" ? params.actionUrl : "";
+  const metadata =
+    params.metadata && typeof params.metadata === "object"
+      ? (params.metadata as { threadId?: unknown; tourId?: unknown })
+      : null;
+  const threadIdFromAction =
+    actionUrl.match(/\/chat\/threads\/([^/?#]+)/)?.[1] ??
+    actionUrl.match(/\/chat\/([^/?#]+)/)?.[1];
+  const explicitThreadId =
+    typeof params.threadId === "string"
+      ? params.threadId
+      : metadata && typeof metadata.threadId === "string"
+        ? metadata.threadId
+        : null;
+  const threadId = explicitThreadId ?? threadIdFromAction;
+  if (threadId) {
+    return `/(driver)/chat/${threadId}`;
+  }
+
   const tourIdFromAction = actionUrl.match(/\/tours\/([^/?#]+)/)?.[1];
-  const explicitTourId = typeof params.tourId === "string" ? params.tourId : null;
+  const explicitTourId =
+    typeof params.tourId === "string"
+      ? params.tourId
+      : metadata && typeof metadata.tourId === "string"
+        ? metadata.tourId
+        : null;
   const tourId = explicitTourId ?? tourIdFromAction;
   if (tourId) {
     return `/(driver)/tours/${tourId}`;

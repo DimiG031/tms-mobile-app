@@ -1,5 +1,6 @@
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
-import { Alert } from "react-native";
+import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Alert, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTourDetails, useUpdateTourStatus } from "@/queries/useTourDetails";
 import { useExpenseSheet } from "@/queries/useExpenseSheet";
@@ -7,22 +8,40 @@ import { Theme } from "@/lib/theme";
 import { formatRouteLabel, formatTourDateRange, translateTourStatus } from "@/lib/formatters";
 
 function statusStep(status?: string) {
-  if (status === "PLANNED") return 1;
-  if (status === "CONFIRMED") return 2;
-  if (status === "IN_TRANSIT") return 3;
-  if (status === "COMPLETED") return 4;
+  const normalized = status?.toUpperCase();
+  if (normalized === "PLANNED") return 1;
+  if (normalized === "CONFIRMED") return 2;
+  if (normalized === "IN_TRANSIT") return 3;
+  if (normalized === "COMPLETED") return 4;
   return 1;
 }
 
 function getNextStatusLabel(status?: string): { buttonLabel: string; nextStatus: string } | null {
-  if (status === "PLANNED") return { buttonLabel: "Potvrdi polazak", nextStatus: "CONFIRMED" };
-  if (status === "CONFIRMED") return { buttonLabel: "Krenuo sam", nextStatus: "IN_TRANSIT" };
-  if (status === "IN_TRANSIT") return { buttonLabel: "Stigao sam", nextStatus: "COMPLETED" };
+  const normalized = status?.toUpperCase();
+  if (normalized === "PLANNED") return { buttonLabel: "Potvrdi polazak", nextStatus: "CONFIRMED" };
+  if (normalized === "CONFIRMED") return { buttonLabel: "Krenuo sam", nextStatus: "IN_TRANSIT" };
+  if (normalized === "IN_TRANSIT") return { buttonLabel: "Stigao sam", nextStatus: "COMPLETED" };
   return null;
 }
 
-export default function TourDetailsScreen() {
+function BackButton() {
   const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => {
+        if (router.canGoBack()) router.back();
+        else router.replace("/(driver)/tours");
+      }}
+      style={{ paddingRight: 8 }}
+    >
+      <Ionicons name="chevron-back" size={26} color="#0d7d72" />
+    </Pressable>
+  );
+}
+
+const headerLeft = () => <BackButton />;
+
+export default function TourDetailsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const tourId = params.id;
   const { data } = useTourDetails(tourId);
@@ -31,7 +50,7 @@ export default function TourDetailsScreen() {
 
   const step = statusStep(data?.status);
   const nextStatus = getNextStatusLabel(data?.status);
-  const blockComplete = data?.status === "IN_TRANSIT" && sheet?.status === "OPEN";
+  const blockComplete = data?.status?.toUpperCase() === "IN_TRANSIT" && sheet?.status === "OPEN";
 
   const onUpdateStatus = () => {
     if (!nextStatus || !data) return;
@@ -47,21 +66,11 @@ export default function TourDetailsScreen() {
   };
 
   return (
-    <View className="flex-1 px-4 py-4" style={{ backgroundColor: Theme.surface.app }}>
-      <Pressable
-        onPress={() => {
-          if (router.canGoBack()) {
-            router.back();
-            return;
-          }
-          router.replace("/(driver)/tours");
-        }}
-        className="mb-3 self-start rounded-lg border border-slate-300 px-3 py-2"
-      >
-        <Text className="font-semibold text-slate-700">{"< Nazad"}</Text>
-      </Pressable>
-
-      <Text className="text-4xl font-extrabold text-slate-900">{data?.routeLabel ? formatRouteLabel(data.routeLabel) : "Detalji ture"}</Text>
+    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+      <Stack.Screen options={{ headerLeft }} />
+      <Text className="text-4xl font-extrabold text-slate-900">
+        {data?.routeLabel ? formatRouteLabel(data.routeLabel) : "Detalji ture"}
+      </Text>
 
       <View className="mt-4 rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
         <View className="flex-row items-center justify-between">
@@ -87,13 +96,13 @@ export default function TourDetailsScreen() {
             style={{ backgroundColor: Theme.accent.primary }}
           >
             <Text className="text-center text-base font-semibold text-white">
-              {updateStatus.isPending ? "Azuriranje..." : nextStatus.buttonLabel}
+              {updateStatus.isPending ? "Ažuriranje..." : nextStatus.buttonLabel}
             </Text>
           </Pressable>
         ) : null}
 
         {blockComplete ? (
-          <Text className="mt-2 text-sm font-semibold text-amber-700">Prvo zakljucaj troskovnik.</Text>
+          <Text className="mt-2 text-sm font-semibold text-amber-700">Prvo zaključi troškovnik.</Text>
         ) : null}
       </View>
 
@@ -118,19 +127,26 @@ export default function TourDetailsScreen() {
         <Text className="mt-2 text-slate-700">Napomene: {data?.notes ?? "-"}</Text>
       </View>
 
-      <View className="mt-4 flex-row gap-3">
-        <Link href={`/(driver)/tours/${tourId}/expense`} asChild>
-          <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primary }}>
-            <Text className="text-center font-semibold text-white">Troskovi</Text>
+      <View className="mt-4 gap-3">
+        <Link href={`/(driver)/tours/${tourId}/details`} asChild>
+          <Pressable className="rounded-xl px-4 py-3" style={{ backgroundColor: "#0f766e" }}>
+            <Text className="text-center font-semibold text-white">Detaljnije</Text>
           </Pressable>
         </Link>
-        <Link href={`/(driver)/tours/${tourId}/documents`} asChild>
-          <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: "#1f4e92" }}>
-            <Text className="text-center font-semibold text-white">Dokumenta</Text>
-          </Pressable>
-        </Link>
+
+        <View className="flex-row gap-3">
+          <Link href={`/(driver)/tours/${tourId}/expense`} asChild>
+            <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primary }}>
+              <Text className="text-center font-semibold text-white">Troškovi</Text>
+            </Pressable>
+          </Link>
+          <Link href={`/(driver)/tours/${tourId}/documents`} asChild>
+            <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: "#1f4e92" }}>
+              <Text className="text-center font-semibold text-white">Dokumenta</Text>
+            </Pressable>
+          </Link>
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
-

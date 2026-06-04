@@ -26,7 +26,7 @@ export function OfflineBanner() {
     return (
       <View className="bg-amber-100 px-3 py-2">
         <Text className="text-center text-xs font-semibold text-amber-800">
-          Nema interneta - promene se cuvaju lokalno
+          Nema interneta - promene se čuvaju lokalno
         </Text>
       </View>
     );
@@ -44,4 +44,3 @@ export function OfflineBanner() {
 
   return null;
 }
-

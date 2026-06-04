@@ -146,7 +146,7 @@ export default function TourDocumentsScreen() {
           setFileName("");
           setFileUrl("");
           setFileType("JPG");
-          Alert.alert("Dokumenta", "Dokument je uspesno sacuvan.");
+          Alert.alert("Dokumenta", "Dokument je uspešno sačuvan.");
         },
         onError: (error) => {
           const message = error instanceof Error ? error.message : "Kreiranje dokumenta nije uspelo";
@@ -186,7 +186,7 @@ export default function TourDocumentsScreen() {
         </Pressable>
       </View>
       <Text style={styles.title}>Dokumenta ture</Text>
-      <Text style={styles.subtitle}>Slikajte ili izaberite dokument, zatim ga sacuvajte uz turu.</Text>
+      <Text style={styles.subtitle}>Slikajte ili izaberite dokument, zatim ga sačuvajte uz turu.</Text>
 
       <IOSCard glass style={styles.section}>
         <Text style={styles.sectionTitle}>Dodaj dokument</Text>
@@ -234,7 +234,7 @@ export default function TourDocumentsScreen() {
 
           <Pressable onPress={onCreateDocument} disabled={!canSave} className="rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60">
             <Text className="text-center font-semibold text-white">
-              {isUploading ? "Otpremanje..." : createDocument.isPending ? "Cuvanje..." : "Sacuvaj dokument"}
+              {isUploading ? "Otpremanje..." : createDocument.isPending ? "Čuvanje..." : "Sačuvaj dokument"}
             </Text>
           </Pressable>
         </View>
@@ -243,13 +243,13 @@ export default function TourDocumentsScreen() {
       <IOSCard style={styles.section}>
         <Text style={styles.sectionTitle}>Otpremljena dokumenta</Text>
 
-        {isLoading ? <Text style={styles.loading}>Ucitavanje...</Text> : null}
+        {isLoading ? <Text style={styles.loading}>Učitavanje...</Text> : null}
 
         {isError ? (
           <View className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
-            <Text className="text-red-700">Ucitavanje dokumenata nije uspelo.</Text>
+            <Text className="text-red-700">Učitavanje dokumenata nije uspelo.</Text>
             <Pressable onPress={() => void refetch()} className="mt-2 self-start rounded-lg border border-red-300 px-3 py-2">
-              <Text className="text-red-700">Pokusaj ponovo</Text>
+              <Text className="text-red-700">Pokušaj ponovo</Text>
             </Pressable>
           </View>
         ) : null}
