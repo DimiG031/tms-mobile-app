@@ -1,21 +1,20 @@
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import * as DocumentPicker from "expo-document-picker";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, TextInput } from "@/components/ui";
 import { IOSCard } from "@/components/ios/IOSCard";
 import { IOSGlassPill } from "@/components/ios/IOSGlassPill";
+import { Pressable, TextInput } from "@/components/ui";
+import { formatDateTime } from "@/lib/formatters";
 import { LightTokens as T } from "@/lib/theme";
 import { useCreateTourDocument, useTourDocuments } from "@/queries/useTourDocuments";
 import { uploadFromFileUri } from "@/services/upload";
-import { formatDateTime } from "@/lib/formatters";
 
 const DOC_TYPES = ["PDF", "JPG", "PNG"] as const;
 
 export default function TourDocumentsScreen() {
-  const params = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const params = useLocalSearchParams<{ id: string; from?: string }>();
   const tourId = params.id;
 
   const { data, isLoading, isError, isRefetching, refetch } = useTourDocuments(tourId);
@@ -36,7 +35,7 @@ export default function TourDocumentsScreen() {
     });
   }, [data]);
 
-  const uploadPickedAsset = async (asset: ImagePicker.ImagePickerAsset) => {
+  async function uploadPickedAsset(asset: ImagePicker.ImagePickerAsset) {
     try {
       setIsUploading(true);
 
@@ -62,9 +61,9 @@ export default function TourDocumentsScreen() {
     } finally {
       setIsUploading(false);
     }
-  };
+  }
 
-  const onCapturePhoto = async () => {
+  async function onCapturePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (permission.status !== "granted") {
       Alert.alert("Kamera", "Potrebna je dozvola za kameru.");
@@ -79,9 +78,9 @@ export default function TourDocumentsScreen() {
 
     if (result.canceled || !result.assets.length) return;
     await uploadPickedAsset(result.assets[0]);
-  };
+  }
 
-  const onPickImage = async () => {
+  async function onPickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permission.status !== "granted") {
       Alert.alert("Galerija", "Potrebna je dozvola za galeriju.");
@@ -96,9 +95,9 @@ export default function TourDocumentsScreen() {
 
     if (result.canceled || !result.assets.length) return;
     await uploadPickedAsset(result.assets[0]);
-  };
+  }
 
-  const onPickPdf = async () => {
+  async function onPickPdf() {
     const result = await DocumentPicker.getDocumentAsync({
       type: ["application/pdf"],
       copyToCacheDirectory: true,
@@ -127,9 +126,9 @@ export default function TourDocumentsScreen() {
     } finally {
       setIsUploading(false);
     }
-  };
+  }
 
-  const onCreateDocument = () => {
+  function onCreateDocument() {
     if (!fileName.trim() || !fileUrl.trim()) {
       Alert.alert("Dokumenta", "Naziv fajla i URL su obavezni.");
       return;
@@ -154,16 +153,16 @@ export default function TourDocumentsScreen() {
         }
       }
     );
-  };
+  }
 
-  const onOpenDocument = async (url: string) => {
+  async function onOpenDocument(url: string) {
     const canOpen = await Linking.canOpenURL(url);
     if (!canOpen) {
       Alert.alert("Dokument", "Ne mogu da otvorim ovaj URL.");
       return;
     }
     await Linking.openURL(url);
-  };
+  }
 
   return (
     <ScrollView
@@ -171,20 +170,6 @@ export default function TourDocumentsScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
     >
-      <View style={styles.topRow}>
-        <Pressable
-          style={styles.backBtn}
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-              return;
-            }
-            router.replace(`/tours/${tourId}` as never);
-          }}
-        >
-          <Text style={styles.backText}>{"< Nazad"}</Text>
-        </Pressable>
-      </View>
       <Text style={styles.title}>Dokumenta ture</Text>
       <Text style={styles.subtitle}>Slikajte ili izaberite dokument, zatim ga sačuvajte uz turu.</Text>
 
@@ -289,21 +274,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 12
-  },
-  topRow: {
-    marginBottom: 8,
-    flexDirection: "row"
-  },
-  backBtn: {
-    borderWidth: 1,
-    borderColor: "#94a3b8",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8
-  },
-  backText: {
-    color: "#334155",
-    fontWeight: "700"
   },
   sectionTitle: {
     color: T.textPrimary,

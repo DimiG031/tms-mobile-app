@@ -297,3 +297,10 @@ export function resolveNotificationRoute(params: ResolveNotificationRouteParams)
   }
   return "/(driver)/notifications";
 }
+
+export type NotificationSource = "notifications" | "chat-push";
+
+export function withNotificationSource(route: string, source: NotificationSource = "notifications"): string {
+  if (route.includes("from=notifications") || route.includes("from=chat-push")) return route;
+  return `${route}${route.includes("?") ? "&" : "?"}from=${source}`;
+}

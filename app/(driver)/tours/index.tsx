@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link } from "expo-router";
 import { RefreshControl, ScrollView } from "react-native";
 import { Pressable, Text, View } from "@/components/ui";
-import { useAuth } from "@/providers/AuthProvider";
 import { useTours } from "@/queries/useTours";
 import { Theme } from "@/lib/theme";
 import { formatRouteLabel, formatTourDateRange, translateTourStatus } from "@/lib/formatters";
@@ -19,8 +18,7 @@ function matchFilter(filter: FilterType, status: string): boolean {
 }
 
 export default function ToursListScreen() {
-  const { session } = useAuth();
-  const { data, isLoading, isError, refetch } = useTours(session?.user.driverId);
+  const { data, isLoading, isError, refetch } = useTours();
   const [filter, setFilter] = useState<FilterType>("Sve");
   const [isRefreshing, setIsRefreshing] = useState(false);
 

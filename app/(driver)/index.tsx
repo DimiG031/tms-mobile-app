@@ -1,16 +1,22 @@
-import { Link } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Link, useRouter } from "expo-router";
+import type { ComponentProps } from "react";
+import { useState } from "react";
+import { Alert, ScrollView } from "react-native";
 import { Pressable, Text, View } from "@/components/ui";
+import { formatRouteLabel, formatTourDateShort, splitRouteLabel, translateExpenseStatus, translateTourStatus } from "@/lib/formatters";
+import { Theme } from "@/lib/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatThreads } from "@/queries/useChat";
 import { useDashboardData } from "@/queries/useDashboardData";
-import { Theme } from "@/lib/theme";
-import {
-  formatRouteLabel,
-  formatTourDateShort,
-  splitRouteLabel,
-  translateTourStatus
-} from "@/lib/formatters";
+import { useExpenseSheet } from "@/queries/useExpenseSheet";
+import { useMobileProfile } from "@/queries/useMobileProfile";
+import { useToursSummary } from "@/queries/useToursSummary";
+import { useTourChecklist } from "@/queries/useTourChecklist";
+import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
+import type { TourStop } from "@/lib/types";
+
+type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 function getInitials(name?: string | null): string {
   if (!name) return "VO";
@@ -20,38 +26,57 @@ function getInitials(name?: string | null): string {
 }
 
 function statusTone(status?: string | null): { bg: string; text: string } {
-  if (status === "PLANNED")    return { bg: Theme.status.PLANNED.bg,    text: Theme.status.PLANNED.text    };
-  if (status === "CONFIRMED")  return { bg: Theme.status.CONFIRMED.bg,  text: Theme.status.CONFIRMED.text  };
+  if (status === "PLANNED") return { bg: Theme.status.PLANNED.bg, text: Theme.status.PLANNED.text };
+  if (status === "CONFIRMED") return { bg: Theme.status.CONFIRMED.bg, text: Theme.status.CONFIRMED.text };
   if (status === "IN_TRANSIT") return { bg: Theme.status.IN_TRANSIT.bg, text: Theme.status.IN_TRANSIT.text };
-  if (status === "COMPLETED")  return { bg: Theme.status.COMPLETED.bg,  text: Theme.status.COMPLETED.text  };
+  if (status === "COMPLETED") return { bg: Theme.status.COMPLETED.bg, text: Theme.status.COMPLETED.text };
   return { bg: "#e2e8f0", text: "#475569" };
 }
 
 function statusProgress(status?: string | null): number {
-  if (status === "PLANNED")    return 25;
-  if (status === "CONFIRMED")  return 45;
+  if (status === "PLANNED") return 25;
+  if (status === "CONFIRMED") return 45;
   if (status === "IN_TRANSIT") return 70;
-  if (status === "COMPLETED")  return 100;
+  if (status === "COMPLETED") return 100;
   return 0;
 }
 
-function statCard(label: string, value: string) {
+function formatKm(value: number | null | undefined): string {
+  if (!value || Number.isNaN(value)) return "0";
+  return new Intl.NumberFormat("sr-RS", { maximumFractionDigits: 0 }).format(value);
+}
+
+function toursWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "tura";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "ture";
+  return "tura";
+}
+
+function expenseDot(status?: string | null): string {
+  if (status === "OPEN") return "#16a34a";
+  if (status === "SUBMITTED") return "#3b82f6";
+  if (status === "REVISED") return "#f59e0b";
+  if (status === "CONFIRMED" || status === "APPROVED") return "#059669";
+  return "#94a3b8";
+}
+
+function nextStopOf(stops: TourStop[]): TourStop | null {
   return (
-    <View className="flex-1 rounded-2xl px-3 py-3" style={{ backgroundColor: "rgba(255,255,255,0.18)" }}>
-      <Text className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>
-        {label}
-      </Text>
-      <Text className="mt-1 text-4xl font-extrabold text-white">{value}</Text>
-    </View>
+    stops.find((stop) => {
+      const status = stop.status?.toUpperCase();
+      return Boolean(stop.id) && status !== "COMPLETED" && status !== "CANCELLED" && status !== "CANCELED" && status !== "SKIPPED";
+    }) ?? null
   );
 }
 
-function quickAction(
-  href: string,
-  label: string,
-  iconName: React.ComponentProps<typeof MaterialCommunityIcons>["name"],
-  badge?: number
-) {
+function QuickAction({
+  href,
+  label,
+  iconName,
+  badge
+}: Readonly<{ href: string; label: string; iconName: IconName; badge?: number }>) {
   return (
     <Link href={href as "./"} asChild>
       <Pressable
@@ -60,10 +85,7 @@ function quickAction(
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
-            <View
-              className="h-9 w-9 items-center justify-center rounded-xl"
-              style={{ backgroundColor: Theme.accent.primaryLight }}
-            >
+            <View className="h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: Theme.accent.primaryLight }}>
               <MaterialCommunityIcons name={iconName} size={20} color={Theme.accent.primary} />
             </View>
             <Text className="text-base font-semibold" style={{ color: Theme.text.primary }}>
@@ -71,10 +93,7 @@ function quickAction(
             </Text>
           </View>
           {badge && badge > 0 ? (
-            <View
-              className="h-5 min-w-5 items-center justify-center rounded-full px-1"
-              style={{ backgroundColor: "#dc2626" }}
-            >
+            <View className="h-5 min-w-5 items-center justify-center rounded-full px-1" style={{ backgroundColor: "#dc2626" }}>
               <Text className="text-[11px] font-bold text-white">{badge > 99 ? "99+" : badge}</Text>
             </View>
           ) : null}
@@ -84,14 +103,11 @@ function quickAction(
   );
 }
 
-function tourAvatar(routeLabel?: string | null) {
+function TourAvatar({ routeLabel }: Readonly<{ routeLabel?: string | null }>) {
   const { from } = splitRouteLabel(routeLabel);
   const letter = from[0]?.toUpperCase() ?? "T";
   return (
-    <View
-      className="mr-3 h-10 w-10 items-center justify-center rounded-full"
-      style={{ backgroundColor: Theme.accent.primaryLight }}
-    >
+    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: Theme.accent.primaryLight }}>
       <Text className="text-base font-bold" style={{ color: Theme.accent.primary }}>
         {letter}
       </Text>
@@ -101,50 +117,80 @@ function tourAvatar(routeLabel?: string | null) {
 
 export default function DriverHomeScreen() {
   const { session } = useAuth();
-  const { data, isLoading, isError } = useDashboardData(session?.user.driverId);
+  const router = useRouter();
+  const { data, isLoading, isError } = useDashboardData();
+  const { data: mobileProfile } = useMobileProfile(Boolean(session));
   const chatThreadsQuery = useChatThreads();
+  const summaryQuery = useToursSummary();
 
-  const active   = data?.activeTour;
+  const active = data?.activeTour;
+  const activeId = active?.id;
+
+  const stopsQuery = useTourStops(activeId);
+  const checklistQuery = useTourChecklist(activeId);
+  const expenseQuery = useExpenseSheet(activeId);
+  const routeStopAction = useRouteStopAction(activeId);
+  const [pendingAction, setPendingAction] = useState<RouteStopAction | null>(null);
+
   const upcoming = data?.upcomingTours ?? [];
-  const unread   = data?.unreadNotificationsCount ?? 0;
+  const unread = data?.unreadNotificationsCount ?? 0;
   const unreadMessages = chatThreadsQuery.data?.filter((thread) => thread.hasUnread).length ?? 0;
   const progress = statusProgress(active?.status);
   const activeStatusTone = statusTone(active?.status);
   const { from: fromLabel, to: toLabel } = splitRouteLabel(active?.routeLabel);
+  const displayName = mobileProfile?.driver?.name ?? session?.user.name ?? "Vozač";
+  const licenseCategory = mobileProfile?.driver?.licenseCategory;
+
+  const month = summaryQuery.data?.month;
+  const stops = stopsQuery.data ?? [];
+  const nextStop = nextStopOf(stops);
+  const checklist = checklistQuery.data;
+  const sheet = expenseQuery.data;
+
+  function onStopAction(action: RouteStopAction) {
+    if (!nextStop?.id) return;
+    setPendingAction(action);
+    routeStopAction.mutate(
+      { stopId: nextStop.id, action, timestamp: new Date().toISOString() },
+      {
+        onSuccess: () => {
+          Alert.alert("Stanica", action === "ARRIVED" ? "Dolazak je zabeležen." : "Odlazak je zabeležen.");
+        },
+        onError: (error) => {
+          Alert.alert("Stanica", error instanceof Error ? error.message : "Akcija na stanici nije uspela.");
+        },
+        onSettled: () => setPendingAction(null)
+      }
+    );
+  }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: Theme.surface.app }}>
-      {/* ── Header ── */}
-      <View className="rounded-b-3xl px-4 pb-6 pt-5" style={{ backgroundColor: Theme.accent.primary }}>
-        <View className="flex-row items-start justify-between">
+    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ paddingBottom: 34 }}>
+      {/* Header */}
+      <View className="rounded-b-3xl px-4 pb-5 pt-5" style={{ backgroundColor: Theme.accent.primary }}>
+        <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
-            <Text className="text-xs font-semibold uppercase" style={{ color: "rgba(255,255,255,0.88)" }}>
+            <Text className="text-xs font-semibold uppercase" style={{ color: "rgba(255,255,255,0.85)" }}>
               Dobrodošli
             </Text>
-            <Text className="mt-1 text-4xl font-extrabold" style={{ color: Theme.text.inverse }} numberOfLines={1}>
-              {session?.user.name ?? "Vozač"}
+            <Text className="mt-1 text-3xl font-extrabold" style={{ color: Theme.text.inverse }} numberOfLines={1}>
+              {displayName}
             </Text>
-            <Text className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>
-              Vozač · A123-456
+            <Text className="mt-0.5 text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>
+              {licenseCategory ? `Vozač · ${licenseCategory}` : "Vozač"}
             </Text>
           </View>
           <View
-            className="h-14 w-14 items-center justify-center rounded-full"
+            className="h-12 w-12 items-center justify-center rounded-full"
             style={{ backgroundColor: "rgba(255,255,255,0.23)", borderColor: "rgba(255,255,255,0.35)", borderWidth: 1 }}
           >
-            <Text className="text-base font-bold text-white">{getInitials(session?.user.name)}</Text>
+            <Text className="text-base font-bold text-white">{getInitials(displayName)}</Text>
           </View>
-        </View>
-
-        <View className="mt-5 flex-row gap-2">
-          {statCard("Aktivna tura",   active ? "1" : "0")}
-          {statCard("Predstojeće",    String(upcoming.length))}
-          {statCard("Obaveštenja",    String(unread))}
         </View>
       </View>
 
       <View className="px-4 py-4">
-        {/* ── Aktivna tura ── */}
+        {/* Active tour command center */}
         <View className="rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
           <View className="flex-row items-start justify-between">
             <Text className="text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
@@ -157,51 +203,160 @@ export default function DriverHomeScreen() {
             </View>
           </View>
 
-          <Text className="mt-2 text-3xl font-extrabold" style={{ color: Theme.text.primary }}>
+          <Text className="mt-2 text-2xl font-extrabold" style={{ color: Theme.text.primary }}>
             {active ? formatRouteLabel(active.routeLabel) : "Nema aktivne ture"}
           </Text>
-          <Text className="mt-1 text-sm" style={{ color: Theme.text.secondary }}>
-            {formatTourDateShort(active?.dateLabel)}
+          <Text className="mt-0.5 text-sm" style={{ color: Theme.text.secondary }}>
+            {active ? formatTourDateShort(active.dateLabel) : "Trenutno nema ture u toku."}
           </Text>
 
-          <View className="mt-4 h-1.5 rounded-full" style={{ backgroundColor: Theme.accent.primaryLight }}>
-            <View className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: Theme.accent.primary }} />
-          </View>
-          <View className="mt-2 flex-row items-center justify-between">
-            <Text className="text-xs" style={{ color: Theme.text.muted }}>{fromLabel}</Text>
-            <Text className="text-xs" style={{ color: Theme.text.muted }}>{toLabel}</Text>
-          </View>
+          {active ? (
+            <>
+              <View className="mt-3 h-1.5 rounded-full" style={{ backgroundColor: Theme.accent.primaryLight }}>
+                <View className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: Theme.accent.primary }} />
+              </View>
+              <View className="mt-1.5 flex-row items-center justify-between">
+                <Text className="text-xs" style={{ color: Theme.text.muted }}>{fromLabel}</Text>
+                <Text className="text-xs" style={{ color: Theme.text.muted }}>{toLabel}</Text>
+              </View>
 
-          <View className="mt-4 flex-row gap-2">
-            <Link href={active ? `/(driver)/tours/${active.id}` : "/(driver)/tours"} asChild>
-              <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primarySoft }}>
-                <Text className="text-center font-semibold" style={{ color: Theme.accent.primaryDark }}>
-                  Detalji
-                </Text>
+              {/* Next stop with actions */}
+              {nextStop ? (
+                <View className="mt-4 rounded-xl border p-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.subtle }}>
+                  <Text className="text-[11px] font-bold uppercase" style={{ color: Theme.text.muted }}>Sledeća stanica</Text>
+                  <Text className="mt-1 text-base font-extrabold" style={{ color: Theme.text.primary }}>
+                    {nextStop.sequence ? `${nextStop.sequence}. ` : ""}
+                    {nextStop.locationName ?? nextStop.companyName ?? nextStop.city ?? "Stanica"}
+                  </Text>
+                  {nextStop.city || nextStop.country ? (
+                    <Text className="mt-0.5 text-sm" style={{ color: Theme.text.secondary }}>
+                      {[nextStop.city, nextStop.country].filter(Boolean).join(", ")}
+                    </Text>
+                  ) : null}
+                  <View className="mt-3 flex-row gap-2">
+                    <Pressable
+                      onPress={() => onStopAction("ARRIVED")}
+                      disabled={routeStopAction.isPending}
+                      className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
+                      style={{ backgroundColor: Theme.accent.primarySoft }}
+                    >
+                      <Text className="text-center text-sm font-semibold" style={{ color: Theme.accent.primaryDark }}>
+                        {pendingAction === "ARRIVED" ? "Slanje..." : "Stigao"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => onStopAction("DEPARTED")}
+                      disabled={routeStopAction.isPending}
+                      className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
+                      style={{ backgroundColor: Theme.accent.primary }}
+                    >
+                      <Text className="text-center text-sm font-semibold text-white">
+                        {pendingAction === "DEPARTED" ? "Slanje..." : "Krenuo"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Checklist + expense status */}
+              <View className="mt-3 flex-row gap-2">
+                <Link href={`/(driver)/tours/${activeId}/checklist`} asChild>
+                  <Pressable className="flex-1 rounded-xl border p-3" style={{ borderColor: Theme.surface.border }}>
+                    <Text className="text-[11px] font-bold uppercase" style={{ color: Theme.text.muted }}>Checklist</Text>
+                    <Text className="mt-1 text-lg font-extrabold" style={{ color: Theme.text.primary }}>
+                      {checklist ? `${checklist.completedCount}/${checklist.items.length}` : "—"}
+                    </Text>
+                    <Text className="text-xs" style={{ color: checklist && checklist.requiredRemaining > 0 ? "#b45309" : Theme.text.secondary }}>
+                      {checklist
+                        ? checklist.requiredRemaining > 0
+                          ? `Obavezno: ${checklist.requiredRemaining}`
+                          : "Spremno"
+                        : "Otvori"}
+                    </Text>
+                  </Pressable>
+                </Link>
+                <Link href={`/(driver)/tours/${activeId}/expense`} asChild>
+                  <Pressable className="flex-1 rounded-xl border p-3" style={{ borderColor: Theme.surface.border }}>
+                    <Text className="text-[11px] font-bold uppercase" style={{ color: Theme.text.muted }}>Troškovnik</Text>
+                    <View className="mt-1 flex-row items-center gap-1.5">
+                      <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: expenseDot(sheet?.status) }} />
+                      <Text className="text-base font-extrabold" style={{ color: Theme.text.primary }}>
+                        {sheet ? translateExpenseStatus(sheet.status) : "Nema"}
+                      </Text>
+                    </View>
+                    <Text className="text-xs" style={{ color: Theme.text.secondary }}>
+                      {sheet?.status === "REVISED" ? "Potrebna potvrda" : "Otvori"}
+                    </Text>
+                  </Pressable>
+                </Link>
+              </View>
+
+              {/* Detail links */}
+              <View className="mt-3 flex-row gap-2">
+                <Link href={`/(driver)/tours/${activeId}`} asChild>
+                  <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primarySoft }}>
+                    <Text className="text-center font-semibold" style={{ color: Theme.accent.primaryDark }}>Detaljnije</Text>
+                  </Pressable>
+                </Link>
+                <Link href={`/(driver)/tours/${activeId}/documents`} asChild>
+                  <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: "#1f4e92" }}>
+                    <Text className="text-center font-semibold text-white">Dokumenta</Text>
+                  </Pressable>
+                </Link>
+              </View>
+
+              {/* SOS */}
+              <Pressable
+                onPress={() => router.push(`/(driver)/tours/${activeId}/sos` as never)}
+                className="mt-2 flex-row items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3"
+              >
+                <MaterialCommunityIcons name="alert-octagon-outline" size={18} color="#fff" />
+                <Text className="text-center font-extrabold text-white">SOS — hitan poziv</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Link href="/(driver)/tours" asChild>
+              <Pressable className="mt-4 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primary }}>
+                <Text className="text-center font-semibold text-white">Pogledaj sve ture</Text>
               </Pressable>
             </Link>
-            <Link href={active ? `/(driver)/tours/${active.id}/expense` : "/(driver)/tours"} asChild>
-              <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primary }}>
-                <Text className="text-center font-semibold text-white">Troškovi</Text>
-              </Pressable>
-            </Link>
-          </View>
+          )}
         </View>
 
-        {/* ── Brze akcije ── */}
+        {/* Monthly summary */}
+        <Link href="/(driver)/istorija" asChild>
+          <Pressable className="mt-3 flex-row items-center justify-between rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+            <View className="flex-1">
+              <Text className="text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
+                {month?.label ? `Ovog meseca · ${month.label}` : "Ovog meseca"}
+              </Text>
+              <Text className="mt-1 text-xl font-extrabold" style={{ color: Theme.text.primary }}>
+                {month ? `${month.tours} ${toursWord(month.tours)} · ${formatKm(month.km)} km` : "—"}
+              </Text>
+              {month ? (
+                <Text className="mt-0.5 text-sm" style={{ color: Theme.text.secondary }}>
+                  Završeno: {month.completed} · U toku: {month.activeTours}
+                </Text>
+              ) : null}
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={Theme.text.muted} />
+          </Pressable>
+        </Link>
+
+        {/* Quick actions */}
         <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
           <Text className="mb-3 text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
             Brze akcije
           </Text>
           <View className="flex-row flex-wrap gap-2">
-            {quickAction("/(driver)/tours",         "Sve ture",     "truck-outline")}
-            {quickAction("/(driver)/chat",          "Poruke",       "message-text-outline", unreadMessages)}
-            {quickAction("/(driver)/notifications", "Obaveštenja",  "bell-outline", unread)}
-            {quickAction("/(driver)/profile",       "Profil",       "account-outline")}
+            <QuickAction href="/(driver)/tours" label="Sve ture" iconName="truck-outline" />
+            <QuickAction href="/(driver)/istorija" label="Istorija" iconName="history" />
+            <QuickAction href="/(driver)/chat" label="Poruke" iconName="message-text-outline" badge={unreadMessages} />
+            <QuickAction href="/(driver)/notifications" label="Obaveštenja" iconName="bell-outline" badge={unread} />
           </View>
         </View>
 
-        {/* ── Predstojeće ture ── */}
+        {/* Upcoming tours */}
         <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
           <View className="flex-row items-center justify-between">
             <Text className="text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
@@ -220,15 +375,12 @@ export default function DriverHomeScreen() {
             const tone = statusTone(tour.status);
             return (
               <Link key={tour.id} href={`/(driver)/tours/${tour.id}`} asChild>
-                <Pressable
-                  className="mt-3 rounded-xl border px-3 py-3"
-                  style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.subtle }}
-                >
+                <Pressable className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.subtle }}>
                   <View className="flex-row items-center">
-                    {tourAvatar(tour.routeLabel)}
+                    <TourAvatar routeLabel={tour.routeLabel} />
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between gap-2">
-                        <Text className="text-base font-extrabold flex-1" style={{ color: Theme.text.primary }} numberOfLines={1}>
+                        <Text className="flex-1 text-base font-extrabold" style={{ color: Theme.text.primary }} numberOfLines={1}>
                           {formatRouteLabel(tour.routeLabel)}
                         </Text>
                         <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: tone.bg }}>
@@ -255,8 +407,8 @@ export default function DriverHomeScreen() {
         </View>
 
         {isLoading ? <Text className="mt-4 text-sm" style={{ color: Theme.text.muted }}>Osvežavanje podataka...</Text> : null}
-        {isError   ? <Text className="mt-4 text-sm text-red-600">Greška pri učitavanju podataka.</Text> : null}
+        {isError ? <Text className="mt-4 text-sm text-red-600">Greška pri učitavanju podataka.</Text> : null}
       </View>
-    </View>
+    </ScrollView>
   );
 }

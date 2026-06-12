@@ -16,6 +16,9 @@ export default function ToursLayout() {
       <Stack.Screen name="[id]/details" options={{ title: "Detaljnije" }} />
       <Stack.Screen name="[id]/expense" options={{ title: "Troškovnik" }} />
       <Stack.Screen name="[id]/documents" options={{ title: "Dokumenta" }} />
+      <Stack.Screen name="[id]/checklist" options={{ title: "Checklist" }} />
+      <Stack.Screen name="[id]/issues" options={{ title: "Prijavi problem" }} />
+      <Stack.Screen name="[id]/sos" options={{ title: "SOS" }} />
     </Stack>
   );
 }

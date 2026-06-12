@@ -31,10 +31,6 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function isSuperAdminRole(role: string | null | undefined): boolean {
-  return (role ?? "").toUpperCase() === "SUPERADMIN";
-}
-
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
@@ -101,11 +97,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     if (!session && !isInAuth) {
       router.replace("/login");
-      return;
-    }
-
-    if (session && !session.user.driverId && !isSuperAdminRole(session.user.role)) {
-      void signOut();
       return;
     }
 

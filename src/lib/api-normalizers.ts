@@ -1,4 +1,4 @@
-import type { TourStop } from "@/lib/types";
+import type { Tour, TourStop } from "@/lib/types";
 
 type MaybePaged<T> = {
   items: T[];
@@ -169,6 +169,7 @@ export function normalizeTourStop(value: unknown, fallbackSequence: number): Tou
   const forwarderCountry = asObject(forwarderCity?.country);
 
   return {
+    id: pickString(obj, ["id"]) ?? null,
     sequence: pickNumber(obj, ["sequence", "order", "position", "stopNumber"]) ?? fallbackSequence,
     type: pickString(obj, ["stopType", "type", "kind"]),
     locationName:
@@ -300,7 +301,7 @@ function formatDateLabel(startDate: string | null, endDate: string | null): stri
   return start ?? end ?? "-";
 }
 
-export function normalizeTourSummary(value: unknown) {
+export function normalizeTourSummary(value: unknown): Tour | null {
   const obj = asObject(value);
   if (!obj) return null;
 
@@ -324,7 +325,14 @@ export function normalizeTourSummary(value: unknown) {
     id,
     status: pickString(obj, ["status"]) ?? "PLANNED",
     routeLabel,
-    dateLabel
+    dateLabel,
+    distanceKm: pickNumber(obj, [
+      "distanceKm",
+      "routeDistanceKm",
+      "totalDistanceKm",
+      "plannedDistanceKm",
+      "mileageKm"
+    ])
   };
 }
 

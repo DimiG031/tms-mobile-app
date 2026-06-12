@@ -31,14 +31,85 @@ export type AuthSession = {
   user: MobileAuthUser;
 };
 
+export type MobileModuleKey =
+  | "home"
+  | "tours"
+  | "chat"
+  | "notifications"
+  | "documents"
+  | "profile"
+  | string;
+
+export type MobilePermissions = Record<string, string[]>;
+
+export type MobileProfilePreferences = {
+  selectedModules: MobileModuleKey[];
+  moduleOrder: MobileModuleKey[];
+  sliceNavigationEnabled: boolean;
+};
+
+export type MobileProfileSettings = {
+  locale: string | null;
+  timezone: string | null;
+  dateFormat: string | null;
+  theme: string | null;
+  notifyEmail: boolean;
+  notifyWeb: boolean;
+  notifyMobile: boolean;
+};
+
+export type MobileThemePreference = "system" | "light" | "dark";
+
+export type TourChecklistItem = {
+  id: string;
+  label: string;
+  required: boolean;
+  completed: boolean;
+  completedAt: string | null;
+};
+
+export type TourChecklist = {
+  tourId: string;
+  items: TourChecklistItem[];
+  completedCount: number;
+  requiredRemaining: number;
+};
+
+export type TourIssueType =
+  | "DELAY"
+  | "ACCIDENT"
+  | "DOCUMENT_PROBLEM"
+  | "VEHICLE_PROBLEM"
+  | "CUSTOMS_PROBLEM"
+  | "OTHER";
+
+export type TourIssueSeverity = "LOW" | "NORMAL" | "HIGH";
+
+export type MobileProfile = {
+  user: MobileAuthUser;
+  permissions: MobilePermissions;
+  availableMobileModules: MobileModuleKey[];
+  preferences: MobileProfilePreferences;
+  settings: MobileProfileSettings;
+  driver: Partial<MobileDriverProfile["driver"]> | null;
+  company: {
+    id: string;
+    name: string;
+  } | null;
+};
+
 export type Tour = {
   id: string;
   status: "PLANNED" | "CONFIRMED" | "IN_TRANSIT" | "COMPLETED" | string;
   routeLabel: string;
   dateLabel: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  distanceKm?: number | null;
 };
 
 export type TourStop = {
+  id: string | null;
   sequence: number | null;
   type: string | null;
   locationName: string | null;
@@ -145,7 +216,7 @@ export type MobileDriverProfile = {
   };
 };
 
-export type ExpenseSheetStatus = "OPEN" | "SUBMITTED" | "APPROVED" | "CLOSED";
+export type ExpenseSheetStatus = "OPEN" | "SUBMITTED" | "REVISED" | "CONFIRMED" | "APPROVED" | "CLOSED";
 
 export type ExpenseItem = {
   id: string;

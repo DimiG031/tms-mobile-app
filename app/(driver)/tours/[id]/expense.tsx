@@ -5,6 +5,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useTourDetails } from "@/queries/useTourDetails";
 import {
+  useConfirmExpenseSheet,
   useCreateExpenseItem,
   useCreateExpenseSheet,
   useDeleteExpenseItem,
@@ -13,7 +14,7 @@ import {
   useUpdateExpenseSheet
 } from "@/queries/useExpenseSheet";
 import type { ExpenseItem } from "@/lib/types";
-import { formatDate, formatRouteLabel } from "@/lib/formatters";
+import { formatDate, formatRouteLabel, translateExpenseStatus } from "@/lib/formatters";
 import { uploadFromFileUri } from "@/services/upload";
 
 type Currency = "EUR" | "RSD";
@@ -94,7 +95,8 @@ function getCountryMeta(code: string): { label: string; flag: string } {
 function statusBadgeClass(status: string): string {
   if (status === "OPEN") return "bg-green-100 text-green-700";
   if (status === "SUBMITTED") return "bg-blue-100 text-blue-700";
-  if (status === "APPROVED") return "bg-emerald-100 text-emerald-700";
+  if (status === "REVISED") return "bg-amber-100 text-amber-700";
+  if (status === "CONFIRMED" || status === "APPROVED") return "bg-emerald-100 text-emerald-700";
   return "bg-slate-200 text-slate-700";
 }
 
@@ -122,6 +124,7 @@ export default function TourExpenseScreen() {
   const createItem = useCreateExpenseItem(sheet?.id, tourId);
   const updateItem = useUpdateExpenseItem(sheet?.id, tourId);
   const deleteItem = useDeleteExpenseItem(sheet?.id, tourId);
+  const confirmSheet = useConfirmExpenseSheet(tourId);
 
   const [isCreateSheetModalVisible, setCreateSheetModalVisible] = useState(false);
   const [isAdvanceModalVisible, setAdvanceModalVisible] = useState(false);
@@ -369,6 +372,53 @@ export default function TourExpenseScreen() {
     ]);
   }
 
+  function onConfirmRevision() {
+    if (!sheet || sheet.status !== "REVISED") return;
+    Alert.alert("Potvrda izmene", "Potvrđuješ izmene koje je dispečer uneo u troškovnik?", [
+      { text: "Odustani", style: "cancel" },
+      {
+        text: "Potvrdi",
+        onPress: () => {
+          confirmSheet.mutate(
+            { action: "CONFIRM" },
+            {
+              onError: (error) => {
+                const message = error instanceof Error ? error.message : "Neuspešna potvrda izmene.";
+                Alert.alert("Troškovnik", message);
+              }
+            }
+          );
+        }
+      }
+    ]);
+  }
+
+  function onRejectRevision() {
+    if (!sheet || sheet.status !== "REVISED") return;
+    Alert.alert(
+      "Vraćanje na doradu",
+      "Vraćaš troškovnik na doradu? Ponovo ćeš moći da menjaš stavke i da ga pošalješ.",
+      [
+        { text: "Odustani", style: "cancel" },
+        {
+          text: "Vrati na doradu",
+          style: "destructive",
+          onPress: () => {
+            confirmSheet.mutate(
+              { action: "REJECT" },
+              {
+                onError: (error) => {
+                  const message = error instanceof Error ? error.message : "Neuspešno vraćanje na doradu.";
+                  Alert.alert("Troškovnik", message);
+                }
+              }
+            );
+          }
+        }
+      ]
+    );
+  }
+
   async function pickReceipt(source: "camera" | "library") {
     const imagePicker = getImagePicker();
     if (!imagePicker) {
@@ -509,8 +559,35 @@ export default function TourExpenseScreen() {
       <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
 
       <View className="mt-3 flex-row items-center justify-between">
-        <Text className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(sheet.status)}`}>{sheet.status}</Text>
+        <Text className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(sheet.status)}`}>{translateExpenseStatus(sheet.status)}</Text>
       </View>
+
+      {sheet.status === "REVISED" ? (
+        <View className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <Text className="font-semibold text-amber-800">Dispečer je izmenio troškovnik</Text>
+          <Text className="mt-1 text-amber-700">
+            Pregledaj izmenjene stavke i potvrdi ih, ili vrati troškovnik na doradu da ga sam ispraviš i ponovo pošalješ.
+          </Text>
+          <View className="mt-3 flex-row gap-2">
+            <Pressable
+              onPress={onConfirmRevision}
+              disabled={confirmSheet.isPending}
+              className="flex-1 rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"
+            >
+              <Text className="text-center font-semibold text-white">
+                {confirmSheet.isPending ? "Slanje..." : "Potvrdi izmene"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onRejectRevision}
+              disabled={confirmSheet.isPending}
+              className="flex-1 rounded-xl border border-amber-400 px-4 py-3 disabled:opacity-60"
+            >
+              <Text className="text-center font-semibold text-amber-800">Vrati na doradu</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <View className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <View className="flex-row items-center justify-between">
@@ -619,7 +696,7 @@ export default function TourExpenseScreen() {
           className="flex-1 rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"
         >
           <Text className="text-center font-semibold text-white">
-            {updateSheet.isPending ? "Predaja..." : isReadOnly ? `Status: ${sheet.status}` : "Predaj troškovnik"}
+            {updateSheet.isPending ? "Predaja..." : isReadOnly ? `Status: ${translateExpenseStatus(sheet.status)}` : "Predaj troškovnik"}
           </Text>
         </Pressable>
       </View>

@@ -150,6 +150,25 @@ export function useUpdateExpenseItem(sheetId?: string, tourId?: string) {
   });
 }
 
+export function useConfirmExpenseSheet(tourId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { action: "CONFIRM" | "REJECT"; note?: string | null }) => {
+      if (!tourId) throw new Error("Missing tour id");
+      const payload: Record<string, unknown> = { action: params.action };
+      const trimmedNote = params.note?.trim();
+      if (trimmedNote) payload.note = trimmedNote;
+      await api.postQueued(`/api/mobile/tours/${tourId}/expense-sheet/confirm`, payload);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["expense-sheet", tourId] });
+      await queryClient.invalidateQueries({ queryKey: ["tour-details", tourId] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    }
+  });
+}
+
 export function useDeleteExpenseItem(sheetId?: string, tourId?: string) {
   const queryClient = useQueryClient();
 

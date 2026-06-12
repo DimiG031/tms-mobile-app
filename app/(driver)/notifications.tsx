@@ -9,9 +9,8 @@ import {
   useMarkNotificationRead,
   useNotificationsInfinite
 } from "@/queries/useNotifications";
-import { resolveNotificationRoute } from "@/services/notifications";
+import { resolveNotificationRoute, withNotificationSource } from "@/services/notifications";
 import { Theme, formatSrDateTime } from "@/lib/theme";
-import { useAuth } from "@/providers/AuthProvider";
 
 function severityClass(severity: AppNotification["severity"]): string {
   if (severity === "critical") return "border-red-300 bg-red-50";
@@ -22,8 +21,7 @@ function severityClass(severity: AppNotification["severity"]): string {
 export default function NotificationsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { session } = useAuth();
-  const notificationsQuery = useNotificationsInfinite(20, session?.user.driverId);
+  const notificationsQuery = useNotificationsInfinite(20);
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -49,26 +47,26 @@ export default function NotificationsScreen() {
     }
   }
 
-  const onOpenNotification = async (notification: AppNotification) => {
+  async function onOpenNotification(notification: AppNotification) {
     if (!notification.isRead) {
       try {
         await markRead.mutateAsync(notification.id);
       } catch {
-        // Continue navigation even if mark-read fails.
+        // Navigacija treba da radi i ako backend trenutno odbije mark-read.
       }
     }
 
-    const route = resolveNotificationRoute({
+    const route = withNotificationSource(resolveNotificationRoute({
       actionUrl: notification.actionUrl,
       notificationId: notification.id,
       metadata: notification.metadata,
       threadId: notification.metadata?.threadId,
       tourId: notification.metadata?.tourId
-    });
+    }));
     router.push(route as never);
-  };
+  }
 
-  const onMarkAsRead = (id: string) => {
+  function onMarkAsRead(id: string) {
     setPendingNotificationId(id);
     markRead.mutate(id, {
       onError: (error) => {
@@ -79,16 +77,16 @@ export default function NotificationsScreen() {
         setPendingNotificationId((current) => (current === id ? null : current));
       }
     });
-  };
+  }
 
-  const onMarkAllRead = () => {
+  function onMarkAllRead() {
     markAllRead.mutate(undefined, {
       onError: (error) => {
         const message = error instanceof Error ? error.message : "Označavanje svih obaveštenja nije uspelo.";
         Alert.alert("Obaveštenja", message);
       }
     });
-  };
+  }
 
   const unread = items.filter((item) => !item.isRead).length;
 

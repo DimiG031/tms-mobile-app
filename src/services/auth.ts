@@ -12,10 +12,6 @@ function extractErrorMessage(payload: ErrorPayload | null, fallback: string): st
   return payload?.error || payload?.message || fallback;
 }
 
-function isSuperAdminRole(role: string | null | undefined): boolean {
-  return (role ?? "").toUpperCase() === "SUPERADMIN";
-}
-
 export async function mobileLogin(email: string, password: string): Promise<AuthSession> {
   const response = await fetch(`${config.apiUrl}/api/auth/mobile-login`, {
     method: "POST",
@@ -34,10 +30,6 @@ export async function mobileLogin(email: string, password: string): Promise<Auth
     refreshToken: payload.data.refreshToken,
     user: payload.data.user
   };
-
-  if (!session.user.driverId && !isSuperAdminRole(session.user.role)) {
-    throw new Error("Nalog nije vozač");
-  }
 
   await saveSession(session);
   return session;

@@ -24,11 +24,15 @@ function getNextStatusLabel(status?: string): { buttonLabel: string; nextStatus:
   return null;
 }
 
-function BackButton() {
+function BackButton({ fromNotifications }: Readonly<{ fromNotifications: boolean }>) {
   const router = useRouter();
   return (
     <Pressable
       onPress={() => {
+        if (fromNotifications) {
+          router.replace("/(driver)/notifications");
+          return;
+        }
         if (router.canGoBack()) router.back();
         else router.replace("/(driver)/tours");
       }}
@@ -39,11 +43,11 @@ function BackButton() {
   );
 }
 
-const headerLeft = () => <BackButton />;
-
 export default function TourDetailsScreen() {
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; from?: string }>();
   const tourId = params.id;
+  const fromNotifications = params.from === "notifications";
+  const sourceQuery = fromNotifications ? "?from=notifications" : "";
   const { data } = useTourDetails(tourId);
   const { data: sheet } = useExpenseSheet(tourId);
   const updateStatus = useUpdateTourStatus(tourId);
@@ -52,7 +56,7 @@ export default function TourDetailsScreen() {
   const nextStatus = getNextStatusLabel(data?.status);
   const blockComplete = data?.status?.toUpperCase() === "IN_TRANSIT" && sheet?.status === "OPEN";
 
-  const onUpdateStatus = () => {
+  function onUpdateStatus() {
     if (!nextStatus || !data) return;
     updateStatus.mutate(
       { status: nextStatus.nextStatus, vehicleId: data.vehicleId ?? null },
@@ -63,11 +67,11 @@ export default function TourDetailsScreen() {
         }
       }
     );
-  };
+  }
 
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-      <Stack.Screen options={{ headerLeft }} />
+      <Stack.Screen options={{ headerLeft: () => <BackButton fromNotifications={fromNotifications} /> }} />
       <Text className="text-4xl font-extrabold text-slate-900">
         {data?.routeLabel ? formatRouteLabel(data.routeLabel) : "Detalji ture"}
       </Text>
@@ -128,24 +132,43 @@ export default function TourDetailsScreen() {
       </View>
 
       <View className="mt-4 gap-3">
-        <Link href={`/(driver)/tours/${tourId}/details`} asChild>
+        <Link href={`/(driver)/tours/${tourId}/details${sourceQuery}`} asChild>
           <Pressable className="rounded-xl px-4 py-3" style={{ backgroundColor: "#0f766e" }}>
             <Text className="text-center font-semibold text-white">Detaljnije</Text>
           </Pressable>
         </Link>
 
         <View className="flex-row gap-3">
-          <Link href={`/(driver)/tours/${tourId}/expense`} asChild>
+          <Link href={`/(driver)/tours/${tourId}/expense${sourceQuery}`} asChild>
             <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primary }}>
               <Text className="text-center font-semibold text-white">Troškovi</Text>
             </Pressable>
           </Link>
-          <Link href={`/(driver)/tours/${tourId}/documents`} asChild>
+          <Link href={`/(driver)/tours/${tourId}/documents${sourceQuery}`} asChild>
             <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: "#1f4e92" }}>
               <Text className="text-center font-semibold text-white">Dokumenta</Text>
             </Pressable>
           </Link>
         </View>
+
+        <View className="flex-row gap-3">
+          <Link href={`/(driver)/tours/${tourId}/checklist`} asChild>
+            <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+              <Text className="text-center font-semibold" style={{ color: Theme.text.primary }}>Checklist</Text>
+            </Pressable>
+          </Link>
+          <Link href={`/(driver)/tours/${tourId}/issues`} asChild>
+            <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+              <Text className="text-center font-semibold" style={{ color: Theme.text.primary }}>Prijavi problem</Text>
+            </Pressable>
+          </Link>
+        </View>
+
+        <Link href={`/(driver)/tours/${tourId}/sos`} asChild>
+          <Pressable className="rounded-xl bg-red-600 px-4 py-3">
+            <Text className="text-center font-extrabold text-white">SOS — hitan poziv</Text>
+          </Pressable>
+        </Link>
       </View>
     </ScrollView>
   );

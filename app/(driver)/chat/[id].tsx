@@ -1,7 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useNetInfo } from "@react-native-community/netinfo";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useNetInfo } from "@react-native-community/netinfo";
 import { Pressable, TextInput } from "@/components/ui";
 import { LightTokens as T } from "@/lib/theme";
 import { useAuth } from "@/providers/AuthProvider";
@@ -22,8 +23,11 @@ function dedupeAndSortMessages(items: ChatMessage[]): ChatMessage[] {
 }
 
 export default function ChatThreadScreen() {
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; from?: string }>();
   const threadId = params.id;
+  const fromNotifications = params.from === "notifications";
+  const fromChatPush = params.from === "chat-push";
+  const router = useRouter();
   const netInfo = useNetInfo();
   const { session } = useAuth();
 
@@ -59,11 +63,11 @@ export default function ChatThreadScreen() {
   const latestMessageId = messages.length ? messages[messages.length - 1].id : null;
   const hasNextCursor = Boolean(messagesQuery.data?.pages[messagesQuery.data.pages.length - 1]?.nextCursor);
 
-  const scrollToBottom = () => {
+  function scrollToBottom() {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: true });
     });
-  };
+  }
 
   useEffect(() => {
     didInitialScrollRef.current = false;
@@ -91,7 +95,7 @@ export default function ChatThreadScreen() {
     }
   }, [latestMessageId]);
 
-  const onSend = () => {
+  function onSend() {
     const trimmed = body.trim();
     if (!trimmed) return;
 
@@ -108,16 +112,30 @@ export default function ChatThreadScreen() {
         Alert.alert("Poruke", message);
       }
     });
-  };
+  }
 
-  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  function onScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const threshold = 48;
     isAtBottomRef.current = layoutMeasurement.height + contentOffset.y >= contentSize.height - threshold;
-  };
+  }
 
   return (
     <View style={styles.screen}>
+      <Stack.Screen
+        options={{
+          headerLeft: fromNotifications || fromChatPush
+            ? () => (
+                <Pressable
+                  onPress={() => router.replace(fromChatPush ? "/(driver)/chat" : "/(driver)/notifications")}
+                  style={{ paddingRight: 8 }}
+                >
+                  <Ionicons name="chevron-back" size={26} color="#0d7d72" />
+                </Pressable>
+              )
+            : undefined
+        }}
+      />
       <View style={styles.listWrap}>
         <FlatList
           ref={listRef}
@@ -145,7 +163,13 @@ export default function ChatThreadScreen() {
               </View>
             );
           }}
-          ListEmptyComponent={!messagesQuery.isLoading ? <View style={styles.emptyCard}><Text style={styles.empty}>Nema poruka. Pošaljite prvu poruku.</Text></View> : null}
+          ListEmptyComponent={
+            !messagesQuery.isLoading ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.empty}>Nema poruka. Pošaljite prvu poruku.</Text>
+              </View>
+            ) : null
+          }
         />
       </View>
 
@@ -158,7 +182,11 @@ export default function ChatThreadScreen() {
           multiline
           className="max-h-28 min-h-[44px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2"
         />
-        <Pressable style={[styles.sendBtn, (!netInfo.isConnected || !body.trim() || sendMessage.isPending) ? styles.disabled : null]} onPress={onSend} disabled={!netInfo.isConnected || !body.trim() || sendMessage.isPending}>
+        <Pressable
+          style={[styles.sendBtn, (!netInfo.isConnected || !body.trim() || sendMessage.isPending) ? styles.disabled : null]}
+          onPress={onSend}
+          disabled={!netInfo.isConnected || !body.trim() || sendMessage.isPending}
+        >
           <Text style={styles.sendText}>{sendMessage.isPending ? "..." : "Pošalji"}</Text>
         </Pressable>
       </View>

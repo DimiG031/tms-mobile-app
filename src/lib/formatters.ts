@@ -60,6 +60,17 @@ export function tourStatusClass(status?: string | null): string {
   return "bg-slate-100 text-slate-700";
 }
 
+export function translateExpenseStatus(status?: string | null): string {
+  const normalized = status?.toUpperCase();
+  if (normalized === "OPEN") return "Otvoren";
+  if (normalized === "SUBMITTED") return "Predat";
+  if (normalized === "REVISED") return "Izmenjen";
+  if (normalized === "CONFIRMED") return "Potvrđen";
+  if (normalized === "APPROVED") return "Odobren";
+  if (normalized === "CLOSED") return "Zatvoren";
+  return status ?? "-";
+}
+
 export function translateSeverity(severity?: string | null): string {
   if (severity === "critical") return "Kritično";
   if (severity === "warning") return "Upozorenje";

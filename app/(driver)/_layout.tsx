@@ -1,35 +1,262 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import type { ComponentProps } from "react";
+import { useMemo, useState } from "react";
+import { PanResponder, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/providers/AuthProvider";
+import { useMobileProfile } from "@/queries/useMobileProfile";
+import {
+  getModuleDefinition,
+  getSliceModules,
+  getVisibleTabModules,
+  type MobileModuleDefinition
+} from "@/lib/mobile-modules";
 import { Theme } from "@/lib/theme";
+import type { MobileProfile } from "@/lib/types";
 
+type IconName = ComponentProps<typeof Ionicons>["name"];
 type IconProps = Readonly<{ color: string; size?: number }>;
+type RouteItem = { key: string; name: string };
+type TabBarProps = {
+  state: { index: number; routes: RouteItem[] };
+  navigation: { navigate: (name: string) => void };
+};
 
-function HomeIcon({ color, size }: IconProps) {
-  return <Ionicons name="home-outline" size={size ?? 20} color={color} />;
+const TOP_LEVEL_TAB_ROUTES = ["index", "tours", "chat", "notifications", "documents", "more", "profile"];
+
+function makeTabIcon(name: IconName) {
+  return function TabIcon({ color, size }: IconProps) {
+    return <Ionicons name={name} size={size ?? 20} color={color} />;
+  };
 }
-function ToursIcon({ color, size }: IconProps) {
-  return <Ionicons name="trail-sign-outline" size={size ?? 20} color={color} />;
+
+function wrapIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return ((index % length) + length) % length;
 }
-function ChatIcon({ color, size }: IconProps) {
-  return <Ionicons name="chatbubble-ellipses-outline" size={size ?? 20} color={color} />;
+
+function BottomNavItem({
+  label,
+  icon,
+  active,
+  onPress
+}: {
+  label: string;
+  icon: IconName;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const color = active ? Theme.accent.primary : Theme.text.muted;
+
+  return (
+    <Pressable onPress={onPress} style={{ flex: 1, alignItems: "center", justifyContent: "center", minHeight: 54 }}>
+      <Ionicons name={icon} size={22} color={color} />
+      <Text style={{ marginTop: 2, fontSize: 11, fontWeight: "600", color }}>{label}</Text>
+    </Pressable>
+  );
 }
-function NotificationsIcon({ color, size }: IconProps) {
-  return <Ionicons name="notifications-outline" size={size ?? 20} color={color} />;
+
+function ModuleWheel({
+  modules,
+  activeIndex,
+  onRotate,
+  onSelect
+}: {
+  modules: MobileModuleDefinition[];
+  activeIndex: number;
+  onRotate: (direction: -1 | 1) => void;
+  onSelect: (index: number) => void;
+}) {
+  const activeModule = modules[wrapIndex(activeIndex, modules.length)];
+  const previousModule = modules[wrapIndex(activeIndex - 1, modules.length)];
+  const nextModule = modules[wrapIndex(activeIndex + 1, modules.length)];
+  const previousIndex = wrapIndex(activeIndex - 1, modules.length);
+  const nextIndex = wrapIndex(activeIndex + 1, modules.length);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dx > 26) {
+            onRotate(-1);
+          } else if (gesture.dx < -26) {
+            onRotate(1);
+          }
+        }
+      }),
+    [onRotate]
+  );
+
+  if (!activeModule) return null;
+
+  return (
+    <View
+      style={{
+        marginHorizontal: 14,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: Theme.surface.border,
+        borderRadius: 22,
+        backgroundColor: Theme.surface.card,
+        overflow: "hidden",
+        height: 154
+      }}
+      {...panResponder.panHandlers}
+    >
+      <View
+        style={{
+          position: "absolute",
+          alignSelf: "center",
+          top: 38,
+          width: 285,
+          height: 285,
+          borderRadius: 142.5,
+          borderWidth: 1,
+          borderColor: Theme.surface.border,
+          backgroundColor: "#f8fafc"
+        }}
+      >
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 102,
+            width: 80,
+            height: 5,
+            borderRadius: 999,
+            backgroundColor: Theme.accent.primary
+          }}
+        />
+
+        {previousModule ? (
+          <Pressable
+            onPress={() => onSelect(previousIndex)}
+            style={{ position: "absolute", left: 28, top: 35, width: 82, alignItems: "center", opacity: 0.46 }}
+          >
+            <View style={{ height: 45, width: 45, borderRadius: 22.5, alignItems: "center", justifyContent: "center", backgroundColor: Theme.accent.primaryLight }}>
+              <Ionicons name={previousModule.icon} size={20} color={Theme.accent.primary} />
+            </View>
+          </Pressable>
+        ) : null}
+
+        <Pressable
+          onPress={() => onSelect(activeIndex)}
+          style={{ position: "absolute", left: 88.5, top: 5, width: 108, alignItems: "center" }}
+        >
+          <View style={{ height: 62, width: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: Theme.accent.primary }}>
+            <Ionicons name={activeModule.icon} size={29} color="#fff" />
+          </View>
+          <Text numberOfLines={1} style={{ marginTop: 6, fontSize: 14, fontWeight: "800", color: Theme.text.primary }}>
+            {activeModule.label}
+          </Text>
+        </Pressable>
+
+        {nextModule ? (
+          <Pressable
+            onPress={() => onSelect(nextIndex)}
+            style={{ position: "absolute", right: 28, top: 35, width: 82, alignItems: "center", opacity: 0.46 }}
+          >
+            <View style={{ height: 45, width: 45, borderRadius: 22.5, alignItems: "center", justifyContent: "center", backgroundColor: Theme.accent.primaryLight }}>
+              <Ionicons name={nextModule.icon} size={20} color={Theme.accent.primary} />
+            </View>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
 }
-function ProfileIcon({ color, size }: IconProps) {
-  return <Ionicons name="person-outline" size={size ?? 20} color={color} />;
+
+function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: MobileProfile | null }) {
+  const insets = useSafeAreaInsets();
+  const visibleTabs = getVisibleTabModules(profile);
+  const sliceModules = getSliceModules(profile);
+  const isSliceMode = Boolean(profile?.preferences.sliceNavigationEnabled && sliceModules.length > 0 && visibleTabs.some((module) => module.key === "more"));
+  const [wheelOpen, setWheelOpen] = useState(false);
+  const [activeWheelIndex, setActiveWheelIndex] = useState(0);
+
+  const currentRouteName = state.routes[state.index]?.name;
+  const tabs = useMemo(
+    () => visibleTabs.filter((module) => module.routeName),
+    [visibleTabs]
+  );
+
+  function openModule(module: MobileModuleDefinition) {
+    if (!module.routeName) return;
+    setWheelOpen(false);
+    navigation.navigate(module.routeName);
+  }
+
+  function selectWheelModule(index: number) {
+    const normalizedIndex = wrapIndex(index, sliceModules.length);
+    if (normalizedIndex === activeWheelIndex) {
+      const activeModule = sliceModules[normalizedIndex];
+      if (activeModule) openModule(activeModule);
+      return;
+    }
+    setActiveWheelIndex(normalizedIndex);
+  }
+
+  return (
+    <View style={{ backgroundColor: "transparent" }}>
+      {isSliceMode && wheelOpen ? (
+        <ModuleWheel
+          modules={sliceModules}
+          activeIndex={activeWheelIndex}
+          onRotate={(direction) => setActiveWheelIndex((current) => wrapIndex(current + direction, sliceModules.length))}
+          onSelect={selectWheelModule}
+        />
+      ) : null}
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
+          borderTopWidth: 1,
+          borderTopColor: Theme.surface.border,
+          backgroundColor: Theme.surface.card
+        }}
+      >
+        {tabs.map((module) => {
+          const routeName = module.routeName ?? module.key;
+          const active = module.key === "more" ? wheelOpen : currentRouteName === routeName;
+
+          return (
+            <BottomNavItem
+              key={routeName}
+              label={module.label}
+              icon={module.icon}
+              active={active}
+              onPress={() => {
+                if (module.key === "more") {
+                  setWheelOpen((current) => !current);
+                  return;
+                }
+                openModule(module);
+              }}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
 }
 
 export default function DriverLayout() {
   const { session } = useAuth();
+  const mobileProfileQuery = useMobileProfile(Boolean(session));
+  const visibleTabs = getVisibleTabModules(mobileProfileQuery.data);
+  const visibleRouteNames = new Set(visibleTabs.map((module) => module.routeName));
 
-  if (!session?.user.driverId) {
+  if (!session) {
     return null;
   }
 
   return (
     <Tabs
+      tabBar={(props) => <DriverTabBar {...props} profile={mobileProfileQuery.data} />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Theme.accent.primary,
@@ -44,26 +271,22 @@ export default function DriverLayout() {
         }
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: "Početna", tabBarIcon: HomeIcon }}
-      />
-      <Tabs.Screen
-        name="tours"
-        options={{ title: "Ture", tabBarIcon: ToursIcon }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{ title: "Poruke", tabBarIcon: ChatIcon }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{ title: "Obaveštenja", tabBarIcon: NotificationsIcon }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{ title: "Profil", tabBarIcon: ProfileIcon }}
-      />
+      {TOP_LEVEL_TAB_ROUTES.map((routeName) => {
+        const module = visibleTabs.find((item) => item.routeName === routeName) ?? getModuleDefinition(routeName === "index" ? "home" : routeName);
+        const isVisible = visibleRouteNames.has(routeName);
+        return (
+          <Tabs.Screen
+            key={routeName}
+            name={routeName}
+            options={
+              isVisible
+                ? { title: module.label, tabBarIcon: makeTabIcon(module.icon) }
+                : { href: null }
+            }
+          />
+        );
+      })}
+      <Tabs.Screen name="istorija" options={{ href: null }} />
     </Tabs>
   );
 }

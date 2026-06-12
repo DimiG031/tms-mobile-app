@@ -2,7 +2,23 @@
 
 ## Status
 
-Ideja za buduću implementaciju. Ovaj dokument ne menja trenutno ponašanje mobilne aplikacije.
+Delimično implementirano.
+
+Urađeno 2026-06-05:
+
+- mobilna aplikacija koristi `GET /api/mobile/profile` kao izvor za dostupne module i preferences
+- dodat je `PATCH /api/mobile/preferences` kroz UI u Profilu
+- korisnik može da izabere module, promeni redosled i uključi `sliceNavigationEnabled`
+- tab navigacija koristi `selectedModules` i `moduleOrder`
+- dodat je top-level `Dokumenta` ekran
+- kada je uključen slice mode i ima više od 5 top-level modula, `Više` u donjoj navigaciji prikazuje wheel picker iznad tab bara
+
+Još nije urađeno:
+
+- pravi inertial/spin efekat wheel selector-a
+- top-level ekrani za module koji još nemaju mobilnu implementaciju, npr. finansije
+- dublje prilagođavanje početne strane po tipu korisnika
+- inertial/spin animacija za wheel picker
 
 ## Cilj
 

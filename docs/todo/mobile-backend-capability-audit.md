@@ -13,7 +13,7 @@ Ovaj dokument beleži šta mobilna aplikacija može da implementira sa postojeć
 
 Veliki deo vozačkog ekrana može da se implementira odmah: detalj ture, stanice, dokumenta, status stanice, otvaranje adrese u navigaciji, kontakt podaci ako postoje, chat push i osnovni refresh bez stalnog polling-a.
 
-Role-based interfejs za ostale korisnike je delimično spreman: backend već ima `role`, `permissions`, `/api/profile` i `/api/user-settings`, ali mobilni login trenutno ne vraća efektivne dozvole i aplikacija je praktično zaključana oko vozačkog toka. Za čist multi-role mobilni interfejs treba dodati mobilni profil/dozvole i mobile layout preferences.
+Role-based interfejs za ostale korisnike je sada backend-side spremniji: backend ima centralni `GET /api/mobile/profile` za efektivne dozvole, dostupne module, preferences i settings, kao i `PATCH /api/mobile/preferences` za snimanje mobilne navigacije. Mobilna aplikacija još treba da implementira stvarni dinamički navigator i profile settings UI za izbor modula.
 
 ## Postojeći backend koji možemo koristiti
 
@@ -36,18 +36,20 @@ Može odmah:
 - razlikovati vozača po `driverId`
 - čuvati deo mobilnih podešavanja u korisničkim podešavanjima, ako backend proširi `user-settings` payload
 
-Nedostaje za multi-role mobilni interfejs:
+Trenutno stanje za multi-role mobilni interfejs:
 
-- backend ne vraća efektivne permissions u `mobile-login`
+- backend ne mora da vraća efektivne permissions u `mobile-login`, jer je centralni endpoint `GET /api/mobile/profile`
 - `/api/profile` ne vraća `driverId` ni permissions
-- `/api/user-settings` trenutno ne izlaže `extra` za mobilne module
-- mobilna aplikacija trenutno tretira aplikaciju primarno kao vozačku
+- `PATCH /api/mobile/preferences` čuva `selectedModules`, `moduleOrder` i `sliceNavigationEnabled`
+- mobilna aplikacija još ima statičnu tab navigaciju, ali već učitava `mobile-profile` posle login-a
 
-Predlog dopune:
+Dogovorena dopuna:
 
-- dodati `permissions` u `mobile-login` ili napraviti `GET /api/auth/mobile-profile`
-- vratiti `driverId`, `role`, `companyId`, `permissions`, `modules`
-- proširiti `user-settings` sa `mobilePreferences`, na primer:
+- backend agent implementira `GET /api/mobile/profile`
+- mobilna aplikacija treba taj endpoint da koristi kao glavni izvor istine za konfiguraciju interfejsa
+- `/api/mobile/driver-profile` ostaje samo za detalje profila vozača
+- endpoint vraća `driverId`, `role`, `companyId`, `permissions`, `availableMobileModules`, `preferences`, `settings`, `driver`, `company`
+- backend je dodao `PATCH /api/mobile/preferences`, na primer:
 
 ```json
 {
@@ -406,7 +408,7 @@ Predlog backend dopune:
 
 ## Važna sigurnosna napomena
 
-Za mobilnu aplikaciju nije dovoljno da endpoint proveri samo company scope. Za običnog vozača backend treba dodatno da ograniči podatke na njegove ture i njegove stanice.
+Za mobilnu aplikaciju nije dovoljno da endpoint proveri samo company scope. Backend je 2026-06-05 dodao driver-scope zaštitu za tražene ture, stanice i dokumente ture.
 
 Proveriti posebno:
 
@@ -415,11 +417,11 @@ Proveriti posebno:
 - `PATCH /api/route-stops/:id`
 - `GET /api/documents?relatedType=tour&relatedId=...`
 
-Rizik:
+Preostali rizik:
 
-- ako korisnik zna ID tuđe ture ili stanice u istoj firmi, može potencijalno da vidi ili izmeni više nego što treba
+- za nove mobile endpoint-e treba nastaviti isto pravilo: običan vozač sme samo svoje ture i svoje povezane podatke
 
-Predlog:
+Backend pravilo:
 
 - za `USER` sa `driverId`, dozvoliti samo ture gde je `tour.driverId == user.driverId`
 - za route stop update dozvoliti samo status/arrival/departure/driver note
@@ -429,8 +431,6 @@ Predlog:
 
 1. Završiti vozački "Detaljnije" ekran sa postojećim endpointima.
 2. Dodati "Sledeća stanica" i akcije dolazak/odlazak preko postojećeg `PATCH /api/route-stops/:id`, uz backend ograničenje polja za vozača.
-3. Dodati backend mobile profile sa permissions i available modules.
-4. Dodati mobile preferences za izabrane module i redosled.
-5. Implementirati configurable navigation i slice selector.
-6. Dodati posebne backend modele za checklist, prijavu problema, SOS i event log stanice.
-
+3. Implementirati mobile Profile settings UI za izbor modula i pozvati `PATCH /api/mobile/preferences`.
+4. Implementirati configurable navigation i slice selector.
+5. Dodati posebne backend modele za checklist, prijavu problema, SOS i event log stanice.

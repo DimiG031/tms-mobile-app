@@ -6,12 +6,10 @@ import { useEffect } from "react";
 import { Alert, AppState } from "react-native";
 import { Slot, useRouter } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
-
-SplashScreen.preventAutoHideAsync().catch(() => undefined);
 import { api } from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   addForegroundNotificationListener,
   addNotificationResponseListener,
@@ -19,11 +17,14 @@ import {
   getChatMessageNotificationPayload,
   getLastNotificationResponseAsync,
   markNotificationAsReadFromPayload,
+  resolveNotificationRoute,
   type Notification,
   type NotificationResponse,
-  resolveNotificationRoute
+  withNotificationSource
 } from "@/services/notifications";
 import { startGpsQueueSyncLoop } from "@/services/gpsTracking";
+
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function SplashHider() {
   const { isHydrating } = useAuth();
@@ -66,7 +67,8 @@ function NotificationBridge() {
         metadata?: unknown;
       };
 
-      const route = resolveNotificationRoute(data);
+      const chatPayload = getChatMessageNotificationPayload(data);
+      const route = withNotificationSource(resolveNotificationRoute(data), chatPayload ? "chat-push" : "notifications");
       router.push(route as never);
 
       const handledChat = await refreshChatPayload(data);
