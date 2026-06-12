@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
+import { ThemeProvider } from "@/providers/ThemeProvider";
 import { api } from "@/lib/api";
 import {
   addForegroundNotificationListener,
@@ -153,9 +154,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryProvider>
         <AuthProvider>
-          <SplashHider />
-          <NotificationBridge />
-          <Slot />
+          <ThemeProvider>
+            <SplashHider />
+            <NotificationBridge />
+            <Slot />
+          </ThemeProvider>
         </AuthProvider>
       </QueryProvider>
     </SafeAreaProvider>

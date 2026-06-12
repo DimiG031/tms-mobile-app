@@ -2,10 +2,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { Alert, RefreshControl, ScrollView } from "react-native";
 import { Pressable, Text, View } from "@/components/ui";
 import { formatRouteLabel, formatTourDateShort, splitRouteLabel, translateExpenseStatus, translateTourStatus } from "@/lib/formatters";
-import { Theme } from "@/lib/theme";
+import type { AppTheme } from "@/providers/ThemeProvider";
+import { useTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatThreads } from "@/queries/useChat";
 import { useDashboardData } from "@/queries/useDashboardData";
@@ -25,11 +26,11 @@ function getInitials(name?: string | null): string {
   return chunks.map((chunk) => chunk[0]?.toUpperCase() ?? "").join("");
 }
 
-function statusTone(status?: string | null): { bg: string; text: string } {
-  if (status === "PLANNED") return { bg: Theme.status.PLANNED.bg, text: Theme.status.PLANNED.text };
-  if (status === "CONFIRMED") return { bg: Theme.status.CONFIRMED.bg, text: Theme.status.CONFIRMED.text };
-  if (status === "IN_TRANSIT") return { bg: Theme.status.IN_TRANSIT.bg, text: Theme.status.IN_TRANSIT.text };
-  if (status === "COMPLETED") return { bg: Theme.status.COMPLETED.bg, text: Theme.status.COMPLETED.text };
+function statusTone(theme: AppTheme, status?: string | null): { bg: string; text: string } {
+  if (status === "PLANNED") return { bg: theme.status.PLANNED.bg, text: theme.status.PLANNED.text };
+  if (status === "CONFIRMED") return { bg: theme.status.CONFIRMED.bg, text: theme.status.CONFIRMED.text };
+  if (status === "IN_TRANSIT") return { bg: theme.status.IN_TRANSIT.bg, text: theme.status.IN_TRANSIT.text };
+  if (status === "COMPLETED") return { bg: theme.status.COMPLETED.bg, text: theme.status.COMPLETED.text };
   return { bg: "#e2e8f0", text: "#475569" };
 }
 
@@ -77,18 +78,19 @@ function QuickAction({
   iconName,
   badge
 }: Readonly<{ href: string; label: string; iconName: IconName; badge?: number }>) {
+  const theme = useTheme();
   return (
     <Link href={href as "./"} asChild>
       <Pressable
         className="min-w-[48%] flex-1 rounded-2xl border px-3 py-3"
-        style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}
+        style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
-            <View className="h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: Theme.accent.primaryLight }}>
-              <MaterialCommunityIcons name={iconName} size={20} color={Theme.accent.primary} />
+            <View className="h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: theme.accent.primaryLight }}>
+              <MaterialCommunityIcons name={iconName} size={20} color={theme.accent.primary} />
             </View>
-            <Text className="text-base font-semibold" style={{ color: Theme.text.primary }}>
+            <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
               {label}
             </Text>
           </View>
@@ -104,11 +106,12 @@ function QuickAction({
 }
 
 function TourAvatar({ routeLabel }: Readonly<{ routeLabel?: string | null }>) {
+  const theme = useTheme();
   const { from } = splitRouteLabel(routeLabel);
   const letter = from[0]?.toUpperCase() ?? "T";
   return (
-    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: Theme.accent.primaryLight }}>
-      <Text className="text-base font-bold" style={{ color: Theme.accent.primary }}>
+    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: theme.accent.primaryLight }}>
+      <Text className="text-base font-bold" style={{ color: theme.accent.primary }}>
         {letter}
       </Text>
     </View>
@@ -116,9 +119,10 @@ function TourAvatar({ routeLabel }: Readonly<{ routeLabel?: string | null }>) {
 }
 
 export default function DriverHomeScreen() {
+  const theme = useTheme();
   const { session } = useAuth();
   const router = useRouter();
-  const { data, isLoading, isError } = useDashboardData();
+  const { data, isLoading, isError, refetch: refetchDashboard } = useDashboardData();
   const { data: mobileProfile } = useMobileProfile(Boolean(session));
   const chatThreadsQuery = useChatThreads();
   const summaryQuery = useToursSummary();
@@ -131,12 +135,29 @@ export default function DriverHomeScreen() {
   const expenseQuery = useExpenseSheet(activeId);
   const routeStopAction = useRouteStopAction(activeId);
   const [pendingAction, setPendingAction] = useState<RouteStopAction | null>(null);
+  const [isRefreshing, setRefreshing] = useState(false);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchDashboard(),
+        summaryQuery.refetch(),
+        chatThreadsQuery.refetch(),
+        activeId ? stopsQuery.refetch() : Promise.resolve(),
+        activeId ? checklistQuery.refetch() : Promise.resolve(),
+        activeId ? expenseQuery.refetch() : Promise.resolve()
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const upcoming = data?.upcomingTours ?? [];
   const unread = data?.unreadNotificationsCount ?? 0;
   const unreadMessages = chatThreadsQuery.data?.filter((thread) => thread.hasUnread).length ?? 0;
   const progress = statusProgress(active?.status);
-  const activeStatusTone = statusTone(active?.status);
+  const activeStatusTone = statusTone(theme, active?.status);
   const { from: fromLabel, to: toLabel } = splitRouteLabel(active?.routeLabel);
   const displayName = mobileProfile?.driver?.name ?? session?.user.name ?? "Vozač";
   const licenseCategory = mobileProfile?.driver?.licenseCategory;
@@ -165,15 +186,27 @@ export default function DriverHomeScreen() {
   }
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ paddingBottom: 34 }}>
+    <ScrollView
+      className="flex-1"
+      style={{ backgroundColor: theme.surface.app }}
+      contentContainerStyle={{ paddingBottom: 34 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void onRefresh()}
+          tintColor={theme.accent.primary}
+          colors={[theme.accent.primary]}
+        />
+      }
+    >
       {/* Header */}
-      <View className="rounded-b-3xl px-4 pb-5 pt-5" style={{ backgroundColor: Theme.accent.primary }}>
+      <View className="rounded-b-3xl px-4 pb-5 pt-5" style={{ backgroundColor: theme.accent.primary }}>
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
             <Text className="text-xs font-semibold uppercase" style={{ color: "rgba(255,255,255,0.85)" }}>
               Dobrodošli
             </Text>
-            <Text className="mt-1 text-3xl font-extrabold" style={{ color: Theme.text.inverse }} numberOfLines={1}>
+            <Text className="mt-1 text-3xl font-extrabold" style={{ color: theme.text.inverse }} numberOfLines={1}>
               {displayName}
             </Text>
             <Text className="mt-0.5 text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>
@@ -191,9 +224,9 @@ export default function DriverHomeScreen() {
 
       <View className="px-4 py-4">
         {/* Active tour command center */}
-        <View className="rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+        <View className="rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
           <View className="flex-row items-start justify-between">
-            <Text className="text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
+            <Text className="text-[12px] font-bold uppercase" style={{ color: theme.text.secondary }}>
               Aktivna tura
             </Text>
             <View className="rounded-full px-3 py-1" style={{ backgroundColor: activeStatusTone.bg }}>
@@ -203,33 +236,33 @@ export default function DriverHomeScreen() {
             </View>
           </View>
 
-          <Text className="mt-2 text-2xl font-extrabold" style={{ color: Theme.text.primary }}>
+          <Text className="mt-2 text-2xl font-extrabold" style={{ color: theme.text.primary }}>
             {active ? formatRouteLabel(active.routeLabel) : "Nema aktivne ture"}
           </Text>
-          <Text className="mt-0.5 text-sm" style={{ color: Theme.text.secondary }}>
+          <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>
             {active ? formatTourDateShort(active.dateLabel) : "Trenutno nema ture u toku."}
           </Text>
 
           {active ? (
             <>
-              <View className="mt-3 h-1.5 rounded-full" style={{ backgroundColor: Theme.accent.primaryLight }}>
-                <View className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: Theme.accent.primary }} />
+              <View className="mt-3 h-1.5 rounded-full" style={{ backgroundColor: theme.accent.primaryLight }}>
+                <View className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: theme.accent.primary }} />
               </View>
               <View className="mt-1.5 flex-row items-center justify-between">
-                <Text className="text-xs" style={{ color: Theme.text.muted }}>{fromLabel}</Text>
-                <Text className="text-xs" style={{ color: Theme.text.muted }}>{toLabel}</Text>
+                <Text className="text-xs" style={{ color: theme.text.muted }}>{fromLabel}</Text>
+                <Text className="text-xs" style={{ color: theme.text.muted }}>{toLabel}</Text>
               </View>
 
               {/* Next stop with actions */}
               {nextStop ? (
-                <View className="mt-4 rounded-xl border p-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.subtle }}>
-                  <Text className="text-[11px] font-bold uppercase" style={{ color: Theme.text.muted }}>Sledeća stanica</Text>
-                  <Text className="mt-1 text-base font-extrabold" style={{ color: Theme.text.primary }}>
+                <View className="mt-4 rounded-xl border p-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.subtle }}>
+                  <Text className="text-[11px] font-bold uppercase" style={{ color: theme.text.muted }}>Sledeća stanica</Text>
+                  <Text className="mt-1 text-base font-extrabold" style={{ color: theme.text.primary }}>
                     {nextStop.sequence ? `${nextStop.sequence}. ` : ""}
                     {nextStop.locationName ?? nextStop.companyName ?? nextStop.city ?? "Stanica"}
                   </Text>
                   {nextStop.city || nextStop.country ? (
-                    <Text className="mt-0.5 text-sm" style={{ color: Theme.text.secondary }}>
+                    <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>
                       {[nextStop.city, nextStop.country].filter(Boolean).join(", ")}
                     </Text>
                   ) : null}
@@ -238,9 +271,9 @@ export default function DriverHomeScreen() {
                       onPress={() => onStopAction("ARRIVED")}
                       disabled={routeStopAction.isPending}
                       className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
-                      style={{ backgroundColor: Theme.accent.primarySoft }}
+                      style={{ backgroundColor: theme.accent.primarySoft }}
                     >
-                      <Text className="text-center text-sm font-semibold" style={{ color: Theme.accent.primaryDark }}>
+                      <Text className="text-center text-sm font-semibold" style={{ color: theme.accent.primaryDark }}>
                         {pendingAction === "ARRIVED" ? "Slanje..." : "Stigao"}
                       </Text>
                     </Pressable>
@@ -248,7 +281,7 @@ export default function DriverHomeScreen() {
                       onPress={() => onStopAction("DEPARTED")}
                       disabled={routeStopAction.isPending}
                       className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
-                      style={{ backgroundColor: Theme.accent.primary }}
+                      style={{ backgroundColor: theme.accent.primary }}
                     >
                       <Text className="text-center text-sm font-semibold text-white">
                         {pendingAction === "DEPARTED" ? "Slanje..." : "Krenuo"}
@@ -261,12 +294,12 @@ export default function DriverHomeScreen() {
               {/* Checklist + expense status */}
               <View className="mt-3 flex-row gap-2">
                 <Link href={`/(driver)/tours/${activeId}/checklist`} asChild>
-                  <Pressable className="flex-1 rounded-xl border p-3" style={{ borderColor: Theme.surface.border }}>
-                    <Text className="text-[11px] font-bold uppercase" style={{ color: Theme.text.muted }}>Checklist</Text>
-                    <Text className="mt-1 text-lg font-extrabold" style={{ color: Theme.text.primary }}>
+                  <Pressable className="flex-1 rounded-xl border p-3" style={{ borderColor: theme.surface.border }}>
+                    <Text className="text-[11px] font-bold uppercase" style={{ color: theme.text.muted }}>Checklist</Text>
+                    <Text className="mt-1 text-lg font-extrabold" style={{ color: theme.text.primary }}>
                       {checklist ? `${checklist.completedCount}/${checklist.items.length}` : "—"}
                     </Text>
-                    <Text className="text-xs" style={{ color: checklist && checklist.requiredRemaining > 0 ? "#b45309" : Theme.text.secondary }}>
+                    <Text className="text-xs" style={{ color: checklist && checklist.requiredRemaining > 0 ? "#b45309" : theme.text.secondary }}>
                       {checklist
                         ? checklist.requiredRemaining > 0
                           ? `Obavezno: ${checklist.requiredRemaining}`
@@ -276,15 +309,15 @@ export default function DriverHomeScreen() {
                   </Pressable>
                 </Link>
                 <Link href={`/(driver)/tours/${activeId}/expense`} asChild>
-                  <Pressable className="flex-1 rounded-xl border p-3" style={{ borderColor: Theme.surface.border }}>
-                    <Text className="text-[11px] font-bold uppercase" style={{ color: Theme.text.muted }}>Troškovnik</Text>
+                  <Pressable className="flex-1 rounded-xl border p-3" style={{ borderColor: theme.surface.border }}>
+                    <Text className="text-[11px] font-bold uppercase" style={{ color: theme.text.muted }}>Troškovnik</Text>
                     <View className="mt-1 flex-row items-center gap-1.5">
                       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: expenseDot(sheet?.status) }} />
-                      <Text className="text-base font-extrabold" style={{ color: Theme.text.primary }}>
+                      <Text className="text-base font-extrabold" style={{ color: theme.text.primary }}>
                         {sheet ? translateExpenseStatus(sheet.status) : "Nema"}
                       </Text>
                     </View>
-                    <Text className="text-xs" style={{ color: Theme.text.secondary }}>
+                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
                       {sheet?.status === "REVISED" ? "Potrebna potvrda" : "Otvori"}
                     </Text>
                   </Pressable>
@@ -294,8 +327,8 @@ export default function DriverHomeScreen() {
               {/* Detail links */}
               <View className="mt-3 flex-row gap-2">
                 <Link href={`/(driver)/tours/${activeId}`} asChild>
-                  <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primarySoft }}>
-                    <Text className="text-center font-semibold" style={{ color: Theme.accent.primaryDark }}>Detaljnije</Text>
+                  <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: theme.accent.primarySoft }}>
+                    <Text className="text-center font-semibold" style={{ color: theme.accent.primaryDark }}>Detaljnije</Text>
                   </Pressable>
                 </Link>
                 <Link href={`/(driver)/tours/${activeId}/documents`} asChild>
@@ -316,7 +349,7 @@ export default function DriverHomeScreen() {
             </>
           ) : (
             <Link href="/(driver)/tours" asChild>
-              <Pressable className="mt-4 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primary }}>
+              <Pressable className="mt-4 rounded-xl px-4 py-3" style={{ backgroundColor: theme.accent.primary }}>
                 <Text className="text-center font-semibold text-white">Pogledaj sve ture</Text>
               </Pressable>
             </Link>
@@ -325,27 +358,27 @@ export default function DriverHomeScreen() {
 
         {/* Monthly summary */}
         <Link href="/(driver)/istorija" asChild>
-          <Pressable className="mt-3 flex-row items-center justify-between rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+          <Pressable className="mt-3 flex-row items-center justify-between rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
             <View className="flex-1">
-              <Text className="text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
+              <Text className="text-[12px] font-bold uppercase" style={{ color: theme.text.secondary }}>
                 {month?.label ? `Ovog meseca · ${month.label}` : "Ovog meseca"}
               </Text>
-              <Text className="mt-1 text-xl font-extrabold" style={{ color: Theme.text.primary }}>
+              <Text className="mt-1 text-xl font-extrabold" style={{ color: theme.text.primary }}>
                 {month ? `${month.tours} ${toursWord(month.tours)} · ${formatKm(month.km)} km` : "—"}
               </Text>
               {month ? (
-                <Text className="mt-0.5 text-sm" style={{ color: Theme.text.secondary }}>
+                <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>
                   Završeno: {month.completed} · U toku: {month.activeTours}
                 </Text>
               ) : null}
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color={Theme.text.muted} />
+            <MaterialCommunityIcons name="chevron-right" size={24} color={theme.text.muted} />
           </Pressable>
         </Link>
 
         {/* Quick actions */}
-        <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
-          <Text className="mb-3 text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
+        <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+          <Text className="mb-3 text-[12px] font-bold uppercase" style={{ color: theme.text.secondary }}>
             Brze akcije
           </Text>
           <View className="flex-row flex-wrap gap-2">
@@ -357,14 +390,14 @@ export default function DriverHomeScreen() {
         </View>
 
         {/* Upcoming tours */}
-        <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+        <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
           <View className="flex-row items-center justify-between">
-            <Text className="text-[12px] font-bold uppercase" style={{ color: Theme.text.secondary }}>
+            <Text className="text-[12px] font-bold uppercase" style={{ color: theme.text.secondary }}>
               Predstojeće ture
             </Text>
             <Link href="/(driver)/tours" asChild>
               <Pressable>
-                <Text className="text-sm font-semibold" style={{ color: Theme.accent.primary }}>
+                <Text className="text-sm font-semibold" style={{ color: theme.accent.primary }}>
                   Sve
                 </Text>
               </Pressable>
@@ -372,15 +405,15 @@ export default function DriverHomeScreen() {
           </View>
 
           {upcoming.slice(0, 3).map((tour) => {
-            const tone = statusTone(tour.status);
+            const tone = statusTone(theme, tour.status);
             return (
               <Link key={tour.id} href={`/(driver)/tours/${tour.id}`} asChild>
-                <Pressable className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.subtle }}>
+                <Pressable className="mt-3 rounded-xl border px-3 py-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.subtle }}>
                   <View className="flex-row items-center">
                     <TourAvatar routeLabel={tour.routeLabel} />
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between gap-2">
-                        <Text className="flex-1 text-base font-extrabold" style={{ color: Theme.text.primary }} numberOfLines={1}>
+                        <Text className="flex-1 text-base font-extrabold" style={{ color: theme.text.primary }} numberOfLines={1}>
                           {formatRouteLabel(tour.routeLabel)}
                         </Text>
                         <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: tone.bg }}>
@@ -389,7 +422,7 @@ export default function DriverHomeScreen() {
                           </Text>
                         </View>
                       </View>
-                      <Text className="mt-0.5 text-sm" style={{ color: Theme.text.secondary }}>
+                      <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>
                         {formatTourDateShort(tour.dateLabel)}
                       </Text>
                     </View>
@@ -400,13 +433,13 @@ export default function DriverHomeScreen() {
           })}
 
           {upcoming.length ? null : (
-            <Text className="mt-3 text-sm" style={{ color: Theme.text.secondary }}>
+            <Text className="mt-3 text-sm" style={{ color: theme.text.secondary }}>
               Nema planiranih tura.
             </Text>
           )}
         </View>
 
-        {isLoading ? <Text className="mt-4 text-sm" style={{ color: Theme.text.muted }}>Osvežavanje podataka...</Text> : null}
+        {isLoading ? <Text className="mt-4 text-sm" style={{ color: theme.text.muted }}>Osvežavanje podataka...</Text> : null}
         {isError ? <Text className="mt-4 text-sm text-red-600">Greška pri učitavanju podataka.</Text> : null}
       </View>
     </ScrollView>

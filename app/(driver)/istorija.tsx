@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Stack, useRouter } from "expo-router";
-import { ActivityIndicator, ScrollView } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView } from "react-native";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useToursSummary, type ToursSummaryBucket } from "@/queries/useToursSummary";
 import { useToursHistory } from "@/queries/useToursHistory";
@@ -58,6 +58,7 @@ export default function IstorijaScreen() {
   const [statusKey, setStatusKey] = useState<StatusKey>("ALL");
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
+  const [isRefreshing, setRefreshing] = useState(false);
 
   const statusValue = STATUS_FILTERS.find((item) => item.key === statusKey)?.value ?? null;
   const historyQuery = useToursHistory({ status: statusValue, q: submittedSearch });
@@ -66,8 +67,29 @@ export default function IstorijaScreen() {
   const periodLabel = PERIODS.find((item) => item.key === period)?.label ?? "";
   const tours = historyQuery.data?.pages.flatMap((page) => page.items) ?? [];
 
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await Promise.all([summaryQuery.refetch(), historyQuery.refetch()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <ScrollView
+      className="flex-1"
+      style={{ backgroundColor: Theme.surface.app }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void onRefresh()}
+          tintColor={Theme.accent.primary}
+          colors={[Theme.accent.primary]}
+        />
+      }
+    >
       <Stack.Screen options={{ title: "Istorija" }} />
       <Text className="text-3xl font-extrabold" style={{ color: Theme.text.primary }}>Istorija</Text>
       <Text className="mt-1 text-sm" style={{ color: Theme.text.secondary }}>Pregled rada i sve tvoje ture.</Text>

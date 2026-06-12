@@ -112,6 +112,8 @@ Mobile je povezao pun rad sa troškovnikom kroz `src/queries/useExpenseSheet.ts`
 
 Mobile posle izmene osvežava `expense-sheet`, `tour-details`, `tours` i `dashboard` cache.
 
+Foto računa: stavke koriste `receiptUrl`; mobile upload je povezan kroz `src/services/upload.ts` po backend presign toku (`POST /api/upload/presign` → `PUT`/multipart → `fileUrl`), iz kamere ili galerije, folder `receipts`. Status: `DONE` (ne treba dalja mobilna izmena).
+
 Driver-scope na svim podrutama (`:sheetId`, `items`, `items/:itemId`) je backend potvrdio i implementirao 2026-06-11 — zatvoren IDOR.
 
 Dvostrani potpis workflow (vozač ↔ dispečer) — backend isporučio, mobile povezao:

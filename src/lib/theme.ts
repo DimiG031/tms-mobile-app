@@ -153,6 +153,51 @@ export const Theme = {
   },
 } as const;
 
+// ─── Dark theme tokens (mirror of Theme) ──────────────────────
+type StatusToken = { bg: string; text: string; label: string };
+export type AppThemeTokens = {
+  accent: { primary: string; primaryDark: string; primaryLight: string; primarySoft: string; badgeBg: string; badgeText: string };
+  text: { primary: string; secondary: string; muted: string; inverse: string };
+  surface: { app: string; card: string; subtle: string; border: string };
+  status: {
+    PLANNED: StatusToken;
+    CONFIRMED: StatusToken;
+    IN_TRANSIT: StatusToken;
+    COMPLETED: StatusToken;
+    CANCELLED: StatusToken;
+  };
+};
+
+export const DarkTheme: AppThemeTokens = {
+  accent: {
+    primary:      Palette.teal600,
+    primaryDark:  "#5eead4",
+    primaryLight: "#0c2e2a",
+    primarySoft:  "#10403a",
+    badgeBg:   "#3a2f0a",
+    badgeText: "#fde68a",
+  },
+  text: {
+    primary:   "#f1f5f9",
+    secondary: "#94a3b8",
+    muted:     "#64748b",
+    inverse:   Palette.slate900,
+  },
+  surface: {
+    app:    "#0b1220",
+    card:   "#111c2e",
+    subtle: "#1b2940",
+    border: "#293449",
+  },
+  status: {
+    PLANNED:   { bg: "#1e3a5f", text: "#bfdbfe", label: "Planirano"  },
+    CONFIRMED: { bg: "#0f3d2e", text: "#a7f3d0", label: "Potvrđeno"  },
+    IN_TRANSIT:{ bg: "#3a2f0a", text: "#fde68a", label: "U tranzitu" },
+    COMPLETED: { bg: "#14532d", text: "#bbf7d0", label: "Završeno"   },
+    CANCELLED: { bg: "#4c1d1d", text: "#fecaca", label: "Otkazano"   },
+  },
+};
+
 // ─── Radius ───────────────────────────────────────────────────
 export const Radius = {
   xs:   6,
