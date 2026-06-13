@@ -1,8 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import type { ComponentProps } from "react";
 import { useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, Text, View } from "@/components/ui";
 import { formatRouteLabel, formatTourDateShort, splitRouteLabel, translateExpenseStatus, translateTourStatus } from "@/lib/formatters";
 import type { AppTheme } from "@/providers/ThemeProvider";
@@ -11,6 +13,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useChatThreads } from "@/queries/useChat";
 import { useDashboardData } from "@/queries/useDashboardData";
 import { useExpenseSheet } from "@/queries/useExpenseSheet";
+import { useMobileDriverProfile } from "@/queries/useMobileDriverProfile";
 import { useMobileProfile } from "@/queries/useMobileProfile";
 import { useToursSummary } from "@/queries/useToursSummary";
 import { useTourChecklist } from "@/queries/useTourChecklist";
@@ -18,6 +21,13 @@ import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/querie
 import type { TourStop } from "@/lib/types";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
+
+function greetingByHour(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "Dobro jutro";
+  if (hour >= 12 && hour < 18) return "Dobar dan";
+  return "Dobro veče";
+}
 
 function getInitials(name?: string | null): string {
   if (!name) return "VO";
@@ -124,8 +134,11 @@ export default function DriverHomeScreen() {
   const router = useRouter();
   const { data, isLoading, isError, refetch: refetchDashboard } = useDashboardData();
   const { data: mobileProfile } = useMobileProfile(Boolean(session));
+  const driverId = mobileProfile?.user.driverId ?? session?.user.driverId ?? null;
+  const driverProfileQuery = useMobileDriverProfile(Boolean(driverId));
   const chatThreadsQuery = useChatThreads();
   const summaryQuery = useToursSummary();
+  const insets = useSafeAreaInsets();
 
   const active = data?.activeTour;
   const activeId = active?.id;
@@ -160,7 +173,8 @@ export default function DriverHomeScreen() {
   const activeStatusTone = statusTone(theme, active?.status);
   const { from: fromLabel, to: toLabel } = splitRouteLabel(active?.routeLabel);
   const displayName = mobileProfile?.driver?.name ?? session?.user.name ?? "Vozač";
-  const licenseCategory = mobileProfile?.driver?.licenseCategory;
+  const driverAddress = driverProfileQuery.data?.driver.address ?? mobileProfile?.driver?.address ?? null;
+  const companyName = mobileProfile?.company?.name ?? driverProfileQuery.data?.company?.name ?? null;
 
   const month = summaryQuery.data?.month;
   const stops = stopsQuery.data ?? [];
@@ -200,17 +214,23 @@ export default function DriverHomeScreen() {
       }
     >
       {/* Header */}
-      <View className="rounded-b-3xl px-4 pb-5 pt-5" style={{ backgroundColor: theme.accent.primary }}>
+      <StatusBar style="light" />
+      <View className="rounded-b-3xl px-4 pb-5" style={{ backgroundColor: theme.accent.primary, paddingTop: insets.top + 12 }}>
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
             <Text className="text-xs font-semibold uppercase" style={{ color: "rgba(255,255,255,0.85)" }}>
-              Dobrodošli
+              {greetingByHour()}
             </Text>
             <Text className="mt-1 text-3xl font-extrabold" style={{ color: theme.text.inverse }} numberOfLines={1}>
               {displayName}
             </Text>
-            <Text className="mt-0.5 text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>
-              {licenseCategory ? `Vozač · ${licenseCategory}` : "Vozač"}
+            {driverAddress ? (
+              <Text className="mt-0.5 text-sm" style={{ color: "rgba(255,255,255,0.85)" }} numberOfLines={1}>
+                {driverAddress}
+              </Text>
+            ) : null}
+            <Text className="mt-0.5 text-sm" style={{ color: "rgba(255,255,255,0.85)" }} numberOfLines={1}>
+              {companyName ? `Vozač · ${companyName}` : "Vozač"}
             </Text>
           </View>
           <View
