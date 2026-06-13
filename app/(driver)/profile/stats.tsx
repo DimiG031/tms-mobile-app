@@ -39,46 +39,21 @@ function Row({ label, value, isLast = false }: Readonly<{ label: string; value?:
   );
 }
 
-function DeadlineRow({ label, date, daysLeft, isLast = false }: Readonly<{ label: string; date?: string | null; daysLeft?: number | null; isLast?: boolean }>) {
-  const theme = useTheme();
-  const tone =
-    daysLeft == null
-      ? { bg: theme.isDark ? "#1e293b" : "#f1f5f9", text: theme.text.secondary, label: "Nije uneto" }
-      : daysLeft < 0
-      ? { bg: "#fee2e2", text: "#b91c1c", label: "Istekao" }
-      : daysLeft <= 30
-      ? { bg: "#fef3c7", text: "#92400e", label: `Još ${daysLeft} d.` }
-      : { bg: "#d1fae5", text: "#065f46", label: `Još ${daysLeft} d.` };
-
-  return (
-    <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
-      <View className="flex-1 pr-3">
-        <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{label}</Text>
-        <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>{date ? `do ${formatDate(date)}` : "Datum nije unet"}</Text>
-      </View>
-      <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: tone.bg }}>
-        <Text className="text-xs font-semibold" style={{ color: tone.text }}>{tone.label}</Text>
-      </View>
-    </View>
-  );
-}
-
 export default function ProfileStatsScreen() {
   const theme = useTheme();
   const { data: stats, isLoading, isError } = useMobileStats();
 
   const employee = stats?.employee;
   const leave = stats?.leave;
-  const documents = stats?.documents;
   const driving = stats?.driving;
 
-  const hasAny = Boolean(employee || leave || documents || driving);
+  const hasAny = Boolean(employee || leave || driving);
 
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Moja statistika" }} />
       <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Moja statistika</Text>
-      <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Tvoj radni pregled, odmor i rokovi.</Text>
+      <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Tvoj radni pregled, odmor i ugovor.</Text>
 
       {isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
       {isError ? <Text className="mt-5 text-red-600">Greška pri učitavanju statistike.</Text> : null}
@@ -137,17 +112,6 @@ export default function ProfileStatsScreen() {
               </Text>
             </View>
           ) : null}
-        </>
-      ) : null}
-
-      {documents ? (
-        <>
-          <SectionHeader title="Rokovi dokumenata" />
-          <Card>
-            <DeadlineRow label={`Vozačka dozvola${documents.licenseCategory ? ` · ${documents.licenseCategory}` : ""}`} date={documents.licenseValidTo} daysLeft={documents.licenseDaysLeft} />
-            <DeadlineRow label="Tahograf kartica" date={documents.driverCardValid} daysLeft={documents.driverCardDaysLeft} />
-            <DeadlineRow label="Lekarski pregled" date={documents.medicalValidTo} daysLeft={documents.medicalDaysLeft} isLast />
-          </Card>
         </>
       ) : null}
     </ScrollView>

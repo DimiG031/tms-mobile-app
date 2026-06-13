@@ -235,7 +235,7 @@ export default function ProfileScreen() {
               <View className="flex-1">
                 <Text className="text-base font-bold" style={{ color: theme.text.primary }}>Moja statistika</Text>
                 <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>
-                  Vožnja, godišnji odmor, ugovor i rokovi.
+                  Vožnja, godišnji odmor i ugovor.
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />

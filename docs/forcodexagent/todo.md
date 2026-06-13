@@ -224,8 +224,9 @@ Backend je dodao `GET /api/mobile/me/stats` (self-scoped, bez plate). Mobile je 
 - **Vožnja:** mesečni i ukupni broj tura/km, završene ture;
 - **Godišnji odmor:** preostalo/ukupno/iskorišćeno + preneto;
 - **Zaposlenje:** pozicija, datum zaposlenja, staž, ugovor (tip + datum/„na neodređeno") sa upozorenjem kad `daysLeft <= 30`;
-- **Rokovi dokumenata:** dozvola/kartica/lekarski sa danima do isteka i bojom (crveno za istekao, žuto `<= 30` dana);
 - sve sekcije se graciozno sakrivaju kada je polje/objekat `null`.
+
+Napomena: `documents` polje iz `me/stats` se NE prikazuje na ovom ekranu jer se rokovi dokumenata već prikazuju u sekciji „Rokovi i podsetnici" na glavnom Profilu (izbegnuta duplikacija). Polje ostaje dostupno u API odgovoru ako kasnije zatreba.
 
 ## Sledeće za backend agenta
 
