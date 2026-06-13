@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LightTokens as T, Radius, Shadows } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 
 type Variant = "default" | "accent" | "warning" | "danger" | "success";
 type Size    = "sm" | "md" | "lg";
@@ -72,7 +73,17 @@ export function IOSGlassPill({
   icon,
   style,
 }: Readonly<IOSGlassPillProps>): React.JSX.Element {
-  const vc    = VARIANT_COLORS[variant];
+  const theme = useTheme();
+  const baseVc = VARIANT_COLORS[variant];
+  const vc =
+    variant === "default" && theme.isDark
+      ? {
+          bg: "rgba(30,41,59,0.62)",
+          border: "rgba(148,163,184,0.35)",
+          text: theme.text.primary,
+          blurTint: "dark" as const,
+        }
+      : baseVc;
   const sc    = SIZE_STYLES[size];
   const isBtn = Boolean(onPress);
 
@@ -128,7 +139,7 @@ export function IOSGlassPill({
   }
 
   // Android fallback
-  const androidBg = variant === "default" ? T.bgSurface : vc.bg.replace(/[\d.]+\)$/, "1)");
+  const androidBg = variant === "default" ? theme.surface.card : vc.bg.replace(/[\d.]+\)$/, "1)");
   if (isBtn) {
     return (
       <Pressable

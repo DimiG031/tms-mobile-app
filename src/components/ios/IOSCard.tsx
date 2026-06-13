@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
-import { LightTokens as T, Radius, Shadows } from "@/lib/theme";
+import { Radius, Shadows } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 
 type Props = {
   children: ReactNode;
@@ -11,17 +12,39 @@ type Props = {
 };
 
 export function IOSCard({ children, style, glass = false, padded = true }: Props) {
+  const theme = useTheme();
   const base: StyleProp<ViewStyle> = [styles.card, padded ? styles.padded : null, style];
 
   if (glass && Platform.OS === "ios") {
     return (
-      <BlurView intensity={62} tint="light" style={base}>
-        <View style={styles.glassInner}>{children}</View>
+      <BlurView intensity={62} tint={theme.isDark ? "dark" : "light"} style={base}>
+        <View
+          style={{
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: theme.surface.border,
+            backgroundColor: theme.isDark ? "rgba(17,28,46,0.55)" : "rgba(255,255,255,0.72)"
+          }}
+        >
+          {children}
+        </View>
       </BlurView>
     );
   }
 
-  return <View style={[base, styles.solid]}>{children}</View>;
+  return (
+    <View
+      style={[
+        base,
+        {
+          backgroundColor: theme.surface.card,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: theme.surface.border
+        }
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -32,15 +55,5 @@ const styles = StyleSheet.create({
   },
   padded: {
     padding: 14
-  },
-  solid: {
-    backgroundColor: T.bgSurface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.border
-  },
-  glassInner: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: T.glassBorder,
-    backgroundColor: T.glassBg
   }
 });
