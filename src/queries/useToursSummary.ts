@@ -10,7 +10,9 @@ export type ToursSummaryBucket = {
 };
 
 export type ToursSummary = {
+  week: ToursSummaryBucket;
   month: ToursSummaryBucket;
+  year: ToursSummaryBucket;
   total: ToursSummaryBucket;
 };
 
@@ -31,9 +33,11 @@ export function useToursSummary() {
     queryKey: ["tours-summary"],
     queryFn: async () => {
       const result = await api.get<{ ok?: boolean; data?: unknown }>("/api/mobile/tours/summary");
-      const data = (result.data ?? {}) as { month?: unknown; total?: unknown };
+      const data = (result.data ?? {}) as { week?: unknown; month?: unknown; year?: unknown; total?: unknown };
       return {
+        week: normalizeBucket(data.week),
         month: normalizeBucket(data.month),
+        year: normalizeBucket(data.year),
         total: normalizeBucket(data.total)
       } satisfies ToursSummary;
     },

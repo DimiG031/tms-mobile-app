@@ -226,6 +226,23 @@ export default function ProfileScreen() {
           </Pressable>
         </Link>
 
+        <Link href="/(driver)/profile/stats" asChild>
+          <Pressable className="mt-2 rounded-2xl border px-4 py-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+            <View className="flex-row items-center">
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: theme.accent.primaryLight }}>
+                <Ionicons name="stats-chart-outline" size={22} color={theme.accent.primary} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-bold" style={{ color: theme.text.primary }}>Moja statistika</Text>
+                <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>
+                  Vožnja, godišnji odmor, ugovor i rokovi.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
+            </View>
+          </Pressable>
+        </Link>
+
         {driver ? (
           <RokoviSection
             deadlines={[

@@ -7,9 +7,11 @@ import { useToursHistory } from "@/queries/useToursHistory";
 import { formatRouteLabel, translateTourStatus, tourStatusClass } from "@/lib/formatters";
 import { useTheme } from "@/providers/ThemeProvider";
 
-type PeriodKey = "month" | "total";
+type PeriodKey = "week" | "month" | "year" | "total";
 const PERIODS: { key: PeriodKey; label: string }[] = [
+  { key: "week", label: "Sedmica" },
   { key: "month", label: "Mesec" },
+  { key: "year", label: "Godina" },
   { key: "total", label: "Ukupno" }
 ];
 
@@ -65,7 +67,7 @@ export default function IstorijaScreen() {
   const statusValue = STATUS_FILTERS.find((item) => item.key === statusKey)?.value ?? null;
   const historyQuery = useToursHistory({ status: statusValue, q: submittedSearch });
 
-  const bucket = period === "month" ? summaryQuery.data?.month : summaryQuery.data?.total;
+  const bucket = summaryQuery.data?.[period];
   const periodLabel = PERIODS.find((item) => item.key === period)?.label ?? "";
   const tours = historyQuery.data?.pages.flatMap((page) => page.items) ?? [];
 
@@ -104,10 +106,10 @@ export default function IstorijaScreen() {
             <Pressable
               key={item.key}
               onPress={() => setPeriod(item.key)}
-              className="flex-1 rounded-full px-4 py-2"
+              className="flex-1 rounded-full px-2 py-2"
               style={{ backgroundColor: active ? theme.accent.primary : theme.surface.card, borderColor: theme.surface.border, borderWidth: 1 }}
             >
-              <Text className="text-center text-sm font-semibold" style={{ color: active ? "#fff" : theme.text.primary }}>{item.label}</Text>
+              <Text className="text-center text-xs font-semibold" style={{ color: active ? "#fff" : theme.text.primary }} numberOfLines={1}>{item.label}</Text>
             </Pressable>
           );
         })}

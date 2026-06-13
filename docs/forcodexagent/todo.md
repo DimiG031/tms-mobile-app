@@ -203,30 +203,29 @@ Nije hitno za backend:
 - inertial/spin animacija točka je mobile UX dorada
 - novi top-level moduli čekaju backend `availableMobileModules` i mobile ekran
 
-## Novi zahtevi prema backendu
+## Završeni zahtevi prema backendu
 
 ### Nedeljni i godišnji agregat za istoriju vozača
 
-Status: `NEEDS_BACKEND`
+Status: `DONE`
 
-Mobile je dodao ekran `Istorija` (mini-dashboard + lista tura). Lista tura već radi preko postojećeg `GET /api/tours` (podržava `status`, `q`, `dateFrom`, `dateTo`, `cursor`, `limit`).
+Backend je 2026-06-14 dodao `week` i `year` bucket u `GET /api/mobile/tours/summary` (sada vraća `week`, `month`, `year`, `total`, isti oblik). Mobile je povezao:
 
-Za mini-dashboard nam treba još nedeljni i godišnji bucket. Trenutni `GET /api/mobile/tours/summary` vraća samo `month` i `total`.
+- `useToursSummary` čita sva četiri bucket-a;
+- ekran `Istorija` ima tabove `Sedmica`, `Mesec`, `Godina`, `Ukupno`;
+- lista tura i dalje koristi `GET /api/tours` (`status`, `q`, `cursor`).
 
-Predlog (jedna od dve opcije):
+### Lična statistika vozača (Profil > Moja statistika)
 
-```text
-GET /api/mobile/tours/summary            → dodati week i year uz month i total
-GET /api/mobile/tours/summary?period=week|month|year|total
-```
+Status: `DONE`
 
-Oblik bucket-a ostaje isti kao za `month`:
+Backend je dodao `GET /api/mobile/me/stats` (self-scoped, bez plate). Mobile je povezao (`src/queries/useMobileStats.ts`, ekran `app/(driver)/profile/stats.tsx`, link u Profilu):
 
-```json
-{ "label": "24. nedelja 2026", "tours": 1, "km": 1850, "completed": 1, "activeTours": 1 }
-```
-
-Mobile trenutno prikazuje samo `Mesec` i `Ukupno` (jer to backend već daje); čim stignu `week`/`year`, dodaju se tabovi `Sedmica` i `Godina` bez dalje backend izmene.
+- **Vožnja:** mesečni i ukupni broj tura/km, završene ture;
+- **Godišnji odmor:** preostalo/ukupno/iskorišćeno + preneto;
+- **Zaposlenje:** pozicija, datum zaposlenja, staž, ugovor (tip + datum/„na neodređeno") sa upozorenjem kad `daysLeft <= 30`;
+- **Rokovi dokumenata:** dozvola/kartica/lekarski sa danima do isteka i bojom (crveno za istekao, žuto `<= 30` dana);
+- sve sekcije se graciozno sakrivaju kada je polje/objekat `null`.
 
 ## Sledeće za backend agenta
 
@@ -443,6 +442,13 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-06-14 - Istorija (sedmica/godina) i Profil > Moja statistika
+
+Status: `DONE`
+
+- `useToursSummary` čita `week`/`month`/`year`/`total`; ekran `Istorija` dobio tabove `Sedmica` i `Godina` (backend isporučio agregate 2026-06-14).
+- Novi ekran `Profil > Moja statistika` (`app/(driver)/profile/stats.tsx`, `src/queries/useMobileStats.ts`) preko `GET /api/mobile/me/stats`: vožnja, godišnji odmor, zaposlenje/ugovor, rokovi dokumenata; `null` sekcije se sakrivaju.
 
 ### 2026-06-14 - Tamna tema kroz ceo UI
 
