@@ -97,7 +97,7 @@ function statusBadgeClass(status: string): string {
   if (status === "SUBMITTED") return "bg-blue-100 text-blue-700";
   if (status === "REVISED") return "bg-amber-100 text-amber-700";
   if (status === "CONFIRMED" || status === "APPROVED") return "bg-emerald-100 text-emerald-700";
-  return "bg-slate-200 text-slate-700";
+  return "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200";
 }
 
 function createDefaultDraft(): ItemDraft {
@@ -471,15 +471,15 @@ export default function TourExpenseScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-white px-4 py-5">
-        <Text className="text-slate-600">Učitavanje troškovnika...</Text>
+      <View className="flex-1 bg-white dark:bg-slate-800 px-4 py-5">
+        <Text className="text-slate-600 dark:text-slate-300">Učitavanje troškovnika...</Text>
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View className="flex-1 bg-white px-4 py-5">
+      <View className="flex-1 bg-white dark:bg-slate-800 px-4 py-5">
         <Text className="text-red-600">Greška pri učitavanju troškovnika.</Text>
       </View>
     );
@@ -487,10 +487,10 @@ export default function TourExpenseScreen() {
 
   if (!sheet) {
     return (
-      <View className="flex-1 bg-white px-4 py-5">
-        <Text className="text-xl font-bold text-slate-900">Troškovnik</Text>
-        <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
-        <Text className="mt-5 text-slate-600">Troškovnik još nije kreiran za ovu turu.</Text>
+      <View className="flex-1 bg-white dark:bg-slate-800 px-4 py-5">
+        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">Troškovnik</Text>
+        <Text className="mt-1 text-slate-600 dark:text-slate-300">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
+        <Text className="mt-5 text-slate-600 dark:text-slate-300">Troškovnik još nije kreiran za ovu turu.</Text>
 
         <Pressable
           className="mt-4 rounded-xl bg-brand-600 px-4 py-3"
@@ -501,14 +501,14 @@ export default function TourExpenseScreen() {
 
         <Modal visible={isCreateSheetModalVisible} transparent animationType="slide" onRequestClose={() => setCreateSheetModalVisible(false)}>
           <View className="flex-1 justify-end bg-black/40">
-            <View className="rounded-t-3xl bg-white px-4 pb-8 pt-5">
-              <Text className="text-lg font-semibold text-slate-900">Nova akontacija</Text>
+            <View className="rounded-t-3xl bg-white dark:bg-slate-800 px-4 pb-8 pt-5">
+              <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">Nova akontacija</Text>
               <TextInput
                 value={advance}
                 onChangeText={setAdvance}
                 keyboardType="numeric"
                 placeholder="Akontacija"
-                className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
+                className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-slate-900 dark:text-slate-100"
               />
               <View className="mt-3 flex-row gap-2">
                 {CURRENCY_OPTIONS.map((option) => (
@@ -516,10 +516,10 @@ export default function TourExpenseScreen() {
                     key={option}
                     onPress={() => setAdvanceCurrency(option)}
                     className={`rounded-lg border px-3 py-2 ${
-                      advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                      advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                     }`}
                   >
-                    <Text className={advanceCurrency === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
+                    <Text className={advanceCurrency === option ? "text-brand-700" : "text-slate-700 dark:text-slate-200"}>{option}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -527,14 +527,14 @@ export default function TourExpenseScreen() {
                 value={sheetNotes}
                 onChangeText={setSheetNotes}
                 placeholder="Napomena (opciono)"
-                className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
+                className="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-slate-900 dark:text-slate-100"
               />
               <View className="mt-4 flex-row gap-2">
                 <Pressable
-                  className="flex-1 rounded-xl border border-slate-300 px-4 py-3"
+                  className="flex-1 rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3"
                   onPress={() => setCreateSheetModalVisible(false)}
                 >
-                  <Text className="text-center font-semibold text-slate-700">Odustani</Text>
+                  <Text className="text-center font-semibold text-slate-700 dark:text-slate-200">Odustani</Text>
                 </Pressable>
                 <Pressable
                   className="flex-1 rounded-xl bg-brand-600 px-4 py-3"
@@ -554,9 +554,9 @@ export default function TourExpenseScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
-      <Text className="text-xl font-bold text-slate-900">Troškovnik</Text>
-      <Text className="mt-1 text-slate-600">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
+    <ScrollView className="flex-1 bg-white dark:bg-slate-800" contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">Troškovnik</Text>
+      <Text className="mt-1 text-slate-600 dark:text-slate-300">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
 
       <View className="mt-3 flex-row items-center justify-between">
         <Text className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(sheet.status)}`}>{translateExpenseStatus(sheet.status)}</Text>
@@ -589,9 +589,9 @@ export default function TourExpenseScreen() {
         </View>
       ) : null}
 
-      <View className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <View className="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4">
         <View className="flex-row items-center justify-between">
-          <Text className="font-semibold text-slate-900">
+          <Text className="font-semibold text-slate-900 dark:text-slate-100">
             Akontacija: {safeAdvanceValue.toFixed(2)} {sheet.advanceCurrency}
           </Text>
           <Pressable
@@ -602,9 +602,9 @@ export default function TourExpenseScreen() {
               setAdvanceModalVisible(true);
             }}
             disabled={isReadOnly}
-            className="rounded-md border border-slate-300 px-3 py-1.5 disabled:opacity-50"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 disabled:opacity-50"
           >
-            <Text className="text-xs font-semibold text-slate-700">Izmeni</Text>
+            <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">Izmeni</Text>
           </Pressable>
         </View>
       </View>
@@ -613,25 +613,25 @@ export default function TourExpenseScreen() {
         {groupedItems.map(([country, items]) => {
           const countryMeta = getCountryMeta(country);
           return (
-            <View key={country} className="rounded-xl border border-slate-200 bg-white p-3">
-              <Text className="font-semibold text-slate-900">
+            <View key={country} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+              <Text className="font-semibold text-slate-900 dark:text-slate-100">
                 {countryMeta.flag} {countryMeta.label.toUpperCase()}
               </Text>
               {items.map((item) => {
                 const amountType = item.cashAmount != null ? "Gotovina" : "Kartica";
                 const amountValue = item.cashAmount ?? item.cardAmount ?? 0;
                 return (
-                  <View key={item.id} className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <Text className="font-medium text-slate-900">
+                  <View key={item.id} className="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3">
+                    <Text className="font-medium text-slate-900 dark:text-slate-100">
                       {item.sequence}. {item.category}
                     </Text>
-                    <Text className="mt-1 text-slate-600">
+                    <Text className="mt-1 text-slate-600 dark:text-slate-300">
                       {amountType}: {amountValue.toFixed(2)} {item.currency}
                     </Text>
-                    {item.note ? <Text className="mt-1 text-slate-500">Napomena: {item.note}</Text> : null}
+                    {item.note ? <Text className="mt-1 text-slate-500 dark:text-slate-300">Napomena: {item.note}</Text> : null}
 
                     {item.receiptUrl ? (
-                      <Pressable onPress={() => setPreviewReceiptUrl(item.receiptUrl)} className="mt-2 self-start overflow-hidden rounded-md border border-slate-300">
+                      <Pressable onPress={() => setPreviewReceiptUrl(item.receiptUrl)} className="mt-2 self-start overflow-hidden rounded-md border border-slate-300 dark:border-slate-600">
                         <Image
                           source={{ uri: item.receiptUrl }}
                           style={{ width: 64, height: 64, backgroundColor: "#e2e8f0" }}
@@ -642,11 +642,11 @@ export default function TourExpenseScreen() {
 
                     <View className="mt-3 flex-row gap-2">
                       <Pressable
-                        className="rounded-md border border-slate-300 px-3 py-2 disabled:opacity-50"
+                        className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 disabled:opacity-50"
                         onPress={() => onEditItem(item)}
                         disabled={isReadOnly || isItemMutationPending}
                       >
-                        <Text className="text-xs font-semibold text-slate-700">Izmeni</Text>
+                        <Text className="text-xs font-semibold text-slate-700 dark:text-slate-200">Izmeni</Text>
                       </Pressable>
                       <Pressable
                         className="rounded-md border border-red-300 px-3 py-2 disabled:opacity-50"
@@ -664,31 +664,31 @@ export default function TourExpenseScreen() {
         })}
 
         {!normalizedItems.length ? (
-          <View className="rounded-xl border border-dashed border-slate-300 p-4">
-            <Text className="text-slate-600">Još nema stavki troškovnika.</Text>
+          <View className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 p-4">
+            <Text className="text-slate-600 dark:text-slate-300">Još nema stavki troškovnika.</Text>
           </View>
         ) : null}
       </View>
 
-      <View className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <Text className="font-semibold text-slate-900">Obračun</Text>
-        <Text className="mt-2 text-slate-600">Ukupno gotovina: {formatTotals(totals.cashTotals)}</Text>
-        <Text className="text-slate-600">
+      <View className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4">
+        <Text className="font-semibold text-slate-900 dark:text-slate-100">Obračun</Text>
+        <Text className="mt-2 text-slate-600 dark:text-slate-300">Ukupno gotovina: {formatTotals(totals.cashTotals)}</Text>
+        <Text className="text-slate-600 dark:text-slate-300">
           Akontacija: {totals.advanceValue.toFixed(2)} {totals.currentAdvanceCurrency}
         </Text>
-        <Text className="text-slate-700">
+        <Text className="text-slate-700 dark:text-slate-200">
           Ostatak: {totals.remainingAdvance.toFixed(2)} {totals.currentAdvanceCurrency}
         </Text>
-        <Text className="mt-2 text-slate-600">Ukupno kartica: {formatTotals(totals.cardTotals)}</Text>
+        <Text className="mt-2 text-slate-600 dark:text-slate-300">Ukupno kartica: {formatTotals(totals.cardTotals)}</Text>
       </View>
 
       <View className="mt-4 flex-row gap-2">
         <Pressable
           onPress={onOpenCreateItem}
           disabled={isReadOnly || isItemMutationPending}
-          className="flex-1 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-60"
+          className="flex-1 rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3 disabled:opacity-60"
         >
-          <Text className="text-center font-semibold text-slate-700">+ Dodaj stavku</Text>
+          <Text className="text-center font-semibold text-slate-700 dark:text-slate-200">+ Dodaj stavku</Text>
         </Pressable>
         <Pressable
           onPress={onSubmitSheet}
@@ -703,14 +703,14 @@ export default function TourExpenseScreen() {
 
       <Modal visible={isAdvanceModalVisible} transparent animationType="slide" onRequestClose={() => setAdvanceModalVisible(false)}>
         <View className="flex-1 justify-end bg-black/40">
-          <View className="rounded-t-3xl bg-white px-4 pb-8 pt-5">
-            <Text className="text-lg font-semibold text-slate-900">Izmena akontacije</Text>
+          <View className="rounded-t-3xl bg-white dark:bg-slate-800 px-4 pb-8 pt-5">
+            <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">Izmena akontacije</Text>
             <TextInput
               value={advance}
               onChangeText={setAdvance}
               keyboardType="numeric"
               placeholder="Akontacija"
-              className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-slate-900 dark:text-slate-100"
             />
             <View className="mt-3 flex-row gap-2">
               {CURRENCY_OPTIONS.map((option) => (
@@ -718,10 +718,10 @@ export default function TourExpenseScreen() {
                   key={option}
                   onPress={() => setAdvanceCurrency(option)}
                   className={`rounded-lg border px-3 py-2 ${
-                    advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                    advanceCurrency === option ? "border-brand-600 bg-brand-50" : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                   }`}
                 >
-                  <Text className={advanceCurrency === option ? "text-brand-700" : "text-slate-700"}>{option}</Text>
+                  <Text className={advanceCurrency === option ? "text-brand-700" : "text-slate-700 dark:text-slate-200"}>{option}</Text>
                 </Pressable>
               ))}
             </View>
@@ -729,11 +729,11 @@ export default function TourExpenseScreen() {
               value={sheetNotes}
               onChangeText={setSheetNotes}
               placeholder="Napomena (opciono)"
-              className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-slate-900 dark:text-slate-100"
             />
             <View className="mt-4 flex-row gap-2">
-              <Pressable className="flex-1 rounded-xl border border-slate-300 px-4 py-3" onPress={() => setAdvanceModalVisible(false)}>
-                <Text className="text-center font-semibold text-slate-700">Odustani</Text>
+              <Pressable className="flex-1 rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3" onPress={() => setAdvanceModalVisible(false)}>
+                <Text className="text-center font-semibold text-slate-700 dark:text-slate-200">Odustani</Text>
               </Pressable>
               <Pressable
                 className="flex-1 rounded-xl bg-brand-600 px-4 py-3"
@@ -749,58 +749,58 @@ export default function TourExpenseScreen() {
 
       <Modal visible={isItemModalVisible} transparent animationType="slide" onRequestClose={() => setItemModalVisible(false)}>
         <View className="flex-1 justify-end bg-black/40">
-          <ScrollView className="max-h-[90%] rounded-t-3xl bg-white px-4 pt-5" contentContainerStyle={{ paddingBottom: 32 }}>
-            <Text className="text-lg font-semibold text-slate-900">{editingItemId ? "Izmena stavke" : "Nova stavka"}</Text>
+          <ScrollView className="max-h-[90%] rounded-t-3xl bg-white dark:bg-slate-800 px-4 pt-5" contentContainerStyle={{ paddingBottom: 32 }}>
+            <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">{editingItemId ? "Izmena stavke" : "Nova stavka"}</Text>
 
-            <Text className="mt-4 text-xs text-slate-500">Zemlja</Text>
+            <Text className="mt-4 text-xs text-slate-500 dark:text-slate-300">Zemlja</Text>
             <View className="mt-2 flex-row flex-wrap gap-2">
               {COUNTRY_OPTIONS.map((country) => (
                 <Pressable
                   key={country.code}
                   onPress={() => setItemDraft((prev) => ({ ...prev, country: country.code }))}
                   className={`rounded-lg border px-3 py-2 ${
-                    itemDraft.country === country.code ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                    itemDraft.country === country.code ? "border-brand-600 bg-brand-50" : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                   }`}
                 >
-                  <Text className={itemDraft.country === country.code ? "text-brand-700" : "text-slate-700"}>
+                  <Text className={itemDraft.country === country.code ? "text-brand-700" : "text-slate-700 dark:text-slate-200"}>
                     {country.flag} {country.code}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text className="mt-4 text-xs text-slate-500">Kategorija</Text>
+            <Text className="mt-4 text-xs text-slate-500 dark:text-slate-300">Kategorija</Text>
             <View className="mt-2 flex-row flex-wrap gap-2">
               {CATEGORY_OPTIONS.map((category) => (
                 <Pressable
                   key={category}
                   onPress={() => setItemDraft((prev) => ({ ...prev, category }))}
                   className={`rounded-lg border px-3 py-2 ${
-                    itemDraft.category === category ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                    itemDraft.category === category ? "border-brand-600 bg-brand-50" : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                   }`}
                 >
-                  <Text className={itemDraft.category === category ? "text-brand-700" : "text-slate-700"}>{category}</Text>
+                  <Text className={itemDraft.category === category ? "text-brand-700" : "text-slate-700 dark:text-slate-200"}>{category}</Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text className="mt-4 text-xs text-slate-500">Tip</Text>
+            <Text className="mt-4 text-xs text-slate-500 dark:text-slate-300">Tip</Text>
             <View className="mt-2 flex-row gap-2">
               <Pressable
                 onPress={() => setItemDraft((prev) => ({ ...prev, paymentType: "CASH" }))}
                 className={`rounded-lg border px-3 py-2 ${
-                  itemDraft.paymentType === "CASH" ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                  itemDraft.paymentType === "CASH" ? "border-brand-600 bg-brand-50" : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                 }`}
               >
-                <Text className={itemDraft.paymentType === "CASH" ? "text-brand-700" : "text-slate-700"}>Gotovina</Text>
+                <Text className={itemDraft.paymentType === "CASH" ? "text-brand-700" : "text-slate-700 dark:text-slate-200"}>Gotovina</Text>
               </Pressable>
               <Pressable
                 onPress={() => setItemDraft((prev) => ({ ...prev, paymentType: "CARD" }))}
                 className={`rounded-lg border px-3 py-2 ${
-                  itemDraft.paymentType === "CARD" ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                  itemDraft.paymentType === "CARD" ? "border-brand-600 bg-brand-50" : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                 }`}
               >
-                <Text className={itemDraft.paymentType === "CARD" ? "text-brand-700" : "text-slate-700"}>Kartica</Text>
+                <Text className={itemDraft.paymentType === "CARD" ? "text-brand-700" : "text-slate-700 dark:text-slate-200"}>Kartica</Text>
               </Pressable>
             </View>
 
@@ -809,31 +809,31 @@ export default function TourExpenseScreen() {
               onChangeText={(amount) => setItemDraft((prev) => ({ ...prev, amount }))}
               keyboardType="numeric"
               placeholder="Iznos"
-              className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-slate-900 dark:text-slate-100"
             />
 
-            <Text className="mt-4 text-xs text-slate-500">Valuta</Text>
+            <Text className="mt-4 text-xs text-slate-500 dark:text-slate-300">Valuta</Text>
             <View className="mt-2 flex-row gap-2">
               {CURRENCY_OPTIONS.map((currency) => (
                 <Pressable
                   key={currency}
                   onPress={() => setItemDraft((prev) => ({ ...prev, currency }))}
                   className={`rounded-lg border px-3 py-2 ${
-                    itemDraft.currency === currency ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"
+                    itemDraft.currency === currency ? "border-brand-600 bg-brand-50" : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                   }`}
                 >
-                  <Text className={itemDraft.currency === currency ? "text-brand-700" : "text-slate-700"}>{currency}</Text>
+                  <Text className={itemDraft.currency === currency ? "text-brand-700" : "text-slate-700 dark:text-slate-200"}>{currency}</Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text className="mt-4 text-xs text-slate-500">Datum</Text>
+            <Text className="mt-4 text-xs text-slate-500 dark:text-slate-300">Datum</Text>
             <Pressable
-              className="mt-2 flex-row items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-2 flex-row items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3"
               onPress={() => setShowDatePicker((v) => !v)}
             >
-              <Text className="text-slate-900">{formatDate(itemDraft.date)}</Text>
-              <Text className="text-slate-400">📅</Text>
+              <Text className="text-slate-900 dark:text-slate-100">{formatDate(itemDraft.date)}</Text>
+              <Text className="text-slate-400 dark:text-slate-500">📅</Text>
             </Pressable>
             {showDatePicker && (
               <DateTimePicker
@@ -851,29 +851,29 @@ export default function TourExpenseScreen() {
               value={itemDraft.note}
               onChangeText={(note) => setItemDraft((prev) => ({ ...prev, note }))}
               placeholder="Napomena (opciono)"
-              className="mt-4 rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-slate-900 dark:text-slate-100"
             />
 
-            <Text className="mt-4 text-xs text-slate-500">Račun</Text>
+            <Text className="mt-4 text-xs text-slate-500 dark:text-slate-300">Račun</Text>
             <View className="mt-2 flex-row gap-2">
               <Pressable
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 disabled:opacity-60"
                 onPress={() => pickReceipt("camera")}
                 disabled={isUploadingReceipt}
               >
-                <Text className="text-center text-slate-700">Fotografiši</Text>
+                <Text className="text-center text-slate-700 dark:text-slate-200">Fotografiši</Text>
               </Pressable>
               <Pressable
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 disabled:opacity-60"
                 onPress={() => pickReceipt("library")}
                 disabled={isUploadingReceipt}
               >
-                <Text className="text-center text-slate-700">Iz galerije</Text>
+                <Text className="text-center text-slate-700 dark:text-slate-200">Iz galerije</Text>
               </Pressable>
             </View>
 
             {itemDraft.receiptUrl ? (
-              <Pressable className="mt-3 self-start overflow-hidden rounded-md border border-slate-300" onPress={() => setPreviewReceiptUrl(itemDraft.receiptUrl)}>
+              <Pressable className="mt-3 self-start overflow-hidden rounded-md border border-slate-300 dark:border-slate-600" onPress={() => setPreviewReceiptUrl(itemDraft.receiptUrl)}>
                 <Image source={{ uri: itemDraft.receiptUrl }} style={{ width: 72, height: 72, backgroundColor: "#e2e8f0" }} resizeMode="cover" />
               </Pressable>
             ) : null}
@@ -882,12 +882,12 @@ export default function TourExpenseScreen() {
               value={itemDraft.receiptUrl}
               onChangeText={(receiptUrl) => setItemDraft((prev) => ({ ...prev, receiptUrl }))}
               placeholder="Ili direktni URL računa (opciono)"
-              className="mt-3 rounded-xl border border-slate-200 px-4 py-3"
+              className="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 text-slate-900 dark:text-slate-100"
             />
 
             <View className="mt-5 flex-row gap-2">
-              <Pressable className="flex-1 rounded-xl border border-slate-300 px-4 py-3" onPress={() => setItemModalVisible(false)}>
-                <Text className="text-center font-semibold text-slate-700">Odustani</Text>
+              <Pressable className="flex-1 rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3" onPress={() => setItemModalVisible(false)}>
+                <Text className="text-center font-semibold text-slate-700 dark:text-slate-200">Odustani</Text>
               </Pressable>
               <Pressable
                 className="flex-1 rounded-xl bg-brand-600 px-4 py-3 disabled:opacity-60"

@@ -7,7 +7,7 @@ import { IOSCard } from "@/components/ios/IOSCard";
 import { IOSGlassPill } from "@/components/ios/IOSGlassPill";
 import { Pressable, TextInput } from "@/components/ui";
 import { formatDateTime } from "@/lib/formatters";
-import { LightTokens as T } from "@/lib/theme";
+import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
 import { useCreateTourDocument, useTourDocuments } from "@/queries/useTourDocuments";
 import { uploadFromFileUri } from "@/services/upload";
 
@@ -16,6 +16,8 @@ const DOC_TYPES = ["PDF", "JPG", "PNG"] as const;
 export default function TourDocumentsScreen() {
   const params = useLocalSearchParams<{ id: string; from?: string }>();
   const tourId = params.id;
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const { data, isLoading, isError, isRefetching, refetch } = useTourDocuments(tourId);
   const createDocument = useCreateTourDocument(tourId);
@@ -193,7 +195,8 @@ export default function TourDocumentsScreen() {
             value={fileName}
             onChangeText={setFileName}
             placeholder="Naziv fajla (npr. CMR-BG-Munchen.jpg)"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+            placeholderTextColor={theme.text.muted}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
 
           <TextInput
@@ -201,7 +204,8 @@ export default function TourDocumentsScreen() {
             onChangeText={setFileUrl}
             autoCapitalize="none"
             placeholder="URL fajla (automatski nakon upload-a)"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+            placeholderTextColor={theme.text.muted}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
 
           <Text style={styles.helpLabel}>Tip fajla</Text>
@@ -240,10 +244,10 @@ export default function TourDocumentsScreen() {
         ) : null}
 
         {sortedDocs.map((doc) => (
-          <Pressable key={doc.id} onPress={() => void onOpenDocument(doc.fileUrl)} className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <Text className="font-medium text-slate-900">{doc.fileName}</Text>
-            <Text className="mt-1 text-xs text-slate-600">Tip: {doc.fileType}</Text>
-            <Text className="mt-1 text-xs text-slate-600">Kreirano: {formatDateTime(doc.createdAt)}</Text>
+          <Pressable key={doc.id} onPress={() => void onOpenDocument(doc.fileUrl)} className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+            <Text className="font-medium text-slate-900 dark:text-slate-100">{doc.fileName}</Text>
+            <Text className="mt-1 text-xs text-slate-600 dark:text-slate-400">Tip: {doc.fileType}</Text>
+            <Text className="mt-1 text-xs text-slate-600 dark:text-slate-400">Kreirano: {formatDateTime(doc.createdAt)}</Text>
             <Text className="mt-2 text-xs font-semibold text-brand-700">Otvori dokument</Text>
           </Pressable>
         ))}
@@ -254,51 +258,53 @@ export default function TourDocumentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: T.bgApp
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40
-  },
-  title: {
-    color: T.textPrimary,
-    fontSize: 26,
-    fontWeight: "800"
-  },
-  subtitle: {
-    marginTop: 4,
-    color: T.textSecondary
-  },
-  section: {
-    marginTop: 12
-  },
-  sectionTitle: {
-    color: T.textPrimary,
-    fontWeight: "700",
-    fontSize: 16
-  },
-  stack: {
-    marginTop: 12,
-    gap: 12
-  },
-  row: {
-    flexDirection: "row",
-    gap: 8
-  },
-  rowWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8
-  },
-  helpLabel: {
-    color: T.textSecondary,
-    fontSize: 12
-  },
-  loading: {
-    marginTop: 8,
-    color: T.textSecondary
-  }
-});
+function makeStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.surface.app
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 40
+    },
+    title: {
+      color: theme.text.primary,
+      fontSize: 26,
+      fontWeight: "800"
+    },
+    subtitle: {
+      marginTop: 4,
+      color: theme.text.secondary
+    },
+    section: {
+      marginTop: 12
+    },
+    sectionTitle: {
+      color: theme.text.primary,
+      fontWeight: "700",
+      fontSize: 16
+    },
+    stack: {
+      marginTop: 12,
+      gap: 12
+    },
+    row: {
+      flexDirection: "row",
+      gap: 8
+    },
+    rowWrap: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8
+    },
+    helpLabel: {
+      color: theme.text.secondary,
+      fontSize: 12
+    },
+    loading: {
+      marginTop: 8,
+      color: theme.text.secondary
+    }
+  });
+}
