@@ -10,15 +10,17 @@ import {
   useNotificationsInfinite
 } from "@/queries/useNotifications";
 import { resolveNotificationRoute, withNotificationSource } from "@/services/notifications";
-import { Theme, formatSrDateTime } from "@/lib/theme";
+import { formatSrDateTime } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 
 function severityClass(severity: AppNotification["severity"]): string {
-  if (severity === "critical") return "border-red-300 bg-red-50";
-  if (severity === "warning") return "border-amber-300 bg-amber-50";
-  return "border-blue-200 bg-blue-50";
+  if (severity === "critical") return "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950";
+  if (severity === "warning") return "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950";
+  return "border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950";
 }
 
 export default function NotificationsScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const notificationsQuery = useNotificationsInfinite(20);
@@ -91,13 +93,13 @@ export default function NotificationsScreen() {
   const unread = items.filter((item) => !item.isRead).length;
 
   return (
-    <View className="flex-1 px-4 py-5" style={{ backgroundColor: Theme.surface.app }}>
+    <View className="flex-1 px-4 py-5" style={{ backgroundColor: theme.surface.app }}>
       <View className="mb-3 flex-row items-center justify-between">
         <View>
-          <Text className="text-3xl font-extrabold" style={{ color: Theme.text.primary }}>
+          <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>
             Obaveštenja
           </Text>
-          <Text className="text-sm" style={{ color: Theme.text.secondary }}>
+          <Text className="text-sm" style={{ color: theme.text.secondary }}>
             {unread} nepročitanih
           </Text>
         </View>
@@ -105,15 +107,15 @@ export default function NotificationsScreen() {
           onPress={onMarkAllRead}
           disabled={markAllRead.isPending}
           className="max-w-[132px] rounded-full px-3 py-2 disabled:opacity-60"
-          style={{ borderColor: Theme.accent.primary, borderWidth: 1, backgroundColor: Theme.accent.primaryLight }}
+          style={{ borderColor: theme.accent.primary, borderWidth: 1, backgroundColor: theme.accent.primaryLight }}
         >
-          <Text className="text-center text-xs font-semibold" style={{ color: Theme.accent.primaryDark }}>
+          <Text className="text-center text-xs font-semibold" style={{ color: theme.accent.primaryDark }}>
             {markAllRead.isPending ? "Ažuriranje..." : "Označi sve kao pročitano"}
           </Text>
         </Pressable>
       </View>
 
-      {notificationsQuery.isLoading ? <Text className="text-slate-500">Učitavanje...</Text> : null}
+      {notificationsQuery.isLoading ? <Text className="text-slate-500 dark:text-slate-400">Učitavanje...</Text> : null}
       {notificationsQuery.isError ? <Text className="text-red-600">Učitavanje obaveštenja nije uspelo.</Text> : null}
 
       <FlatList
@@ -124,8 +126,8 @@ export default function NotificationsScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={() => void onRefresh()}
-            tintColor={Theme.accent.primary}
-            colors={[Theme.accent.primary]}
+            tintColor={theme.accent.primary}
+            colors={[theme.accent.primary]}
           />
         }
         onEndReachedThreshold={0.4}
@@ -140,10 +142,10 @@ export default function NotificationsScreen() {
             className={`mb-3 rounded-2xl border p-3 ${severityClass(item.severity)} ${item.isRead ? "opacity-80" : "opacity-100"}`}
           >
             <View className="flex-row items-start justify-between gap-2">
-              <Text className="font-semibold text-slate-900">{item.title}</Text>
-              <Text className="text-xs text-slate-500">{formatSrDateTime(item.createdAt)}</Text>
+              <Text className="font-semibold text-slate-900 dark:text-slate-100">{item.title}</Text>
+              <Text className="text-xs text-slate-500 dark:text-slate-400">{formatSrDateTime(item.createdAt)}</Text>
             </View>
-            <Text className="mt-1 text-sm text-slate-700">{item.message}</Text>
+            <Text className="mt-1 text-sm text-slate-700 dark:text-slate-300">{item.message}</Text>
             {item.isRead ? null : (
               <Pressable
                 onPress={(event) => {
@@ -152,19 +154,19 @@ export default function NotificationsScreen() {
                 }}
                 disabled={pendingNotificationId === item.id}
                 className="mt-3 self-start rounded-lg px-3 py-2 disabled:opacity-60"
-                style={{ borderColor: Theme.accent.primary, borderWidth: 1 }}
+                style={{ borderColor: theme.accent.primary, borderWidth: 1 }}
               >
-                <Text className="text-xs font-semibold" style={{ color: Theme.accent.primary }}>
+                <Text className="text-xs font-semibold" style={{ color: theme.accent.primary }}>
                   {pendingNotificationId === item.id ? "Ažuriranje..." : "Označi kao pročitano"}
                 </Text>
               </Pressable>
             )}
           </Pressable>
         )}
-        ListEmptyComponent={notificationsQuery.isLoading ? null : <Text className="text-slate-500">Nema obaveštenja.</Text>}
+        ListEmptyComponent={notificationsQuery.isLoading ? null : <Text className="text-slate-500 dark:text-slate-400">Nema obaveštenja.</Text>}
         ListFooterComponent={
           notificationsQuery.isFetchingNextPage
-            ? <Text className="pb-2 pt-1 text-center text-slate-500">Učitavanje još...</Text>
+            ? <Text className="pb-2 pt-1 text-center text-slate-500 dark:text-slate-400">Učitavanje još...</Text>
             : null
         }
       />

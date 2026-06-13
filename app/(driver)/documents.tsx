@@ -3,7 +3,7 @@ import { Linking, RefreshControl, ScrollView } from "react-native";
 import { useState } from "react";
 import { Pressable, Text, View } from "@/components/ui";
 import { useDocuments } from "@/queries/useDocuments";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 import { formatDate } from "@/lib/formatters";
 
 function formatFileType(value?: string | null): string {
@@ -12,6 +12,7 @@ function formatFileType(value?: string | null): string {
 }
 
 export default function DocumentsScreen() {
+  const theme = useTheme();
   const documentsQuery = useDocuments();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -36,40 +37,40 @@ export default function DocumentsScreen() {
   return (
     <ScrollView
       className="flex-1"
-      style={{ backgroundColor: Theme.surface.app }}
+      style={{ backgroundColor: theme.surface.app }}
       contentContainerStyle={{ paddingBottom: 28 }}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
           onRefresh={() => void onRefresh()}
-          tintColor={Theme.accent.primary}
-          colors={[Theme.accent.primary]}
+          tintColor={theme.accent.primary}
+          colors={[theme.accent.primary]}
         />
       }
     >
       <View className="px-4 pb-3 pt-5">
-        <Text className="text-4xl font-extrabold" style={{ color: Theme.text.primary }}>
+        <Text className="text-4xl font-extrabold" style={{ color: theme.text.primary }}>
           Dokumenta
         </Text>
-        <Text className="mt-1 text-sm" style={{ color: Theme.text.secondary }}>
+        <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
           {documents.length} ukupno
         </Text>
       </View>
 
       <View className="px-4">
         {documentsQuery.isLoading ? (
-          <View className="rounded-2xl border px-4 py-5" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
-            <Text className="text-sm" style={{ color: Theme.text.secondary }}>Učitavanje dokumenata...</Text>
+          <View className="rounded-2xl border px-4 py-5" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+            <Text className="text-sm" style={{ color: theme.text.secondary }}>Učitavanje dokumenata...</Text>
           </View>
         ) : documentsQuery.isError ? (
-          <View className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
-            <Text className="font-semibold text-red-700">Greška pri učitavanju dokumenata</Text>
-            <Text className="mt-1 text-sm text-red-600">Povucite ekran nadole za ponovno učitavanje.</Text>
+          <View className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 dark:border-red-900 dark:bg-red-950">
+            <Text className="font-semibold text-red-700 dark:text-red-300">Greška pri učitavanju dokumenata</Text>
+            <Text className="mt-1 text-sm text-red-600 dark:text-red-400">Povucite ekran nadole za ponovno učitavanje.</Text>
           </View>
         ) : documents.length === 0 ? (
-          <View className="rounded-2xl border px-4 py-5" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
-            <Text className="font-semibold" style={{ color: Theme.text.primary }}>Nema dokumenata</Text>
-            <Text className="mt-1 text-sm" style={{ color: Theme.text.secondary }}>
+          <View className="rounded-2xl border px-4 py-5" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+            <Text className="font-semibold" style={{ color: theme.text.primary }}>Nema dokumenata</Text>
+            <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
               Dokumenta vezana za turu se i dalje mogu videti u detalju konkretne ture.
             </Text>
           </View>
@@ -78,17 +79,17 @@ export default function DocumentsScreen() {
             <View
               key={`${document.id}-${document.fileUrl}`}
               className="mb-3 rounded-2xl border p-4"
-              style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}
+              style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}
             >
               <View className="flex-row items-start gap-3">
-                <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Theme.accent.primaryLight }}>
-                  <Ionicons name="document-text-outline" size={20} color={Theme.accent.primary} />
+                <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: theme.accent.primaryLight }}>
+                  <Ionicons name="document-text-outline" size={20} color={theme.accent.primary} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-bold" style={{ color: Theme.text.primary }}>
+                  <Text className="text-base font-bold" style={{ color: theme.text.primary }}>
                     {document.fileName}
                   </Text>
-                  <Text className="mt-1 text-xs" style={{ color: Theme.text.secondary }}>
+                  <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
                     {formatFileType(document.fileType)} · {formatDate(document.createdAt)}
                   </Text>
                 </View>
@@ -96,7 +97,7 @@ export default function DocumentsScreen() {
               <Pressable
                 onPress={() => void openDocument(document.fileUrl)}
                 className="mt-3 rounded-xl px-4 py-3"
-                style={{ backgroundColor: Theme.accent.primary }}
+                style={{ backgroundColor: theme.accent.primary }}
               >
                 <Text className="text-center font-semibold text-white">Otvori</Text>
               </Pressable>

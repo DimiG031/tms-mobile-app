@@ -12,7 +12,7 @@ import {
   getVisibleTabModules,
   type MobileModuleDefinition
 } from "@/lib/mobile-modules";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 import type { MobileProfile } from "@/lib/types";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -47,7 +47,8 @@ function BottomNavItem({
   active: boolean;
   onPress: () => void;
 }) {
-  const color = active ? Theme.accent.primary : Theme.text.muted;
+  const theme = useTheme();
+  const color = active ? theme.accent.primary : theme.text.muted;
 
   return (
     <Pressable onPress={onPress} style={{ flex: 1, alignItems: "center", justifyContent: "center", minHeight: 54 }}>
@@ -68,6 +69,7 @@ function ModuleWheel({
   onRotate: (direction: -1 | 1) => void;
   onSelect: (index: number) => void;
 }) {
+  const theme = useTheme();
   const activeModule = modules[wrapIndex(activeIndex, modules.length)];
   const previousModule = modules[wrapIndex(activeIndex - 1, modules.length)];
   const nextModule = modules[wrapIndex(activeIndex + 1, modules.length)];
@@ -96,9 +98,9 @@ function ModuleWheel({
         marginHorizontal: 14,
         marginBottom: 8,
         borderWidth: 1,
-        borderColor: Theme.surface.border,
+        borderColor: theme.surface.border,
         borderRadius: 22,
-        backgroundColor: Theme.surface.card,
+        backgroundColor: theme.surface.card,
         overflow: "hidden",
         height: 154
       }}
@@ -113,8 +115,8 @@ function ModuleWheel({
           height: 285,
           borderRadius: 142.5,
           borderWidth: 1,
-          borderColor: Theme.surface.border,
-          backgroundColor: "#f8fafc"
+          borderColor: theme.surface.border,
+          backgroundColor: theme.surface.subtle
         }}
       >
         <View
@@ -125,7 +127,7 @@ function ModuleWheel({
             width: 80,
             height: 5,
             borderRadius: 999,
-            backgroundColor: Theme.accent.primary
+            backgroundColor: theme.accent.primary
           }}
         />
 
@@ -134,8 +136,8 @@ function ModuleWheel({
             onPress={() => onSelect(previousIndex)}
             style={{ position: "absolute", left: 28, top: 35, width: 82, alignItems: "center", opacity: 0.46 }}
           >
-            <View style={{ height: 45, width: 45, borderRadius: 22.5, alignItems: "center", justifyContent: "center", backgroundColor: Theme.accent.primaryLight }}>
-              <Ionicons name={previousModule.icon} size={20} color={Theme.accent.primary} />
+            <View style={{ height: 45, width: 45, borderRadius: 22.5, alignItems: "center", justifyContent: "center", backgroundColor: theme.accent.primaryLight }}>
+              <Ionicons name={previousModule.icon} size={20} color={theme.accent.primary} />
             </View>
           </Pressable>
         ) : null}
@@ -144,10 +146,10 @@ function ModuleWheel({
           onPress={() => onSelect(activeIndex)}
           style={{ position: "absolute", left: 88.5, top: 5, width: 108, alignItems: "center" }}
         >
-          <View style={{ height: 62, width: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: Theme.accent.primary }}>
+          <View style={{ height: 62, width: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: theme.accent.primary }}>
             <Ionicons name={activeModule.icon} size={29} color="#fff" />
           </View>
-          <Text numberOfLines={1} style={{ marginTop: 6, fontSize: 14, fontWeight: "800", color: Theme.text.primary }}>
+          <Text numberOfLines={1} style={{ marginTop: 6, fontSize: 14, fontWeight: "800", color: theme.text.primary }}>
             {activeModule.label}
           </Text>
         </Pressable>
@@ -157,8 +159,8 @@ function ModuleWheel({
             onPress={() => onSelect(nextIndex)}
             style={{ position: "absolute", right: 28, top: 35, width: 82, alignItems: "center", opacity: 0.46 }}
           >
-            <View style={{ height: 45, width: 45, borderRadius: 22.5, alignItems: "center", justifyContent: "center", backgroundColor: Theme.accent.primaryLight }}>
-              <Ionicons name={nextModule.icon} size={20} color={Theme.accent.primary} />
+            <View style={{ height: 45, width: 45, borderRadius: 22.5, alignItems: "center", justifyContent: "center", backgroundColor: theme.accent.primaryLight }}>
+              <Ionicons name={nextModule.icon} size={20} color={theme.accent.primary} />
             </View>
           </Pressable>
         ) : null}
@@ -168,6 +170,7 @@ function ModuleWheel({
 }
 
 function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: MobileProfile | null }) {
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const visibleTabs = getVisibleTabModules(profile);
   const sliceModules = getSliceModules(profile);
@@ -215,8 +218,8 @@ function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: 
           paddingTop: 6,
           paddingBottom: Math.max(insets.bottom, 8),
           borderTopWidth: 1,
-          borderTopColor: Theme.surface.border,
-          backgroundColor: Theme.surface.card
+          borderTopColor: theme.surface.border,
+          backgroundColor: theme.surface.card
         }}
       >
         {tabs.map((module) => {
@@ -245,6 +248,7 @@ function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: 
 }
 
 export default function DriverLayout() {
+  const theme = useTheme();
   const { session } = useAuth();
   const mobileProfileQuery = useMobileProfile(Boolean(session));
   const visibleTabs = getVisibleTabModules(mobileProfileQuery.data);
@@ -259,15 +263,15 @@ export default function DriverLayout() {
       tabBar={(props) => <DriverTabBar {...props} profile={mobileProfileQuery.data} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Theme.accent.primary,
-        tabBarInactiveTintColor: Theme.text.muted,
+        tabBarActiveTintColor: theme.accent.primary,
+        tabBarInactiveTintColor: theme.text.muted,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: "600"
         },
         tabBarStyle: {
-          backgroundColor: Theme.surface.card,
-          borderTopColor: Theme.surface.border
+          backgroundColor: theme.surface.card,
+          borderTopColor: theme.surface.border
         }
       }}
     >
