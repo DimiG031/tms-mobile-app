@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
+import { colorScheme as nativewindColorScheme } from "nativewind";
 import { DarkTheme, Theme, type AppThemeTokens } from "@/lib/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMobileProfile } from "@/queries/useMobileProfile";
@@ -26,6 +27,11 @@ export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
     const tokens = resolved === "dark" ? DarkTheme : Theme;
     return { ...tokens, isDark: resolved === "dark", mode: resolved, preference };
   }, [preference, systemScheme]);
+
+  // Keep NativeWind dark: variants in sync with the resolved theme mode.
+  useEffect(() => {
+    nativewindColorScheme.set(value.mode);
+  }, [value.mode]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

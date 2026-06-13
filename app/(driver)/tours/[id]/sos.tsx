@@ -4,7 +4,7 @@ import { Alert, ScrollView } from "react-native";
 import * as Location from "expo-location";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useSosReport } from "@/queries/useSos";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 
 async function tryGetLocation(): Promise<{ latitude: number; longitude: number } | null> {
   try {
@@ -21,6 +21,7 @@ export default function TourSosScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const tourId = params.id;
   const router = useRouter();
+  const theme = useTheme();
   const sos = useSosReport();
   const [message, setMessage] = useState("");
 
@@ -58,28 +59,29 @@ export default function TourSosScreen() {
   }
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+    <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "SOS" }} />
 
-      <View className="rounded-2xl border border-red-200 bg-red-50 p-4">
-        <Text className="text-lg font-extrabold text-red-700">Hitan SOS poziv</Text>
-        <Text className="mt-1 text-sm leading-5 text-red-700">
+      <View className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
+        <Text className="text-lg font-extrabold text-red-700 dark:text-red-300">Hitan SOS poziv</Text>
+        <Text className="mt-1 text-sm leading-5 text-red-700 dark:text-red-300">
           Slanjem SOS poziva odmah obaveštavaš dispečera o problemu na putu. Uz poziv se šalje tvoja trenutna GPS
           lokacija ako je dozvoljen pristup lokaciji.
         </Text>
       </View>
 
-      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>
+      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>
         Poruka (opciono)
       </Text>
       <TextInput
         value={message}
         onChangeText={setMessage}
         placeholder="Opiši ukratko šta se dešava"
+        placeholderTextColor={theme.text.muted}
         multiline
         numberOfLines={4}
-        className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
-        style={{ minHeight: 96, textAlignVertical: "top" }}
+        className="mt-2 rounded-xl border px-4 py-3"
+        style={{ minHeight: 96, textAlignVertical: "top", borderColor: theme.surface.border, backgroundColor: theme.surface.card, color: theme.text.primary }}
       />
 
       <Pressable

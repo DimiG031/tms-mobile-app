@@ -5,7 +5,7 @@ import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useReportTourIssue } from "@/queries/useTourIssue";
 import { useTourStops } from "@/queries/useTourStops";
 import type { TourIssueSeverity, TourIssueType } from "@/lib/types";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 
 const ISSUE_TYPES: { value: TourIssueType; label: string }[] = [
   { value: "DELAY", label: "Kašnjenje" },
@@ -27,6 +27,7 @@ export default function TourIssuesScreen() {
   const tourId = params.id;
   const router = useRouter();
   const reportIssue = useReportTourIssue(tourId);
+  const theme = useTheme();
   const { data: stops } = useTourStops(tourId);
   const selectableStops = (stops ?? []).filter((stop) => Boolean(stop.id));
 
@@ -58,57 +59,57 @@ export default function TourIssuesScreen() {
   }
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+    <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Prijavi problem" }} />
 
-      <Text className="text-2xl font-extrabold" style={{ color: Theme.text.primary }}>Prijavi problem sa ture</Text>
-      <Text className="mt-1 text-sm" style={{ color: Theme.text.secondary }}>
+      <Text className="text-2xl font-extrabold" style={{ color: theme.text.primary }}>Prijavi problem sa ture</Text>
+      <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
         Obavesti dispečera o problemu kako bi mogao da reaguje na vreme.
       </Text>
 
-      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>Tip problema</Text>
+      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Tip problema</Text>
       <View className="mt-2 flex-row flex-wrap gap-2">
         {ISSUE_TYPES.map((option) => (
           <Pressable
             key={option.value}
             onPress={() => setType(option.value)}
-            className={`rounded-lg border px-3 py-2 ${type === option.value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+            className={`rounded-lg border px-3 py-2 ${type === option.value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"}`}
           >
-            <Text className={type === option.value ? "text-brand-700" : "text-slate-700"}>{option.label}</Text>
+            <Text className={type === option.value ? "text-brand-700" : "text-slate-700 dark:text-slate-300"}>{option.label}</Text>
           </Pressable>
         ))}
       </View>
 
-      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>Hitnost</Text>
+      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Hitnost</Text>
       <View className="mt-2 flex-row gap-2">
         {SEVERITIES.map((option) => (
           <Pressable
             key={option.value}
             onPress={() => setSeverity(option.value)}
-            className={`flex-1 rounded-lg border px-3 py-2 ${severity === option.value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+            className={`flex-1 rounded-lg border px-3 py-2 ${severity === option.value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"}`}
           >
-            <Text className={`text-center ${severity === option.value ? "text-brand-700" : "text-slate-700"}`}>{option.label}</Text>
+            <Text className={`text-center ${severity === option.value ? "text-brand-700" : "text-slate-700 dark:text-slate-300"}`}>{option.label}</Text>
           </Pressable>
         ))}
       </View>
 
       {selectableStops.length ? (
         <>
-          <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>Stanica (opciono)</Text>
+          <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Stanica (opciono)</Text>
           <View className="mt-2 flex-row flex-wrap gap-2">
             <Pressable
               onPress={() => setStopId(null)}
-              className={`rounded-lg border px-3 py-2 ${stopId === null ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+              className={`rounded-lg border px-3 py-2 ${stopId === null ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"}`}
             >
-              <Text className={stopId === null ? "text-brand-700" : "text-slate-700"}>Bez stanice</Text>
+              <Text className={stopId === null ? "text-brand-700" : "text-slate-700 dark:text-slate-300"}>Bez stanice</Text>
             </Pressable>
             {selectableStops.map((stop) => (
               <Pressable
                 key={stop.id}
                 onPress={() => setStopId(stop.id)}
-                className={`rounded-lg border px-3 py-2 ${stopId === stop.id ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
+                className={`rounded-lg border px-3 py-2 ${stopId === stop.id ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800"}`}
               >
-                <Text className={stopId === stop.id ? "text-brand-700" : "text-slate-700"}>
+                <Text className={stopId === stop.id ? "text-brand-700" : "text-slate-700 dark:text-slate-300"}>
                   {stop.sequence}. {stop.locationName ?? stop.city ?? "Stanica"}
                 </Text>
               </Pressable>
@@ -117,22 +118,24 @@ export default function TourIssuesScreen() {
         </>
       ) : null}
 
-      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>Naslov</Text>
+      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Naslov</Text>
       <TextInput
         value={title}
         onChangeText={setTitle}
         placeholder="npr. Kašnjenje na utovaru"
-        className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+        placeholderTextColor={theme.text.muted}
+        className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
       />
 
-      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>Opis (opciono)</Text>
+      <Text className="mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Opis (opciono)</Text>
       <TextInput
         value={description}
         onChangeText={setDescription}
         placeholder="Detaljnije opiši problem"
         multiline
         numberOfLines={4}
-        className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+        placeholderTextColor={theme.text.muted}
+        className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         style={{ minHeight: 96, textAlignVertical: "top" }}
       />
 
@@ -140,7 +143,7 @@ export default function TourIssuesScreen() {
         onPress={onSubmit}
         disabled={reportIssue.isPending}
         className="mt-6 rounded-2xl px-4 py-4 disabled:opacity-60"
-        style={{ backgroundColor: Theme.accent.primary }}
+        style={{ backgroundColor: theme.accent.primary }}
       >
         <Text className="text-center text-lg font-extrabold text-white">
           {reportIssue.isPending ? "Slanje..." : "Pošalji prijavu"}

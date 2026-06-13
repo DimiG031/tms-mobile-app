@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Linking, ScrollView } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, Text, View } from "@/components/ui";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 import type { AppDocument, TourForwarderInfo, TourNotes, TourStop } from "@/lib/types";
 import { formatDateTime, formatRouteLabel, translateTourStatus } from "@/lib/formatters";
 import { useTourDetails } from "@/queries/useTourDetails";
@@ -41,9 +41,10 @@ function translateStopStatus(status?: string | null): string {
 }
 
 function Section({ title, children }: Readonly<{ title: string; children: ReactNode }>) {
+  const theme = useTheme();
   return (
-    <View className="rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
-      <Text className="mb-3 text-xs font-bold uppercase" style={{ color: Theme.text.secondary }}>
+    <View className="rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+      <Text className="mb-3 text-xs font-bold uppercase" style={{ color: theme.text.secondary }}>
         {title}
       </Text>
       {children}
@@ -52,20 +53,22 @@ function Section({ title, children }: Readonly<{ title: string; children: ReactN
 }
 
 function InfoRow({ label, value }: Readonly<{ label: string; value?: string | number | null }>) {
+  const theme = useTheme();
   return (
-    <View className="border-b border-slate-200 py-2">
-      <Text className="text-xs font-semibold uppercase" style={{ color: Theme.text.muted }}>{label}</Text>
-      <Text className="mt-0.5 text-base font-semibold" style={{ color: Theme.text.primary }}>{valueOrEmpty(value)}</Text>
+    <View className="border-b border-slate-200 dark:border-slate-700 py-2">
+      <Text className="text-xs font-semibold uppercase" style={{ color: theme.text.muted }}>{label}</Text>
+      <Text className="mt-0.5 text-base font-semibold" style={{ color: theme.text.primary }}>{valueOrEmpty(value)}</Text>
     </View>
   );
 }
 
 function NoteBlock({ label, value }: Readonly<{ label: string; value?: string | null }>) {
+  const theme = useTheme();
   if (!value?.trim()) return null;
   return (
-    <View className="mb-2 rounded-xl bg-slate-50 p-3">
-      <Text className="text-xs font-semibold uppercase" style={{ color: Theme.text.muted }}>{label}</Text>
-      <Text className="mt-1 text-sm" style={{ color: Theme.text.primary }}>{value}</Text>
+    <View className="mb-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+      <Text className="text-xs font-semibold uppercase" style={{ color: theme.text.muted }}>{label}</Text>
+      <Text className="mt-1 text-sm" style={{ color: theme.text.primary }}>{value}</Text>
     </View>
   );
 }
@@ -76,16 +79,17 @@ function StopActionButton({
   onPress,
   variant = "primary"
 }: Readonly<{ label: string; disabled?: boolean; onPress: () => void; variant?: "primary" | "secondary" }>) {
+  const theme = useTheme();
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
       className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
-      style={{ backgroundColor: variant === "primary" ? Theme.accent.primary : Theme.accent.primarySoft }}
+      style={{ backgroundColor: variant === "primary" ? theme.accent.primary : theme.accent.primarySoft }}
     >
       <Text
         className="text-center text-sm font-semibold"
-        style={{ color: variant === "primary" ? "#fff" : Theme.accent.primaryDark }}
+        style={{ color: variant === "primary" ? "#fff" : theme.accent.primaryDark }}
       >
         {label}
       </Text>
@@ -104,23 +108,24 @@ function StopCard({
   isPending: boolean;
   onAction: (stop: TourStop, action: RouteStopAction) => void;
 }>) {
+  const theme = useTheme();
   const title = stop.locationName ?? stop.companyName ?? `Stanica ${stop.sequence ?? index + 1}`;
   const place = [stop.city, stop.country].filter(Boolean).join(", ");
   const normalizedStatus = stop.status?.toUpperCase();
   const canAct = Boolean(stop.id) && normalizedStatus !== "COMPLETED" && normalizedStatus !== "CANCELLED" && normalizedStatus !== "CANCELED";
 
   return (
-    <View className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <View className="mb-3 rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 p-3">
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1">
-          <Text className="text-base font-extrabold" style={{ color: Theme.text.primary }}>
+          <Text className="text-base font-extrabold" style={{ color: theme.text.primary }}>
             {stop.sequence ?? index + 1}. {title}
           </Text>
-          <Text className="mt-0.5 text-sm font-semibold" style={{ color: Theme.accent.primary }}>
+          <Text className="mt-0.5 text-sm font-semibold" style={{ color: theme.accent.primary }}>
             {translateStopType(stop.type)}
           </Text>
         </View>
-        <Text className="rounded-full bg-white px-2 py-1 text-xs font-semibold" style={{ color: Theme.text.secondary }}>
+        <Text className="rounded-full bg-white px-2 py-1 text-xs font-semibold dark:bg-slate-700" style={{ color: theme.text.secondary }}>
           {translateStopStatus(stop.status)}
         </Text>
       </View>
@@ -149,7 +154,7 @@ function StopCard({
         />
       </View>
       {!stop.id ? (
-        <Text className="mt-2 text-xs" style={{ color: Theme.text.secondary }}>
+        <Text className="mt-2 text-xs" style={{ color: theme.text.secondary }}>
           Akcije nisu dostupne jer backend nije poslao ID stanice.
         </Text>
       ) : null}
@@ -170,6 +175,7 @@ function ForwarderSection({ info }: Readonly<{ info: TourForwarderInfo | null }>
 }
 
 function NotesSection({ notes }: Readonly<{ notes?: TourNotes }>) {
+  const theme = useTheme();
   const hasDetailedNotes = Boolean(
     notes?.internalNote ||
       notes?.driverNote ||
@@ -189,13 +195,14 @@ function NotesSection({ notes }: Readonly<{ notes?: TourNotes }>) {
           <NoteBlock label="Napomena za carinu" value={notes?.customsNote} />
         </>
       ) : (
-        <Text className="text-sm" style={{ color: Theme.text.secondary }}>{EMPTY}</Text>
+        <Text className="text-sm" style={{ color: theme.text.secondary }}>{EMPTY}</Text>
       )}
     </Section>
   );
 }
 
 function DocumentsSection({ documents }: Readonly<{ documents: AppDocument[] }>) {
+  const theme = useTheme();
   const openDocument = async (document: AppDocument) => {
     try {
       const canOpen = await Linking.canOpenURL(document.fileUrl);
@@ -213,22 +220,22 @@ function DocumentsSection({ documents }: Readonly<{ documents: AppDocument[] }>)
     <Section title="Dokumenta">
       {documents.length ? (
         documents.map((document) => (
-          <View key={`${document.id}-${document.fileUrl}`} className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <Text className="text-base font-bold" style={{ color: Theme.text.primary }}>{document.fileName}</Text>
-            <Text className="mt-1 text-sm" style={{ color: Theme.text.secondary }}>
+          <View key={`${document.id}-${document.fileUrl}`} className="mb-3 rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 p-3">
+            <Text className="text-base font-bold" style={{ color: theme.text.primary }}>{document.fileName}</Text>
+            <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
               Tip: {valueOrEmpty(document.fileType)}
             </Text>
             <Pressable
               onPress={() => void openDocument(document)}
               className="mt-3 self-start rounded-lg px-3 py-2"
-              style={{ backgroundColor: Theme.accent.primary }}
+              style={{ backgroundColor: theme.accent.primary }}
             >
               <Text className="text-sm font-semibold text-white">Otvori</Text>
             </Pressable>
           </View>
         ))
       ) : (
-        <Text className="text-sm" style={{ color: Theme.text.secondary }}>{EMPTY}</Text>
+        <Text className="text-sm" style={{ color: theme.text.secondary }}>{EMPTY}</Text>
       )}
     </Section>
   );
@@ -243,6 +250,7 @@ function mergeDocuments(primary: AppDocument[], secondary: AppDocument[]): AppDo
 }
 
 export default function TourMoreDetailsScreen() {
+  const theme = useTheme();
   const params = useLocalSearchParams<{ id: string }>();
   const tourId = params.id;
   const { data: tour, isLoading, isError } = useTourDetails(tourId);
@@ -314,7 +322,7 @@ export default function TourMoreDetailsScreen() {
               />
             ))
           ) : (
-            <Text className="text-sm" style={{ color: Theme.text.secondary }}>{EMPTY}</Text>
+            <Text className="text-sm" style={{ color: theme.text.secondary }}>{EMPTY}</Text>
           )}
         </Section>
       );
@@ -326,14 +334,14 @@ export default function TourMoreDetailsScreen() {
   }
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+    <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Detaljnije" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: Theme.text.primary }}>Detaljnije</Text>
-      <Text className="mb-4 mt-1 text-sm" style={{ color: Theme.text.secondary }}>
+      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Detaljnije</Text>
+      <Text className="mb-4 mt-1 text-sm" style={{ color: theme.text.secondary }}>
         {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Kompletne informacije o turi"}
       </Text>
 
-      {isLoading ? <Text className="mb-3 text-sm text-slate-500">Učitavanje...</Text> : null}
+      {isLoading ? <Text className="mb-3 text-sm text-slate-500 dark:text-slate-400">Učitavanje...</Text> : null}
       {isError ? <Text className="mb-3 text-sm text-red-600">Učitavanje detalja ture nije uspelo.</Text> : null}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
@@ -345,9 +353,9 @@ export default function TourMoreDetailsScreen() {
                 key={section}
                 onPress={() => setActiveSection(section)}
                 className="rounded-full px-4 py-2"
-                style={{ backgroundColor: active ? Theme.accent.primary : Theme.surface.card, borderColor: Theme.surface.border, borderWidth: 1 }}
+                style={{ backgroundColor: active ? theme.accent.primary : theme.surface.card, borderColor: theme.surface.border, borderWidth: 1 }}
               >
-                <Text className="text-sm font-semibold" style={{ color: active ? "#fff" : Theme.text.primary }}>{section}</Text>
+                <Text className="text-sm font-semibold" style={{ color: active ? "#fff" : theme.text.primary }}>{section}</Text>
               </Pressable>
             );
           })}

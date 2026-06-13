@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTourDetails, useUpdateTourStatus } from "@/queries/useTourDetails";
 import { useExpenseSheet } from "@/queries/useExpenseSheet";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 import { formatRouteLabel, formatTourDateRange, translateTourStatus } from "@/lib/formatters";
 
 function statusStep(status?: string) {
@@ -47,6 +47,7 @@ export default function TourDetailsScreen() {
   const params = useLocalSearchParams<{ id: string; from?: string }>();
   const tourId = params.id;
   const fromNotifications = params.from === "notifications";
+  const theme = useTheme();
   const sourceQuery = fromNotifications ? "?from=notifications" : "";
   const { data } = useTourDetails(tourId);
   const { data: sheet } = useExpenseSheet(tourId);
@@ -70,17 +71,17 @@ export default function TourDetailsScreen() {
   }
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+    <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ headerLeft: () => <BackButton fromNotifications={fromNotifications} /> }} />
-      <Text className="text-4xl font-extrabold text-slate-900">
+      <Text className="text-4xl font-extrabold text-slate-900 dark:text-slate-100">
         {data?.routeLabel ? formatRouteLabel(data.routeLabel) : "Detalji ture"}
       </Text>
 
-      <View className="mt-4 rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+      <View className="mt-4 rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
         <View className="flex-row items-center justify-between">
-          <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status ture</Text>
-          <View className="rounded-full px-3 py-1" style={{ backgroundColor: Theme.accent.badgeBg }}>
-            <Text className="text-xs font-semibold" style={{ color: Theme.accent.badgeText }}>
+          <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status ture</Text>
+          <View className="rounded-full px-3 py-1" style={{ backgroundColor: theme.accent.badgeBg }}>
+            <Text className="text-xs font-semibold" style={{ color: theme.accent.badgeText }}>
               {translateTourStatus(data?.status)}
             </Text>
           </View>
@@ -88,7 +89,7 @@ export default function TourDetailsScreen() {
 
         <View className="mt-3 flex-row items-center gap-2">
           {[1, 2, 3, 4].map((index) => (
-            <View key={index} className="flex-1 rounded-full" style={{ height: 10, backgroundColor: index <= step ? Theme.accent.primary : "#cbd5e1" }} />
+            <View key={index} className="flex-1 rounded-full" style={{ height: 10, backgroundColor: index <= step ? theme.accent.primary : "#cbd5e1" }} />
           ))}
         </View>
 
@@ -97,7 +98,7 @@ export default function TourDetailsScreen() {
             onPress={onUpdateStatus}
             disabled={updateStatus.isPending || blockComplete}
             className="mt-4 rounded-xl px-4 py-3 disabled:opacity-60"
-            style={{ backgroundColor: Theme.accent.primary }}
+            style={{ backgroundColor: theme.accent.primary }}
           >
             <Text className="text-center text-base font-semibold text-white">
               {updateStatus.isPending ? "Ažuriranje..." : nextStatus.buttonLabel}
@@ -110,25 +111,25 @@ export default function TourDetailsScreen() {
         ) : null}
       </View>
 
-      <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
-        <Text className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Detalji</Text>
-        <View className="flex-row justify-between border-b border-slate-200 py-2">
-          <Text className="text-slate-500">Vozilo</Text>
-          <Text className="font-semibold text-slate-900">{data?.vehicleLabel ?? "-"}</Text>
+      <View className="mt-3 rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+        <Text className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Detalji</Text>
+        <View className="flex-row justify-between border-b border-slate-200 dark:border-slate-700 py-2">
+          <Text className="text-slate-500 dark:text-slate-400">Vozilo</Text>
+          <Text className="font-semibold text-slate-900 dark:text-slate-100">{data?.vehicleLabel ?? "-"}</Text>
         </View>
-        <View className="flex-row justify-between border-b border-slate-200 py-2">
-          <Text className="text-slate-500">Prikolica</Text>
-          <Text className="font-semibold text-slate-900">{data?.trailerLabel ?? "-"}</Text>
+        <View className="flex-row justify-between border-b border-slate-200 dark:border-slate-700 py-2">
+          <Text className="text-slate-500 dark:text-slate-400">Prikolica</Text>
+          <Text className="font-semibold text-slate-900 dark:text-slate-100">{data?.trailerLabel ?? "-"}</Text>
         </View>
-        <View className="flex-row justify-between border-b border-slate-200 py-2">
-          <Text className="text-slate-500">Nalog</Text>
-          <Text className="font-semibold text-slate-900">{data?.freightOrderCode ?? "-"}</Text>
+        <View className="flex-row justify-between border-b border-slate-200 dark:border-slate-700 py-2">
+          <Text className="text-slate-500 dark:text-slate-400">Nalog</Text>
+          <Text className="font-semibold text-slate-900 dark:text-slate-100">{data?.freightOrderCode ?? "-"}</Text>
         </View>
         <View className="flex-row justify-between py-2">
-          <Text className="text-slate-500">Datum</Text>
-          <Text className="font-semibold text-slate-900">{formatTourDateRange(data?.dateLabel)}</Text>
+          <Text className="text-slate-500 dark:text-slate-400">Datum</Text>
+          <Text className="font-semibold text-slate-900 dark:text-slate-100">{formatTourDateRange(data?.dateLabel)}</Text>
         </View>
-        <Text className="mt-2 text-slate-700">Napomene: {data?.notes ?? "-"}</Text>
+        <Text className="mt-2 text-slate-700 dark:text-slate-300">Napomene: {data?.notes ?? "-"}</Text>
       </View>
 
       <View className="mt-4 gap-3">
@@ -140,7 +141,7 @@ export default function TourDetailsScreen() {
 
         <View className="flex-row gap-3">
           <Link href={`/(driver)/tours/${tourId}/expense${sourceQuery}`} asChild>
-            <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: Theme.accent.primary }}>
+            <Pressable className="flex-1 rounded-xl px-4 py-3" style={{ backgroundColor: theme.accent.primary }}>
               <Text className="text-center font-semibold text-white">Troškovi</Text>
             </Pressable>
           </Link>
@@ -153,13 +154,13 @@ export default function TourDetailsScreen() {
 
         <View className="flex-row gap-3">
           <Link href={`/(driver)/tours/${tourId}/checklist`} asChild>
-            <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
-              <Text className="text-center font-semibold" style={{ color: Theme.text.primary }}>Checklist</Text>
+            <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+              <Text className="text-center font-semibold" style={{ color: theme.text.primary }}>Checklist</Text>
             </Pressable>
           </Link>
           <Link href={`/(driver)/tours/${tourId}/issues`} asChild>
-            <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
-              <Text className="text-center font-semibold" style={{ color: Theme.text.primary }}>Prijavi problem</Text>
+            <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+              <Text className="text-center font-semibold" style={{ color: theme.text.primary }}>Prijavi problem</Text>
             </Pressable>
           </Link>
         </View>
