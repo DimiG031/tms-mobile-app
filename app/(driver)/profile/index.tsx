@@ -7,7 +7,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useMobileDriverProfile } from "@/queries/useMobileDriverProfile";
 import { useMobileProfile } from "@/queries/useMobileProfile";
 import { getModuleDefinition } from "@/lib/mobile-modules";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 import { formatDate } from "@/lib/formatters";
 
 function translateRole(role?: string | null): string {
@@ -26,26 +26,29 @@ function initials(name: string): string {
 }
 
 function SectionHeader({ title }: Readonly<{ title: string }>) {
+  const theme = useTheme();
   return (
-    <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>
+    <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>
       {title}
     </Text>
   );
 }
 
 function InfoRow({ label, value, isLast = false }: Readonly<{ label: string; value?: string | null; isLast?: boolean }>) {
+  const theme = useTheme();
   return (
-    <View className="py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}>
-      <Text className="mb-0.5 text-xs" style={{ color: Theme.text.secondary }}>{label}</Text>
-      <Text className="text-sm font-semibold" style={{ color: Theme.text.primary }}>{value || "Nije uneto"}</Text>
+    <View className="py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
+      <Text className="mb-0.5 text-xs" style={{ color: theme.text.secondary }}>{label}</Text>
+      <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{value || "Nije uneto"}</Text>
     </View>
   );
 }
 
 function CertRow({ label, active, validTo, isLast = false }: Readonly<{ label: string; active: boolean; validTo?: string | null; isLast?: boolean }>) {
+  const theme = useTheme();
   return (
-    <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}>
-      <Text className="text-sm" style={{ color: Theme.text.secondary }}>{label}</Text>
+    <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
+      <Text className="text-sm" style={{ color: theme.text.secondary }}>{label}</Text>
       <View className="items-end">
         <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: active ? "#d1fae5" : "#f1f5f9" }}>
           <Text className="text-xs font-semibold" style={{ color: active ? "#065f46" : "#64748b" }}>
@@ -53,7 +56,7 @@ function CertRow({ label, active, validTo, isLast = false }: Readonly<{ label: s
           </Text>
         </View>
         {active && validTo ? (
-          <Text className="mt-1 text-xs" style={{ color: Theme.text.secondary }}>do {formatDate(validTo)}</Text>
+          <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>do {formatDate(validTo)}</Text>
         ) : null}
       </View>
     </View>
@@ -61,8 +64,9 @@ function CertRow({ label, active, validTo, isLast = false }: Readonly<{ label: s
 }
 
 function Card({ children }: Readonly<{ children: ReactNode }>) {
+  const theme = useTheme();
   return (
-    <View className="overflow-hidden rounded-2xl border px-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+    <View className="overflow-hidden rounded-2xl border px-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
       {children}
     </View>
   );
@@ -91,13 +95,14 @@ function rokStatus(days: number | null): { label: string; bg: string; text: stri
 type Deadline = { label: string; date?: string | null };
 
 function RokRow({ label, date, isLast = false }: Readonly<{ label: string; date?: string | null; isLast?: boolean }>) {
+  const theme = useTheme();
   const days = daysUntil(date);
   const status = rokStatus(days);
   return (
-    <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}>
+    <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
       <View className="flex-1 pr-3">
-        <Text className="text-sm font-semibold" style={{ color: Theme.text.primary }}>{label}</Text>
-        <Text className="mt-0.5 text-xs" style={{ color: Theme.text.secondary }}>{date ? `do ${formatDate(date)}` : "Datum nije unet"}</Text>
+        <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{label}</Text>
+        <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>{date ? `do ${formatDate(date)}` : "Datum nije unet"}</Text>
       </View>
       <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: status.bg }}>
         <Text className="text-xs font-semibold" style={{ color: status.text }}>{status.label}</Text>
@@ -134,6 +139,7 @@ function RokoviSection({ deadlines }: Readonly<{ deadlines: Deadline[] }>) {
 }
 
 export default function ProfileScreen() {
+  const theme = useTheme();
   const { session, signOut } = useAuth();
   const mobileProfileQuery = useMobileProfile();
   const driverId = mobileProfileQuery.data?.user.driverId ?? session?.user.driverId ?? null;
@@ -165,22 +171,22 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       className="flex-1"
-      style={{ backgroundColor: Theme.surface.app }}
+      style={{ backgroundColor: theme.surface.app }}
       contentContainerStyle={{ paddingBottom: 32 }}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
           onRefresh={() => void onRefresh()}
-          tintColor={Theme.accent.primary}
-          colors={[Theme.accent.primary]}
+          tintColor={theme.accent.primary}
+          colors={[theme.accent.primary]}
         />
       }
     >
-      <View className="rounded-b-3xl px-4 pb-8 pt-10" style={{ backgroundColor: Theme.accent.primary }}>
+      <View className="rounded-b-3xl px-4 pb-8 pt-10" style={{ backgroundColor: theme.accent.primary }}>
         <View className="mx-auto mb-3 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
           <Text className="text-2xl font-bold" style={{ color: "#fff" }}>{initials(displayName)}</Text>
         </View>
-        <Text className="text-center text-2xl font-extrabold" style={{ color: Theme.text.inverse }}>{displayName}</Text>
+        <Text className="text-center text-2xl font-extrabold" style={{ color: theme.text.inverse }}>{displayName}</Text>
         <Text className="mt-1 text-center text-sm" style={{ color: "rgba(255,255,255,0.80)" }}>
           {translateRole(user?.role)}
           {company?.name ? ` · ${company.name}` : ""}
@@ -189,7 +195,7 @@ export default function ProfileScreen() {
 
       <View className="px-4">
         {isLoading ? (
-          <ActivityIndicator color={Theme.accent.primary} style={{ marginVertical: 24 }} />
+          <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} />
         ) : isError ? (
           <View className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
             <Text className="font-semibold text-red-700">Greška pri učitavanju profila</Text>
@@ -204,18 +210,18 @@ export default function ProfileScreen() {
 
         <SectionHeader title="Podešavanja" />
         <Link href="/(driver)/profile/settings" asChild>
-          <Pressable className="rounded-2xl border px-4 py-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+          <Pressable className="rounded-2xl border px-4 py-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
             <View className="flex-row items-center">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Theme.accent.primaryLight }}>
-                <Ionicons name="settings-outline" size={22} color={Theme.accent.primary} />
+              <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: theme.accent.primaryLight }}>
+                <Ionicons name="settings-outline" size={22} color={theme.accent.primary} />
               </View>
               <View className="flex-1">
-                <Text className="text-base font-bold" style={{ color: Theme.text.primary }}>Podešavanja profila</Text>
-                <Text className="mt-0.5 text-xs" style={{ color: Theme.text.secondary }}>
+                <Text className="text-base font-bold" style={{ color: theme.text.primary }}>Podešavanja profila</Text>
+                <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>
                   Navigacija, moduli, tema i bezbednost naloga.
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={Theme.text.muted} />
+              <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
             </View>
           </Pressable>
         </Link>
@@ -287,7 +293,7 @@ export default function ProfileScreen() {
               <>
                 <SectionHeader title="Beleške" />
                 <Card>
-                  <Text className="py-3 text-sm leading-relaxed" style={{ color: Theme.text.primary }}>{driver.notes}</Text>
+                  <Text className="py-3 text-sm leading-relaxed" style={{ color: theme.text.primary }}>{driver.notes}</Text>
                 </Card>
               </>
             ) : null}

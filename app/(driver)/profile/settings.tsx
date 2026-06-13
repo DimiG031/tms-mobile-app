@@ -6,7 +6,7 @@ import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useMobileProfile, useUpdateMobilePreferences } from "@/queries/useMobileProfile";
 import { useChangePassword, useUpdateMobileSettings } from "@/queries/useMobileAccount";
 import { getModuleDefinition, sortModulesByPreference } from "@/lib/mobile-modules";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 import type {
   MobileModuleKey,
   MobileProfilePreferences,
@@ -21,6 +21,7 @@ const THEME_OPTIONS: { value: MobileThemePreference; label: string }[] = [
 ];
 
 function PasswordSection() {
+  const theme = useTheme();
   const changePassword = useChangePassword();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -56,33 +57,39 @@ function PasswordSection() {
   return (
     <Card>
       <View className="py-3">
-        <Text className="text-sm font-semibold" style={{ color: Theme.text.primary }}>Promena lozinke</Text>
+        <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>Promena lozinke</Text>
         <TextInput
           value={currentPassword}
           onChangeText={setCurrentPassword}
           placeholder="Trenutna lozinka"
+          placeholderTextColor={theme.text.muted}
           secureTextEntry
-          className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+          className="mt-3 rounded-xl border px-4 py-3"
+          style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card, color: theme.text.primary }}
         />
         <TextInput
           value={newPassword}
           onChangeText={setNewPassword}
           placeholder="Nova lozinka (min. 8 karaktera)"
+          placeholderTextColor={theme.text.muted}
           secureTextEntry
-          className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+          className="mt-2 rounded-xl border px-4 py-3"
+          style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card, color: theme.text.primary }}
         />
         <TextInput
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           placeholder="Potvrdi novu lozinku"
+          placeholderTextColor={theme.text.muted}
           secureTextEntry
-          className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+          className="mt-2 rounded-xl border px-4 py-3"
+          style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card, color: theme.text.primary }}
         />
         <Pressable
           disabled={!canSubmit}
           onPress={onSubmit}
           className="mb-1 mt-3 rounded-xl px-4 py-3"
-          style={{ backgroundColor: canSubmit ? Theme.accent.primary : "#cbd5e1" }}
+          style={{ backgroundColor: canSubmit ? theme.accent.primary : "#cbd5e1" }}
         >
           <Text className="text-center font-semibold text-white">
             {changePassword.isPending ? "Čuvanje..." : "Promeni lozinku"}
@@ -94,25 +101,26 @@ function PasswordSection() {
 }
 
 function AppearanceSection({ settings }: Readonly<{ settings: MobileProfileSettings }>) {
+  const theme = useTheme();
   const updateSettings = useUpdateMobileSettings();
-  const [theme, setTheme] = useState<MobileThemePreference>((settings.theme as MobileThemePreference) ?? "system");
+  const [themePref, setThemePref] = useState<MobileThemePreference>((settings.theme as MobileThemePreference) ?? "system");
   const [notifyMobile, setNotifyMobile] = useState(settings.notifyMobile);
   const [notifyEmail, setNotifyEmail] = useState(settings.notifyEmail);
 
   useEffect(() => {
-    setTheme((settings.theme as MobileThemePreference) ?? "system");
+    setThemePref((settings.theme as MobileThemePreference) ?? "system");
     setNotifyMobile(settings.notifyMobile);
     setNotifyEmail(settings.notifyEmail);
   }, [settings]);
 
   const hasChanges =
-    theme !== ((settings.theme as MobileThemePreference) ?? "system") ||
+    themePref !== ((settings.theme as MobileThemePreference) ?? "system") ||
     notifyMobile !== settings.notifyMobile ||
     notifyEmail !== settings.notifyEmail;
 
   function onSave() {
     updateSettings.mutate(
-      { theme, notifyMobile, notifyEmail },
+      { theme: themePref, notifyMobile, notifyEmail },
       {
         onSuccess: () => Alert.alert("Podešavanja", "Podešavanja su sačuvana."),
         onError: (error) => Alert.alert("Podešavanja", error instanceof Error ? error.message : "Podešavanja nisu sačuvana.")
@@ -122,38 +130,45 @@ function AppearanceSection({ settings }: Readonly<{ settings: MobileProfileSetti
 
   return (
     <Card>
-      <View className="py-3" style={{ borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}>
-        <Text className="text-sm font-semibold" style={{ color: Theme.text.primary }}>Tema aplikacije</Text>
+      <View className="py-3" style={{ borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
+        <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>Tema aplikacije</Text>
         <View className="mt-3 flex-row gap-2">
-          {THEME_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => setTheme(option.value)}
-              className={`flex-1 rounded-lg border px-3 py-2 ${theme === option.value ? "border-brand-600 bg-brand-50" : "border-slate-300 bg-white"}`}
-            >
-              <Text className={`text-center ${theme === option.value ? "text-brand-700" : "text-slate-700"}`}>{option.label}</Text>
-            </Pressable>
-          ))}
+          {THEME_OPTIONS.map((option) => {
+            const selected = themePref === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => setThemePref(option.value)}
+                className="flex-1 rounded-lg border px-3 py-2"
+                style={{
+                  borderColor: selected ? theme.accent.primary : theme.surface.border,
+                  backgroundColor: selected ? theme.accent.primaryLight : theme.surface.card
+                }}
+              >
+                <Text className="text-center" style={{ color: selected ? theme.accent.primaryDark : theme.text.secondary }}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
-      <View className="flex-row items-center justify-between py-3" style={{ borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}>
-        <Text className="flex-1 pr-4 text-sm font-semibold" style={{ color: Theme.text.primary }}>Push obaveštenja na telefonu</Text>
+      <View className="flex-row items-center justify-between py-3" style={{ borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
+        <Text className="flex-1 pr-4 text-sm font-semibold" style={{ color: theme.text.primary }}>Push obaveštenja na telefonu</Text>
         <Switch
           value={notifyMobile}
           onValueChange={setNotifyMobile}
           trackColor={{ false: "#cbd5e1", true: "#99f6e4" }}
-          thumbColor={notifyMobile ? Theme.accent.primary : "#f8fafc"}
+          thumbColor={notifyMobile ? theme.accent.primary : "#f8fafc"}
         />
       </View>
 
       <View className="flex-row items-center justify-between py-3">
-        <Text className="flex-1 pr-4 text-sm font-semibold" style={{ color: Theme.text.primary }}>Email obaveštenja</Text>
+        <Text className="flex-1 pr-4 text-sm font-semibold" style={{ color: theme.text.primary }}>Email obaveštenja</Text>
         <Switch
           value={notifyEmail}
           onValueChange={setNotifyEmail}
           trackColor={{ false: "#cbd5e1", true: "#99f6e4" }}
-          thumbColor={notifyEmail ? Theme.accent.primary : "#f8fafc"}
+          thumbColor={notifyEmail ? theme.accent.primary : "#f8fafc"}
         />
       </View>
 
@@ -161,7 +176,7 @@ function AppearanceSection({ settings }: Readonly<{ settings: MobileProfileSetti
         disabled={!hasChanges || updateSettings.isPending}
         onPress={onSave}
         className="mb-4 mt-1 rounded-xl px-4 py-3"
-        style={{ backgroundColor: hasChanges ? Theme.accent.primary : "#cbd5e1" }}
+        style={{ backgroundColor: hasChanges ? theme.accent.primary : "#cbd5e1" }}
       >
         <Text className="text-center font-semibold text-white">
           {updateSettings.isPending ? "Čuvanje..." : "Sačuvaj podešavanja"}
@@ -178,22 +193,25 @@ function sameList(a: MobileModuleKey[], b: MobileModuleKey[]): boolean {
 }
 
 function Card({ children }: Readonly<{ children: ReactNode }>) {
+  const theme = useTheme();
   return (
-    <View className="overflow-hidden rounded-2xl border px-4" style={{ borderColor: Theme.surface.border, backgroundColor: Theme.surface.card }}>
+    <View className="overflow-hidden rounded-2xl border px-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
       {children}
     </View>
   );
 }
 
 function SectionHeader({ title }: Readonly<{ title: string }>) {
+  const theme = useTheme();
   return (
-    <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: Theme.text.secondary }}>
+    <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>
       {title}
     </Text>
   );
 }
 
 function ModuleSettings({ availableModules, preferences }: Readonly<{ availableModules: MobileModuleKey[]; preferences: MobileProfilePreferences }>) {
+  const theme = useTheme();
   const updatePreferences = useUpdateMobilePreferences();
   const availableSet = useMemo(() => new Set(availableModules), [availableModules]);
   const fixedKeys = useMemo(() => availableModules.filter((key) => getModuleDefinition(key).fixed), [availableModules]);
@@ -277,9 +295,9 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
 
   return (
     <Card>
-      <View className="py-3" style={{ borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}>
-        <Text className="text-sm font-semibold" style={{ color: Theme.text.primary }}>Moduli na pregledu</Text>
-        <Text className="mt-1 text-xs leading-5" style={{ color: Theme.text.secondary }}>
+      <View className="py-3" style={{ borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
+        <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>Moduli na pregledu</Text>
+        <Text className="mt-1 text-xs leading-5" style={{ color: theme.text.secondary }}>
           Izaberite do 8 modula. Početna i Profil ostaju fiksni.
         </Text>
       </View>
@@ -293,31 +311,31 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
             key={key}
             onPress={() => toggleModule(key)}
             className="flex-row items-center gap-3 py-3"
-            style={{ borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}
+            style={{ borderBottomWidth: 1, borderBottomColor: theme.surface.border }}
           >
             <Ionicons
               name={selected ? "checkbox-outline" : "square-outline"}
               size={22}
-              color={selected ? Theme.accent.primary : Theme.text.muted}
+              color={selected ? theme.accent.primary : theme.text.muted}
             />
             <View className="flex-1">
-              <Text className="text-sm font-semibold" style={{ color: Theme.text.primary }}>{definition.label}</Text>
-              <Text className="mt-0.5 text-xs leading-4" style={{ color: Theme.text.secondary }}>
+              <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{definition.label}</Text>
+              <Text className="mt-0.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
                 {unavailableTab ? `${definition.description} Nema posebnu karticu.` : definition.description}
               </Text>
             </View>
             {definition.fixed ? (
-              <Text className="text-xs font-semibold" style={{ color: Theme.text.secondary }}>Fiksno</Text>
+              <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>Fiksno</Text>
             ) : null}
           </Pressable>
         );
       })}
 
-      <View className="py-3" style={{ borderBottomWidth: 1, borderBottomColor: Theme.surface.border }}>
+      <View className="py-3" style={{ borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-4">
-            <Text className="text-sm font-semibold" style={{ color: Theme.text.primary }}>Točak navigacije</Text>
-            <Text className="mt-0.5 text-xs leading-4" style={{ color: Theme.text.secondary }}>
+            <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>Točak navigacije</Text>
+            <Text className="mt-0.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
               Prikazuje izbor stranica u donjoj navigaciji kada ima više modula.
             </Text>
           </View>
@@ -325,22 +343,22 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
             value={sliceNavigationEnabled}
             onValueChange={setSliceNavigationEnabled}
             trackColor={{ false: "#cbd5e1", true: "#99f6e4" }}
-            thumbColor={sliceNavigationEnabled ? Theme.accent.primary : "#f8fafc"}
+            thumbColor={sliceNavigationEnabled ? theme.accent.primary : "#f8fafc"}
           />
         </View>
       </View>
 
       <View className="py-3">
-        <Text className="mb-2 text-sm font-semibold" style={{ color: Theme.text.primary }}>Redosled</Text>
+        <Text className="mb-2 text-sm font-semibold" style={{ color: theme.text.primary }}>Redosled</Text>
         {orderedSelectedModules.map((key, index) => {
           const definition = getModuleDefinition(key);
           const isFixed = Boolean(definition.fixed);
           return (
             <View key={key} className="flex-row items-center py-1">
-              <Text className="w-9 text-xs font-semibold" style={{ color: Theme.text.secondary }}>{index + 1}.</Text>
-              <Text className="flex-1 text-sm font-semibold" style={{ color: Theme.text.primary }}>{definition.label}</Text>
+              <Text className="w-9 text-xs font-semibold" style={{ color: theme.text.secondary }}>{index + 1}.</Text>
+              <Text className="flex-1 text-sm font-semibold" style={{ color: theme.text.primary }}>{definition.label}</Text>
               {isFixed ? (
-                <Text className="text-xs font-semibold" style={{ color: Theme.text.secondary }}>Fiksno</Text>
+                <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>Fiksno</Text>
               ) : (
                 <>
                   <Pressable
@@ -349,7 +367,7 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
                     className="h-8 w-8 items-center justify-center rounded-full"
                     style={{ opacity: index <= 1 ? 0.35 : 1 }}
                   >
-                    <Ionicons name="chevron-up" size={18} color={Theme.accent.primary} />
+                    <Ionicons name="chevron-up" size={18} color={theme.accent.primary} />
                   </Pressable>
                   <Pressable
                     disabled={index >= orderedSelectedModules.length - 2}
@@ -357,7 +375,7 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
                     className="h-8 w-8 items-center justify-center rounded-full"
                     style={{ opacity: index >= orderedSelectedModules.length - 2 ? 0.35 : 1 }}
                   >
-                    <Ionicons name="chevron-down" size={18} color={Theme.accent.primary} />
+                    <Ionicons name="chevron-down" size={18} color={theme.accent.primary} />
                   </Pressable>
                 </>
               )}
@@ -370,7 +388,7 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
         disabled={!hasChanges || updatePreferences.isPending}
         onPress={() => void savePreferences()}
         className="mb-4 mt-1 rounded-xl px-4 py-3"
-        style={{ backgroundColor: hasChanges ? Theme.accent.primary : "#cbd5e1" }}
+        style={{ backgroundColor: hasChanges ? theme.accent.primary : "#cbd5e1" }}
       >
         <Text className="text-center font-semibold" style={{ color: "#fff" }}>
           {updatePreferences.isPending ? "Čuvanje..." : "Sačuvaj podešavanja"}
@@ -381,19 +399,20 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
 }
 
 export default function ProfileSettingsScreen() {
+  const theme = useTheme();
   const mobileProfileQuery = useMobileProfile();
   const profile = mobileProfileQuery.data;
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: Theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+    <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Podešavanja" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: Theme.text.primary }}>Podešavanja</Text>
-      <Text className="mt-1 text-sm" style={{ color: Theme.text.secondary }}>
+      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Podešavanja</Text>
+      <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
         Navigacija, nalog i korisnička podešavanja.
       </Text>
 
       {mobileProfileQuery.isLoading ? (
-        <ActivityIndicator color={Theme.accent.primary} style={{ marginVertical: 24 }} />
+        <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} />
       ) : null}
 
       {profile ? (
