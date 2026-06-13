@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { ActivityIndicator, Alert, Linking, ScrollView } from "react-native";
-import type { ComponentProps } from "react";
-import { Pressable, Text, View } from "@/components/ui";
+import { useState, type ComponentProps } from "react";
+import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatUsers } from "@/queries/useChat";
 import { useMobileDriverProfile } from "@/queries/useMobileDriverProfile";
@@ -18,6 +18,16 @@ type Contact = {
   phone?: string | null;
   email?: string | null;
 };
+
+// Lowercase + skini srpsku dijakritiku da "dispecer"/"nikolic" pronađu "Dispečer"/"Nikolić".
+function fold(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[čć]/g, "c")
+    .replace(/š/g, "s")
+    .replace(/ž/g, "z")
+    .replace(/đ/g, "dj");
+}
 
 function translateRole(role?: string | null): string {
   if (!role) return "";
@@ -88,6 +98,9 @@ export default function ProfileKontaktiScreen() {
   const driverId = mobileProfileQuery.data?.user.driverId ?? session?.user.driverId ?? null;
   const driverProfileQuery = useMobileDriverProfile(Boolean(driverId));
   const usersQuery = useChatUsers();
+  const [search, setSearch] = useState("");
+  const queryTokens = fold(search).split(/\s+/).filter(Boolean);
+  const hasQuery = queryTokens.length > 0;
 
   const me: Contact | null = (() => {
     const driver = driverProfileQuery.data?.driver;
@@ -104,7 +117,14 @@ export default function ProfileKontaktiScreen() {
 
   const colleagues: Contact[] = (usersQuery.data ?? [])
     .filter((user) => user.id !== session?.user.id)
-    .map((user) => ({ id: user.id, name: user.name, role: user.role, phone: user.phone ?? null, email: user.email }));
+    .map((user) => ({ id: user.id, name: user.name, role: user.role, phone: user.phone ?? null, email: user.email }))
+    .filter((contact) => {
+      if (!hasQuery) return true;
+      const haystack = fold(
+        [contact.name, translateRole(contact.role), contact.role, contact.phone, contact.email].filter(Boolean).join(" ")
+      );
+      return queryTokens.every((token) => haystack.includes(token));
+    });
 
   const isLoading = usersQuery.isLoading || (Boolean(driverId) && driverProfileQuery.isLoading);
 
@@ -114,17 +134,29 @@ export default function ProfileKontaktiScreen() {
       <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Kontakti</Text>
       <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Pozovi, pošalji poruku, Viber ili mejl jednim dodirom.</Text>
 
+      <TextInput
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Pretraga (npr. dispečer Nikola)"
+        placeholderTextColor={theme.text.muted}
+        autoCapitalize="none"
+        className="mt-4 rounded-xl border px-4 py-3"
+        style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card, color: theme.text.primary }}
+      />
+
       {isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
       {usersQuery.isError ? <Text className="mt-4 text-red-600">Greška pri učitavanju kontakata.</Text> : null}
 
-      {me ? (
+      {me && !hasQuery ? (
         <>
           <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Moj kontakt</Text>
           <ContactCard contact={me} />
         </>
       ) : null}
 
-      <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Tim i kolege</Text>
+      <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>
+        {hasQuery ? "Rezultati pretrage" : "Tim i kolege"}
+      </Text>
       {colleagues.length ? (
         <View className="gap-2">
           {colleagues.map((contact) => (
@@ -134,7 +166,9 @@ export default function ProfileKontaktiScreen() {
       ) : (
         !isLoading ? (
           <View className="rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
-            <Text className="text-sm" style={{ color: theme.text.secondary }}>Nema dostupnih kontakata.</Text>
+            <Text className="text-sm" style={{ color: theme.text.secondary }}>
+              {hasQuery ? "Nema kontakata za zadatu pretragu." : "Nema dostupnih kontakata."}
+            </Text>
           </View>
         ) : null
       )}

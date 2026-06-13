@@ -470,6 +470,7 @@ Status: `DONE` (mejl i sopstveni kontakt rade odmah), `NEEDS_BACKEND` (telefon k
 - Novi ekran `app/(driver)/profile/kontakti.tsx`: „Moj kontakt" (telefon + mejl iz driver-profile) + „Tim i kolege" iz `GET /api/chat/users`.
 - Svaka kartica: ime, uloga, telefon, mejl + dugmad **Poziv** (`tel:`), **Poruka** (`sms:`), **Viber** (`viber://chat?number=`), **Mejl** (`mailto:`) preko `Linking.openURL`.
 - Poziv/SMS/Viber se prikazuju samo kad postoji telefon; mejl kad postoji email.
+- Pretraga po imenu/ulozi/telefonu/mejlu — podudaranje po rečima (svaka reč mora da postoji, bilo kojim redom) i bez dijakritike (npr. „dispecer nikola" pronalazi „Dispečer Nikola Nikolić").
 - Hub kartica „Kontakti" dodata na Profil; `ChatUser` tip proširen opcionim `phone`.
 - Otvoreno: backend da doda `phone` u `GET /api/chat/users` (ili `GET /api/mobile/contacts`) da bi poziv/SMS/Viber radili i za kolege.
 
