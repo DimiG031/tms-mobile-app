@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, router } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
-import { Theme } from "@/lib/theme";
+import { useTheme } from "@/providers/ThemeProvider";
 
 const schema = z.object({
   email: z.string().email("Unesite ispravan email"),
@@ -16,6 +16,7 @@ const schema = z.object({
 type LoginValues = z.infer<typeof schema>;
 
 export default function LoginScreen() {
+  const theme = useTheme();
   const { signIn, isHydrating, hasBiometricSession, unlockWithBiometrics } = useAuth();
   const defaultValues = useMemo<LoginValues>(() => ({ email: "", password: "" }), []);
 
@@ -55,16 +56,16 @@ export default function LoginScreen() {
   };
 
   if (isHydrating) {
-    return <View className="flex-1" style={{ backgroundColor: Theme.surface.app }} />;
+    return <View className="flex-1" style={{ backgroundColor: theme.surface.app }} />;
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: Theme.surface.app }}>
-      <View className="rounded-b-3xl px-6 pb-7 pt-11" style={{ backgroundColor: Theme.accent.primary }}>
+    <View className="flex-1" style={{ backgroundColor: theme.surface.app }}>
+      <View className="rounded-b-3xl px-6 pb-7 pt-11" style={{ backgroundColor: theme.accent.primary }}>
         <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.82)" }}>
           TMS DRIVER
         </Text>
-        <Text className="mt-2 text-4xl font-extrabold" style={{ color: Theme.text.inverse }}>
+        <Text className="mt-2 text-4xl font-extrabold" style={{ color: theme.text.inverse }}>
           Dobrodosli nazad
         </Text>
         <Text className="mt-1 text-base" style={{ color: "rgba(255,255,255,0.86)" }}>
@@ -73,7 +74,7 @@ export default function LoginScreen() {
       </View>
 
       <View className="px-6 pb-6 pt-6">
-        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "#4f6480" }}>
+        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
           Email adresa
         </Text>
         <TextInput
@@ -82,11 +83,12 @@ export default function LoginScreen() {
           placeholder="vozač@kompanija.rs"
           value={email}
           onChangeText={(v: string) => setValue("email", v, { shouldDirty: true })}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+          placeholderTextColor={theme.text.muted}
+          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         {errors.email ? <Text className="mt-1 text-xs text-red-600">{errors.email.message}</Text> : null}
 
-        <Text className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#4f6480" }}>
+        <Text className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
           Lozinka
         </Text>
         <TextInput
@@ -94,7 +96,8 @@ export default function LoginScreen() {
           placeholder="Unesite lozinku"
           value={password}
           onChangeText={(v: string) => setValue("password", v, { shouldDirty: true })}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+          placeholderTextColor={theme.text.muted}
+          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         {errors.password ? <Text className="mt-1 text-xs text-red-600">{errors.password.message}</Text> : null}
 
@@ -102,7 +105,7 @@ export default function LoginScreen() {
           onPress={handleSubmit(onSubmit)}
           disabled={isSubmitting}
           className="mt-4 rounded-xl px-4 py-3 disabled:opacity-60"
-          style={{ backgroundColor: Theme.accent.primary }}
+          style={{ backgroundColor: theme.accent.primary }}
         >
           <Text className="text-center text-lg font-semibold text-white">
             {isSubmitting ? "Prijava..." : "Prijavi se"}
@@ -113,16 +116,16 @@ export default function LoginScreen() {
           <Pressable
             onPress={onBiometricUnlock}
             className="mt-3 rounded-xl border px-4 py-3"
-            style={{ borderColor: Theme.accent.primary }}
+            style={{ borderColor: theme.accent.primary }}
           >
-            <Text className="text-center text-base font-semibold" style={{ color: Theme.accent.primary }}>
+            <Text className="text-center text-base font-semibold" style={{ color: theme.accent.primary }}>
               Otključaj biometrijom
             </Text>
           </Pressable>
         ) : null}
 
         <Link href="/(auth)/forgot-password" style={{ marginTop: 16, alignSelf: "center" }}>
-          <Text className="text-center text-sm" style={{ color: Theme.accent.primary }}>
+          <Text className="text-center text-sm" style={{ color: theme.accent.primary }}>
             Zaboravljena lozinka?
           </Text>
         </Link>
