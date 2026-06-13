@@ -179,6 +179,12 @@ export default function ProfileScreen() {
             isFirst
           />
           <HubCard
+            href="/(driver)/profile/kontakti"
+            icon="people-outline"
+            title="Kontakti"
+            subtitle="Telefoni i mejlovi tima — poziv, poruka, Viber."
+          />
+          <HubCard
             href="/(driver)/profile/stats"
             icon="stats-chart-outline"
             title="Moja statistika"

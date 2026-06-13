@@ -17,6 +17,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="settings" options={{ title: "Podešavanja" }} />
       <Stack.Screen name="stats" options={{ title: "Moja statistika" }} />
       <Stack.Screen name="rokovi" options={{ title: "Rokovi i dokumenta" }} />
+      <Stack.Screen name="kontakti" options={{ title: "Kontakti" }} />
     </Stack>
   );
 }

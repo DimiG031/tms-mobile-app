@@ -203,6 +203,25 @@ Nije hitno za backend:
 - inertial/spin animacija točka je mobile UX dorada
 - novi top-level moduli čekaju backend `availableMobileModules` i mobile ekran
 
+## Novi zahtevi prema backendu
+
+### Telefon u listi kontakata (za poziv/SMS/Viber)
+
+Status: `NEEDS_BACKEND`
+
+Mobile je dodao ekran `Profil > Kontakti` — direktorijum kolega sa akcijama poziv / SMS / Viber / mejl (deep-link preko `tel:`, `sms:`, `viber://chat?number=`, `mailto:`).
+
+Trenutno `GET /api/chat/users` vraća `id`, `name`, `email`, `role`, `avatarUrl` — **bez telefona**. Zato mejl radi za sve, ali poziv/SMS/Viber rade samo za sopstveni kontakt vozača (telefon iz `driver-profile`).
+
+Molba (jedna od dve opcije):
+
+```text
+A) Dodati polje "phone" u GET /api/chat/users  (najmanje izmene)
+B) Novi GET /api/mobile/contacts → [{ id, name, role, phone, email }]  (company-scoped)
+```
+
+Mobile već čita `phone` iz `ChatUser` (opciono polje); čim backend počne da ga vraća, poziv/SMS/Viber se aktiviraju za sve kontakte bez dalje mobilne izmene.
+
 ## Završeni zahtevi prema backendu
 
 ### Nedeljni i godišnji agregat za istoriju vozača
@@ -443,6 +462,16 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-06-14 - Profil > Kontakti (poziv/SMS/Viber/mejl)
+
+Status: `DONE` (mejl i sopstveni kontakt rade odmah), `NEEDS_BACKEND` (telefon kolega)
+
+- Novi ekran `app/(driver)/profile/kontakti.tsx`: „Moj kontakt" (telefon + mejl iz driver-profile) + „Tim i kolege" iz `GET /api/chat/users`.
+- Svaka kartica: ime, uloga, telefon, mejl + dugmad **Poziv** (`tel:`), **Poruka** (`sms:`), **Viber** (`viber://chat?number=`), **Mejl** (`mailto:`) preko `Linking.openURL`.
+- Poziv/SMS/Viber se prikazuju samo kad postoji telefon; mejl kad postoji email.
+- Hub kartica „Kontakti" dodata na Profil; `ChatUser` tip proširen opcionim `phone`.
+- Otvoreno: backend da doda `phone` u `GET /api/chat/users` (ili `GET /api/mobile/contacts`) da bi poziv/SMS/Viber radili i za kolege.
 
 ### 2026-06-14 - Profil reorganizovan u hub + zaseban ekran Rokovi
 
