@@ -432,7 +432,7 @@ Mobile je povezao (`src/queries/useMobileAccount.ts`) u `Profil > Podešavanja >
 - inicijalne vrednosti iz `GET /api/mobile/profile`; `null` tema se tretira kao `system`;
 - posle uspeha invalidira `mobile-profile` cache.
 
-Napomena: izbor teme se trajno čuva na backendu, ali vizuelna tamna tema još nije primenjena kroz ceo UI (trenutno se renderuje svetla tema). Primena tamne teme je zasebna mobilna UX dorada.
+Napomena: izbor teme se trajno čuva na backendu i sada je vizuelno primenjen kroz ceo UI (2026-06-14). Mobile ima `ThemeProvider`/`useTheme` koji rešava `system`/`light`/`dark` i sinhronizuje NativeWind `colorScheme`, pa se svetla i tamna tema primenjuju na sve ekrane, deljene komponente i header-e. `system` prati šemu uređaja.
 
 ### 8. Kilometraža ture za mobile dashboard
 
@@ -443,6 +443,16 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-06-14 - Tamna tema kroz ceo UI
+
+Status: `DONE` (bez backend zavisnosti)
+
+- Uveden `ThemeProvider`/`useTheme` (`src/providers/ThemeProvider.tsx`) + `DarkTheme` tokeni; rešava `settings.theme` (`system`/`light`/`dark`) prema šemi uređaja i sinhronizuje NativeWind `colorScheme`.
+- Svi ekrani (početna, istorija, profil, podešavanja, ture i pod-ekrani, chat, obaveštenja, dokumenta, više, login), deljene komponente (`IOSCard`, `IOSGlassPill`) i Stack header-i koriste aktivnu temu.
+- Tema se menja iz `Profil > Podešavanja > Izgled i obaveštenja` i odmah se primenjuje (preko `PATCH /api/mobile/settings`).
+- Pull-to-refresh dodat na početnu i Istoriju.
+- Backend ne mora ništa dodatno; `PATCH /api/mobile/settings` i `GET /api/mobile/profile` su dovoljni.
 
 ### 2026-06-12 - Nova vozačeva početna i ekran Istorija
 
@@ -564,7 +574,7 @@ Svi zadaci sa ove liste su završeni 2026-06-11 (backend je isporučio, mobile p
 5. Dodata prijava problema sa ture. ✓
 6. Dodat checklist ekran. ✓
 7. Povezana promena lozinke. ✓
-8. Povezana tema (čuva se na backendu; vizuelna tamna tema je preostala UX dorada). ✓
+8. Povezana tema (čuva se na backendu; vizuelna tamna tema primenjena kroz ceo UI 2026-06-14). ✓
 9. Ovaj dokument ažuriran statusom mobilne strane. ✓
 
-Nema otvorenih stavki prema backendu. Preostale mobilne dorade su čisto UX (tamna tema kroz ceo UI, izbor stanice u prijavi problema).
+Nema otvorenih stavki prema backendu. Izbor stanice u prijavi problema i puna tamna tema su takođe završeni.
