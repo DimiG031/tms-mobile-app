@@ -226,7 +226,7 @@ Backend je dodao `GET /api/mobile/me/stats` (self-scoped, bez plate). Mobile je 
 - **Zaposlenje:** pozicija, datum zaposlenja, staž, ugovor (tip + datum/„na neodređeno") sa upozorenjem kad `daysLeft <= 30`;
 - sve sekcije se graciozno sakrivaju kada je polje/objekat `null`.
 
-Napomena: `documents` polje iz `me/stats` se NE prikazuje na ovom ekranu jer se rokovi dokumenata već prikazuju u sekciji „Rokovi i podsetnici" na glavnom Profilu (izbegnuta duplikacija). Polje ostaje dostupno u API odgovoru ako kasnije zatreba.
+Napomena: `documents` polje iz `me/stats` se NE prikazuje na ovom ekranu jer rokovi/dokumenta imaju zaseban ekran `Profil > Rokovi i dokumenta` (izbegnuta duplikacija). Polje ostaje dostupno u API odgovoru ako kasnije zatreba.
 
 ## Sledeće za backend agenta
 
@@ -443,6 +443,14 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-06-14 - Profil reorganizovan u hub + zaseban ekran Rokovi
+
+Status: `DONE` (bez backend zavisnosti)
+
+- Glavni `Profil` je sada kratak hub: header + brze kartice (`Rokovi i dokumenta`, `Moja statistika`, `Podešavanja`) + `Osnovni podaci` + odjava. Manje skrolovanja.
+- Rokovi i svi detalji dokumenata (dozvola, lekarski, tahograf kartica, sertifikati, beleške) izdvojeni u novi ekran `app/(driver)/profile/rokovi.tsx` — jedan tap, odmah vidljivi rokovi.
+- Kartica `Rokovi i dokumenta` na Profilu ima badge „N ističu" kad nešto ističe u narednih 30 dana (logika u `src/lib/deadlines.ts`).
 
 ### 2026-06-14 - Istorija (sedmica/godina) i Profil > Moja statistika
 

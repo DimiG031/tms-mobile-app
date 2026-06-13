@@ -1,14 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import { ActivityIndicator, RefreshControl, ScrollView } from "react-native";
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { Pressable, Text, View } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMobileDriverProfile } from "@/queries/useMobileDriverProfile";
 import { useMobileProfile } from "@/queries/useMobileProfile";
-import { getModuleDefinition } from "@/lib/mobile-modules";
 import { useTheme } from "@/providers/ThemeProvider";
-import { formatDate } from "@/lib/formatters";
+import { countUrgentDeadlines } from "@/lib/deadlines";
+
+type IconName = ComponentProps<typeof Ionicons>["name"];
 
 function translateRole(role?: string | null): string {
   if (!role) return "Korisnik";
@@ -44,25 +45,6 @@ function InfoRow({ label, value, isLast = false }: Readonly<{ label: string; val
   );
 }
 
-function CertRow({ label, active, validTo, isLast = false }: Readonly<{ label: string; active: boolean; validTo?: string | null; isLast?: boolean }>) {
-  const theme = useTheme();
-  return (
-    <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
-      <Text className="text-sm" style={{ color: theme.text.secondary }}>{label}</Text>
-      <View className="items-end">
-        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: active ? "#d1fae5" : (theme.isDark ? "#1e293b" : "#f1f5f9") }}>
-          <Text className="text-xs font-semibold" style={{ color: active ? "#065f46" : theme.text.secondary }}>
-            {active ? "Aktivan" : "Neaktivan"}
-          </Text>
-        </View>
-        {active && validTo ? (
-          <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>do {formatDate(validTo)}</Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
 function Card({ children }: Readonly<{ children: ReactNode }>) {
   const theme = useTheme();
   return (
@@ -72,69 +54,38 @@ function Card({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-const ROK_WARN_DAYS = 30;
-
-function daysUntil(dateStr?: string | null): number | null {
-  if (!dateStr) return null;
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  date.setHours(0, 0, 0, 0);
-  return Math.round((date.getTime() - today.getTime()) / 86_400_000);
-}
-
-function rokStatus(days: number | null, isDark: boolean): { label: string; bg: string; text: string } {
-  if (days === null) return { label: "Nije uneto", bg: isDark ? "#1e293b" : "#f1f5f9", text: isDark ? "#94a3b8" : "#64748b" };
-  if (days < 0) return { label: "Istekao", bg: "#fee2e2", text: "#b91c1c" };
-  if (days === 0) return { label: "Ističe danas", bg: "#fee2e2", text: "#b91c1c" };
-  if (days <= ROK_WARN_DAYS) return { label: `Ističe za ${days} d.`, bg: "#fef3c7", text: "#92400e" };
-  return { label: `Još ${days} d.`, bg: "#d1fae5", text: "#065f46" };
-}
-
-type Deadline = { label: string; date?: string | null };
-
-function RokRow({ label, date, isLast = false }: Readonly<{ label: string; date?: string | null; isLast?: boolean }>) {
+function HubCard({
+  href,
+  icon,
+  title,
+  subtitle,
+  badge,
+  isFirst = false
+}: Readonly<{ href: string; icon: IconName; title: string; subtitle: string; badge?: number; isFirst?: boolean }>) {
   const theme = useTheme();
-  const days = daysUntil(date);
-  const status = rokStatus(days, theme.isDark);
   return (
-    <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
-      <View className="flex-1 pr-3">
-        <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{label}</Text>
-        <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>{date ? `do ${formatDate(date)}` : "Datum nije unet"}</Text>
-      </View>
-      <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: status.bg }}>
-        <Text className="text-xs font-semibold" style={{ color: status.text }}>{status.label}</Text>
-      </View>
-    </View>
-  );
-}
-
-function RokoviSection({ deadlines }: Readonly<{ deadlines: Deadline[] }>) {
-  if (!deadlines.length) return null;
-  const urgentCount = deadlines.filter((item) => {
-    const days = daysUntil(item.date);
-    return days !== null && days <= ROK_WARN_DAYS;
-  }).length;
-
-  return (
-    <>
-      <SectionHeader title="Rokovi i podsetnici" />
-      {urgentCount > 0 ? (
-        <View className="mb-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
-          <Text className="text-sm font-semibold text-amber-800">
-            {urgentCount === 1 ? "1 dokument ističe uskoro" : `${urgentCount} dokumenta uskoro ističu`}
-          </Text>
-          <Text className="mt-0.5 text-xs text-amber-700">Proveri rokove ispod i obnovi na vreme.</Text>
+    <Link href={href as "./"} asChild>
+      <Pressable
+        className={`${isFirst ? "" : "mt-2 "}rounded-2xl border px-4 py-4`}
+        style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}
+      >
+        <View className="flex-row items-center">
+          <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: theme.accent.primaryLight }}>
+            <Ionicons name={icon} size={22} color={theme.accent.primary} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-base font-bold" style={{ color: theme.text.primary }}>{title}</Text>
+            <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>{subtitle}</Text>
+          </View>
+          {badge && badge > 0 ? (
+            <View className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 dark:bg-amber-950">
+              <Text className="text-xs font-bold text-amber-800 dark:text-amber-300">{badge} ističu</Text>
+            </View>
+          ) : null}
+          <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
         </View>
-      ) : null}
-      <Card>
-        {deadlines.map((item, index) => (
-          <RokRow key={item.label} label={item.label} date={item.date} isLast={index === deadlines.length - 1} />
-        ))}
-      </Card>
-    </>
+      </Pressable>
+    </Link>
   );
 }
 
@@ -168,6 +119,16 @@ export default function ProfileScreen() {
   const isError = mobileProfileQuery.isError || driverProfileQuery.isError;
   const error = mobileProfileQuery.error ?? driverProfileQuery.error;
 
+  const urgentDeadlines = driver
+    ? countUrgentDeadlines([
+        driver.licenseValidTo,
+        driver.medicalExamValidTo,
+        driver.driverCardValid,
+        driver.adrCertificate ? driver.adrValidTo : null,
+        driver.cpcCertificate ? driver.cpcValidTo : null
+      ])
+    : 0;
+
   return (
     <ScrollView
       className="flex-1"
@@ -197,63 +158,39 @@ export default function ProfileScreen() {
         {isLoading ? (
           <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} />
         ) : isError ? (
-          <View className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-            <Text className="font-semibold text-red-700">Greška pri učitavanju profila</Text>
-            <Text className="mt-1 text-sm text-red-600">
+          <View className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950">
+            <Text className="font-semibold text-red-700 dark:text-red-300">Greška pri učitavanju profila</Text>
+            <Text className="mt-1 text-sm text-red-600 dark:text-red-400">
               {error instanceof Error ? error.message : "Pokušajte ponovo."}
             </Text>
-            <Pressable onPress={() => void onRefresh()} className="mt-3 self-start rounded-lg border border-red-300 px-3 py-2">
-              <Text className="text-sm font-semibold text-red-700">Pokušaj ponovo</Text>
+            <Pressable onPress={() => void onRefresh()} className="mt-3 self-start rounded-lg border border-red-300 px-3 py-2 dark:border-red-800">
+              <Text className="text-sm font-semibold text-red-700 dark:text-red-300">Pokušaj ponovo</Text>
             </Pressable>
           </View>
         ) : null}
 
-        <SectionHeader title="Podešavanja" />
-        <Link href="/(driver)/profile/settings" asChild>
-          <Pressable className="rounded-2xl border px-4 py-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
-            <View className="flex-row items-center">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: theme.accent.primaryLight }}>
-                <Ionicons name="settings-outline" size={22} color={theme.accent.primary} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-bold" style={{ color: theme.text.primary }}>Podešavanja profila</Text>
-                <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>
-                  Navigacija, moduli, tema i bezbednost naloga.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
-            </View>
-          </Pressable>
-        </Link>
-
-        <Link href="/(driver)/profile/stats" asChild>
-          <Pressable className="mt-2 rounded-2xl border px-4 py-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
-            <View className="flex-row items-center">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: theme.accent.primaryLight }}>
-                <Ionicons name="stats-chart-outline" size={22} color={theme.accent.primary} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-bold" style={{ color: theme.text.primary }}>Moja statistika</Text>
-                <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>
-                  Vožnja, godišnji odmor i ugovor.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.text.muted} />
-            </View>
-          </Pressable>
-        </Link>
-
-        {driver ? (
-          <RokoviSection
-            deadlines={[
-              { label: "Vozačka dozvola", date: driver.licenseValidTo },
-              { label: "Lekarski pregled", date: driver.medicalExamValidTo },
-              { label: "Tahograf kartica", date: driver.driverCardValid },
-              ...(driver.adrCertificate ? [{ label: "ADR sertifikat", date: driver.adrValidTo }] : []),
-              ...(driver.cpcCertificate ? [{ label: "CPC sertifikat", date: driver.cpcValidTo }] : [])
-            ]}
+        <View className="mt-5">
+          <HubCard
+            href="/(driver)/profile/rokovi"
+            icon="alarm-outline"
+            title="Rokovi i dokumenta"
+            subtitle="Dozvola, kartica, lekarski i sertifikati."
+            badge={urgentDeadlines}
+            isFirst
           />
-        ) : null}
+          <HubCard
+            href="/(driver)/profile/stats"
+            icon="stats-chart-outline"
+            title="Moja statistika"
+            subtitle="Vožnja, godišnji odmor i ugovor."
+          />
+          <HubCard
+            href="/(driver)/profile/settings"
+            icon="settings-outline"
+            title="Podešavanja"
+            subtitle="Navigacija, moduli, tema i bezbednost naloga."
+          />
+        </View>
 
         {user ? (
           <>
@@ -265,55 +202,6 @@ export default function ProfileScreen() {
               <InfoRow label="Adresa" value={driver?.address ?? mobileProfile?.driver?.address ?? null} />
               <InfoRow label="Firma" value={company?.name} isLast />
             </Card>
-          </>
-        ) : null}
-
-        {mobileProfile ? (
-          <>
-            <SectionHeader title="Mobilni interfejs" />
-            <Card>
-              <InfoRow label="Dozvoljeni moduli" value={mobileProfile.availableMobileModules.map((key) => getModuleDefinition(key).label).join(", ")} />
-              <InfoRow label="Izabrani moduli" value={mobileProfile.preferences.selectedModules.map((key) => getModuleDefinition(key).label).join(", ")} />
-              <InfoRow label="Točak navigacije" value={mobileProfile.preferences.sliceNavigationEnabled ? "Uključen" : "Isključen"} isLast />
-            </Card>
-          </>
-        ) : null}
-
-        {driver ? (
-          <>
-            <SectionHeader title="Vozačka dozvola" />
-            <Card>
-              <InfoRow label="Broj dozvole" value={driver.licenseNumber} />
-              <InfoRow label="Kategorija" value={driver.licenseCategory} />
-              <InfoRow label="Važi do" value={formatDate(driver.licenseValidTo)} isLast />
-            </Card>
-
-            <SectionHeader title="Lekarski pregled" />
-            <Card>
-              <InfoRow label="Datum pregleda" value={formatDate(driver.medicalExamDate)} />
-              <InfoRow label="Važi do" value={formatDate(driver.medicalExamValidTo)} isLast />
-            </Card>
-
-            <SectionHeader title="Tahografska kartica" />
-            <Card>
-              <InfoRow label="ID kartice" value={driver.driverCardId} />
-              <InfoRow label="Kartica važi do" value={formatDate(driver.driverCardValid)} isLast />
-            </Card>
-
-            <SectionHeader title="Sertifikati" />
-            <Card>
-              <CertRow label="ADR" active={driver.adrCertificate} validTo={driver.adrValidTo} />
-              <CertRow label="CPC" active={driver.cpcCertificate} validTo={driver.cpcValidTo} isLast />
-            </Card>
-
-            {driver.notes ? (
-              <>
-                <SectionHeader title="Beleške" />
-                <Card>
-                  <Text className="py-3 text-sm leading-relaxed" style={{ color: theme.text.primary }}>{driver.notes}</Text>
-                </Card>
-              </>
-            ) : null}
           </>
         ) : null}
 
