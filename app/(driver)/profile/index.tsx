@@ -50,8 +50,8 @@ function CertRow({ label, active, validTo, isLast = false }: Readonly<{ label: s
     <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
       <Text className="text-sm" style={{ color: theme.text.secondary }}>{label}</Text>
       <View className="items-end">
-        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: active ? "#d1fae5" : "#f1f5f9" }}>
-          <Text className="text-xs font-semibold" style={{ color: active ? "#065f46" : "#64748b" }}>
+        <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: active ? "#d1fae5" : (theme.isDark ? "#1e293b" : "#f1f5f9") }}>
+          <Text className="text-xs font-semibold" style={{ color: active ? "#065f46" : theme.text.secondary }}>
             {active ? "Aktivan" : "Neaktivan"}
           </Text>
         </View>
@@ -84,8 +84,8 @@ function daysUntil(dateStr?: string | null): number | null {
   return Math.round((date.getTime() - today.getTime()) / 86_400_000);
 }
 
-function rokStatus(days: number | null): { label: string; bg: string; text: string } {
-  if (days === null) return { label: "Nije uneto", bg: "#f1f5f9", text: "#64748b" };
+function rokStatus(days: number | null, isDark: boolean): { label: string; bg: string; text: string } {
+  if (days === null) return { label: "Nije uneto", bg: isDark ? "#1e293b" : "#f1f5f9", text: isDark ? "#94a3b8" : "#64748b" };
   if (days < 0) return { label: "Istekao", bg: "#fee2e2", text: "#b91c1c" };
   if (days === 0) return { label: "Ističe danas", bg: "#fee2e2", text: "#b91c1c" };
   if (days <= ROK_WARN_DAYS) return { label: `Ističe za ${days} d.`, bg: "#fef3c7", text: "#92400e" };
@@ -97,7 +97,7 @@ type Deadline = { label: string; date?: string | null };
 function RokRow({ label, date, isLast = false }: Readonly<{ label: string; date?: string | null; isLast?: boolean }>) {
   const theme = useTheme();
   const days = daysUntil(date);
-  const status = rokStatus(days);
+  const status = rokStatus(days, theme.isDark);
   return (
     <View className="flex-row items-center justify-between py-3" style={isLast ? undefined : { borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
       <View className="flex-1 pr-3">

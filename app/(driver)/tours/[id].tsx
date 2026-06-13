@@ -89,7 +89,7 @@ export default function TourDetailsScreen() {
 
         <View className="mt-3 flex-row items-center gap-2">
           {[1, 2, 3, 4].map((index) => (
-            <View key={index} className="flex-1 rounded-full" style={{ height: 10, backgroundColor: index <= step ? theme.accent.primary : "#cbd5e1" }} />
+            <View key={index} className="flex-1 rounded-full" style={{ height: 10, backgroundColor: index <= step ? theme.accent.primary : theme.surface.subtle }} />
           ))}
         </View>
 

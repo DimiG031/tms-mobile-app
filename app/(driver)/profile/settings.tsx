@@ -89,7 +89,7 @@ function PasswordSection() {
           disabled={!canSubmit}
           onPress={onSubmit}
           className="mb-1 mt-3 rounded-xl px-4 py-3"
-          style={{ backgroundColor: canSubmit ? theme.accent.primary : "#cbd5e1" }}
+          style={{ backgroundColor: canSubmit ? theme.accent.primary : (theme.isDark ? "#334155" : "#cbd5e1") }}
         >
           <Text className="text-center font-semibold text-white">
             {changePassword.isPending ? "Čuvanje..." : "Promeni lozinku"}
@@ -157,7 +157,7 @@ function AppearanceSection({ settings }: Readonly<{ settings: MobileProfileSetti
         <Switch
           value={notifyMobile}
           onValueChange={setNotifyMobile}
-          trackColor={{ false: "#cbd5e1", true: "#99f6e4" }}
+          trackColor={{ false: (theme.isDark ? "#334155" : "#cbd5e1"), true: "#99f6e4" }}
           thumbColor={notifyMobile ? theme.accent.primary : "#f8fafc"}
         />
       </View>
@@ -167,7 +167,7 @@ function AppearanceSection({ settings }: Readonly<{ settings: MobileProfileSetti
         <Switch
           value={notifyEmail}
           onValueChange={setNotifyEmail}
-          trackColor={{ false: "#cbd5e1", true: "#99f6e4" }}
+          trackColor={{ false: (theme.isDark ? "#334155" : "#cbd5e1"), true: "#99f6e4" }}
           thumbColor={notifyEmail ? theme.accent.primary : "#f8fafc"}
         />
       </View>
@@ -176,7 +176,7 @@ function AppearanceSection({ settings }: Readonly<{ settings: MobileProfileSetti
         disabled={!hasChanges || updateSettings.isPending}
         onPress={onSave}
         className="mb-4 mt-1 rounded-xl px-4 py-3"
-        style={{ backgroundColor: hasChanges ? theme.accent.primary : "#cbd5e1" }}
+        style={{ backgroundColor: hasChanges ? theme.accent.primary : (theme.isDark ? "#334155" : "#cbd5e1") }}
       >
         <Text className="text-center font-semibold text-white">
           {updateSettings.isPending ? "Čuvanje..." : "Sačuvaj podešavanja"}
@@ -342,7 +342,7 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
           <Switch
             value={sliceNavigationEnabled}
             onValueChange={setSliceNavigationEnabled}
-            trackColor={{ false: "#cbd5e1", true: "#99f6e4" }}
+            trackColor={{ false: (theme.isDark ? "#334155" : "#cbd5e1"), true: "#99f6e4" }}
             thumbColor={sliceNavigationEnabled ? theme.accent.primary : "#f8fafc"}
           />
         </View>
@@ -388,7 +388,7 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
         disabled={!hasChanges || updatePreferences.isPending}
         onPress={() => void savePreferences()}
         className="mb-4 mt-1 rounded-xl px-4 py-3"
-        style={{ backgroundColor: hasChanges ? theme.accent.primary : "#cbd5e1" }}
+        style={{ backgroundColor: hasChanges ? theme.accent.primary : (theme.isDark ? "#334155" : "#cbd5e1") }}
       >
         <Text className="text-center font-semibold" style={{ color: "#fff" }}>
           {updatePreferences.isPending ? "Čuvanje..." : "Sačuvaj podešavanja"}
