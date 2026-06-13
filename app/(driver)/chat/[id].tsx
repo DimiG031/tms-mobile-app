@@ -4,7 +4,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Pressable, TextInput } from "@/components/ui";
-import { LightTokens as T } from "@/lib/theme";
+import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatDateTime } from "@/lib/formatters";
 import { useChatMessages, useMarkThreadRead, useSendChatMessage } from "@/queries/useChat";
@@ -28,6 +28,8 @@ export default function ChatThreadScreen() {
   const fromNotifications = params.from === "notifications";
   const fromChatPush = params.from === "chat-push";
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const netInfo = useNetInfo();
   const { session } = useAuth();
 
@@ -178,9 +180,10 @@ export default function ChatThreadScreen() {
           value={body}
           onChangeText={setBody}
           placeholder={netInfo.isConnected ? "Unesite poruku..." : "Offline - slanje nije dostupno"}
+          placeholderTextColor={theme.text.muted}
           editable={Boolean(netInfo.isConnected)}
           multiline
-          className="max-h-28 min-h-[44px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2"
+          className="max-h-28 min-h-[44px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
         <Pressable
           style={[styles.sendBtn, (!netInfo.isConnected || !body.trim() || sendMessage.isPending) ? styles.disabled : null]}
@@ -194,10 +197,11 @@ export default function ChatThreadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: AppTheme) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: T.bgApp
+    backgroundColor: theme.surface.app
   },
   listWrap: {
     flex: 1,
@@ -211,13 +215,13 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#94a3b8",
+    borderColor: theme.surface.border,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8
   },
   moreText: {
-    color: "#334155",
+    color: theme.text.secondary,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -234,7 +238,7 @@ const styles = StyleSheet.create({
   sender: {
     marginBottom: 4,
     marginLeft: 2,
-    color: T.textSecondary,
+    color: theme.text.secondary,
     fontSize: 11,
     fontWeight: "700"
   },
@@ -249,18 +253,18 @@ const styles = StyleSheet.create({
     borderColor: "#0d7d72"
   },
   otherBubble: {
-    backgroundColor: "#e2e8f0",
-    borderColor: "#cbd5e1"
+    backgroundColor: theme.surface.subtle,
+    borderColor: theme.surface.border
   },
   mineText: {
     color: "#fff"
   },
   otherText: {
-    color: T.textPrimary
+    color: theme.text.primary
   },
   metaTime: {
     marginTop: 4,
-    color: T.textSecondary,
+    color: theme.text.secondary,
     fontSize: 11
   },
   inputBar: {
@@ -268,8 +272,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    backgroundColor: "#fff",
+    borderTopColor: theme.surface.border,
+    backgroundColor: theme.surface.card,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 14
@@ -289,13 +293,14 @@ const styles = StyleSheet.create({
   },
   empty: {
     textAlign: "center",
-    color: T.textSecondary
+    color: theme.text.secondary
   },
   emptyCard: {
     borderWidth: 1,
-    borderColor: T.border,
+    borderColor: theme.surface.border,
     borderRadius: 16,
-    backgroundColor: T.bgSurface,
+    backgroundColor: theme.surface.card,
     padding: 12
   }
-});
+  });
+}

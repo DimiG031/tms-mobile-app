@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Pressable } from "@/components/ui";
-import { LightTokens as T } from "@/lib/theme";
+import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatDateTime } from "@/lib/formatters";
 import { useChatThreads } from "@/queries/useChat";
@@ -22,6 +22,8 @@ function threadTitle(thread: ChatThread, currentUserId?: string) {
 
 export default function ChatListScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { session } = useAuth();
   const threadsQuery = useChatThreads();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -60,8 +62,8 @@ export default function ChatListScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={() => void onRefresh()}
-            tintColor={T.accent}
-            colors={[T.accent]}
+            tintColor={theme.accent.primary}
+            colors={[theme.accent.primary]}
           />
         }
         ListHeaderComponent={
@@ -123,10 +125,11 @@ export default function ChatListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: AppTheme) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: T.bgApp
+    backgroundColor: theme.surface.app
   },
   content: {
     paddingHorizontal: 16,
@@ -140,34 +143,34 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   title: {
-    color: T.textPrimary,
+    color: theme.text.primary,
     fontSize: 26,
     fontWeight: "800"
   },
   loading: {
-    color: T.textSecondary,
+    color: theme.text.secondary,
     marginBottom: 8
   },
   itemCard: {
     marginBottom: 10
   },
   card: {
-    backgroundColor: T.bgSurface,
+    backgroundColor: theme.surface.card,
     borderWidth: 1,
-    borderColor: T.border,
+    borderColor: theme.surface.border,
     borderRadius: 16,
     padding: 12
   },
   newBtn: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#7dd3fc",
-    backgroundColor: "#ecfeff",
+    borderColor: theme.accent.primary,
+    backgroundColor: theme.accent.primaryLight,
     paddingHorizontal: 12,
     paddingVertical: 8
   },
   newBtnText: {
-    color: "#0e7490",
+    color: theme.accent.primaryDark,
     fontWeight: "700",
     fontSize: 12
   },
@@ -199,16 +202,16 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     flex: 1,
-    color: T.textPrimary,
+    color: theme.text.primary,
     fontWeight: "700"
   },
   time: {
-    color: T.textSecondary,
+    color: theme.text.secondary,
     fontSize: 11
   },
   preview: {
     marginTop: 3,
-    color: "#475569",
+    color: theme.text.secondary,
     fontSize: 13
   },
   unread: {
@@ -216,10 +219,10 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 99,
-    backgroundColor: "#0d7d72"
+    backgroundColor: theme.accent.primary
   },
   emptyText: {
-    color: T.textSecondary,
+    color: theme.text.secondary,
     textAlign: "center"
   },
   errorCard: {
@@ -244,4 +247,5 @@ const styles = StyleSheet.create({
     color: "#b91c1c",
     fontWeight: "700"
   }
-});
+  });
+}

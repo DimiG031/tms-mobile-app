@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Pressable, TextInput } from "@/components/ui";
-import { LightTokens as T } from "@/lib/theme";
+import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatUsers, useCreateChatThread } from "@/queries/useChat";
 
@@ -14,6 +14,8 @@ function initials(name: string): string {
 
 export default function NewChatScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { session } = useAuth();
   const [search, setSearch] = useState("");
   const usersQuery = useChatUsers();
@@ -44,7 +46,7 @@ export default function NewChatScreen() {
 
   return (
     <View style={styles.screen}>
-      <TextInput value={search} onChangeText={setSearch} placeholder="Pretrazi korisnike..." className="rounded-xl border border-slate-200 bg-white px-4 py-3" />
+      <TextInput value={search} onChangeText={setSearch} placeholder="Pretrazi korisnike..." placeholderTextColor={theme.text.muted} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
 
       {usersQuery.isLoading ? <Text style={styles.loading}>Učitavanje korisnika...</Text> : null}
 
@@ -74,15 +76,16 @@ export default function NewChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(theme: AppTheme) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: T.bgApp,
+    backgroundColor: theme.surface.app,
     padding: 16
   },
   loading: {
     marginTop: 8,
-    color: T.textSecondary
+    color: theme.text.secondary
   },
   content: {
     paddingTop: 12,
@@ -92,9 +95,9 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   card: {
-    backgroundColor: T.bgSurface,
+    backgroundColor: theme.surface.card,
     borderWidth: 1,
-    borderColor: T.border,
+    borderColor: theme.surface.border,
     borderRadius: 16,
     padding: 12
   },
@@ -119,22 +122,23 @@ const styles = StyleSheet.create({
     flex: 1
   },
   name: {
-    color: T.textPrimary,
+    color: theme.text.primary,
     fontWeight: "700"
   },
   mail: {
-    color: "#475569",
+    color: theme.text.secondary,
     fontSize: 13,
     marginTop: 2
   },
   role: {
-    color: T.textSecondary,
+    color: theme.text.secondary,
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase"
   },
   empty: {
     textAlign: "center",
-    color: T.textSecondary
+    color: theme.text.secondary
   }
-});
+  });
+}
