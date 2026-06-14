@@ -205,6 +205,20 @@ Nije hitno za backend:
 
 ## Novi zahtevi prema backendu
 
+### Koordinate (lat/lng) po stanici — za mape (Faza 2)
+
+Status: `NEEDS_BACKEND` (poželjno, nije blokirajuće)
+
+Mobile uvodi mape za stanice. Faza 1 (deep-link „Navigacija" preko adrese) radi bez backenda. Za Fazu 2 (ugrađena Leaflet mapa sa pinovima i rutom) trebaju koordinate.
+
+Molba: dodati `latitude` i `longitude` po stanici u `GET /api/route-stops?tourId=...` (i u detalje ture), kad postoje.
+
+```json
+{ "id": "stop-id", "latitude": 44.8125, "longitude": 20.4612, "address": "...", "city": "...", "country": "..." }
+```
+
+Ako koordinate ne postoje, mobile će ih privremeno dobiti **geokodiranjem adrese preko OSM Nominatim** (besplatno, uz rate-limit). Kad backend počne da šalje lat/lng, koriste se one (tačnije). Idealno bi bilo da dispečer na webu može da pomeri pin i sačuva tačan ulaz (kao što je predloženo), pa mobile uvek dobija precizne koordinate.
+
 ### Telefon u listi kontakata (za poziv/SMS/Viber)
 
 Status: `NEEDS_BACKEND`
@@ -462,6 +476,14 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-06-14 - Stanice: sklopив prikaz + Navigacija (mape Faza 1)
+
+Status: `DONE` (bez backend zavisnosti)
+
+- `Detaljnije > Stanice`: svaka stanica je sada **sklopiva** — zatvoreno prikazuje `redni broj · Grad, Država` + adresu + kratku napomenu; na klik se proširuje u puni prikaz (tip, vremena, kontakt, carina, akcije `Stigao`/`Krenuo`).
+- Dugme **„Navigacija"** na svakoj stanici i na „Sledeća stanica" na početnoj → otvara native mape sa rutom do adrese (`https://www.google.com/maps/dir/?api=1&destination=...`), preko `src/lib/maps.ts`. Bez native biblioteke i bez backenda.
+- Faza 2 (ugrađena Leaflet mapa + ruta sa pinovima) planirana — vidi „Novi zahtevi prema backendu → Koordinate po stanici".
 
 ### 2026-06-14 - Profil > Kontakti (poziv/SMS/Viber/mejl)
 

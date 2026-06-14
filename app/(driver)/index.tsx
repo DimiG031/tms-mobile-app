@@ -18,6 +18,7 @@ import { useMobileProfile } from "@/queries/useMobileProfile";
 import { useToursSummary } from "@/queries/useToursSummary";
 import { useTourChecklist } from "@/queries/useTourChecklist";
 import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
+import { openMapsNavigation, stopMapsQuery } from "@/lib/maps";
 import type { TourStop } from "@/lib/types";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
@@ -308,6 +309,19 @@ export default function DriverHomeScreen() {
                       </Text>
                     </Pressable>
                   </View>
+                  {(() => {
+                    const mapsQuery = stopMapsQuery(nextStop);
+                    return mapsQuery ? (
+                      <Pressable
+                        onPress={() => openMapsNavigation(mapsQuery)}
+                        className="mt-2 flex-row items-center justify-center gap-2 rounded-xl px-3 py-2.5"
+                        style={{ backgroundColor: theme.accent.primaryLight }}
+                      >
+                        <MaterialCommunityIcons name="navigation-variant-outline" size={18} color={theme.accent.primaryDark} />
+                        <Text className="text-sm font-semibold" style={{ color: theme.accent.primaryDark }}>Navigacija do stanice</Text>
+                      </Pressable>
+                    ) : null;
+                  })()}
                 </View>
               ) : null}
 

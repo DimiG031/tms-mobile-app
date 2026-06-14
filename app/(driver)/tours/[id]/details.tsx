@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Linking, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -8,6 +9,7 @@ import { formatDateTime, formatRouteLabel, translateTourStatus } from "@/lib/for
 import { useTourDetails } from "@/queries/useTourDetails";
 import { useTourDocuments } from "@/queries/useTourDocuments";
 import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
+import { openMapsNavigation, stopMapsQuery } from "@/lib/maps";
 
 const EMPTY = "Nije uneto";
 const SECTIONS = ["Osnovno", "Stanice", "Carina", "Dokumenta", "Napomene"] as const;
@@ -109,54 +111,82 @@ function StopCard({
   onAction: (stop: TourStop, action: RouteStopAction) => void;
 }>) {
   const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const title = stop.locationName ?? stop.companyName ?? `Stanica ${stop.sequence ?? index + 1}`;
   const place = [stop.city, stop.country].filter(Boolean).join(", ");
+  const heading = place || title;
   const normalizedStatus = stop.status?.toUpperCase();
   const canAct = Boolean(stop.id) && normalizedStatus !== "COMPLETED" && normalizedStatus !== "CANCELLED" && normalizedStatus !== "CANCELED";
+  const mapsQuery = stopMapsQuery(stop);
 
   return (
     <View className="mb-3 rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 p-3">
-      <View className="flex-row items-start justify-between gap-2">
-        <View className="flex-1">
-          <Text className="text-base font-extrabold" style={{ color: theme.text.primary }}>
-            {stop.sequence ?? index + 1}. {title}
-          </Text>
-          <Text className="mt-0.5 text-sm font-semibold" style={{ color: theme.accent.primary }}>
-            {translateStopType(stop.type)}
-          </Text>
+      <Pressable onPress={() => setExpanded((value) => !value)}>
+        <View className="flex-row items-start justify-between gap-2">
+          <View className="flex-1">
+            <Text className="text-base font-extrabold" style={{ color: theme.text.primary }}>
+              {stop.sequence ?? index + 1}. {heading}
+            </Text>
+            {stop.address ? (
+              <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>{stop.address}</Text>
+            ) : null}
+            {!expanded && stop.driverNote ? (
+              <Text className="mt-0.5 text-xs" style={{ color: theme.text.muted }} numberOfLines={1}>
+                {stop.driverNote}
+              </Text>
+            ) : null}
+          </View>
+          <View className="items-end gap-1">
+            <Text className="rounded-full bg-white px-2 py-1 text-xs font-semibold dark:bg-slate-700" style={{ color: theme.text.secondary }}>
+              {translateStopStatus(stop.status)}
+            </Text>
+            <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={theme.text.muted} />
+          </View>
         </View>
-        <Text className="rounded-full bg-white px-2 py-1 text-xs font-semibold dark:bg-slate-700" style={{ color: theme.text.secondary }}>
-          {translateStopStatus(stop.status)}
-        </Text>
-      </View>
+      </Pressable>
 
-      <InfoRow label="Adresa" value={stop.address} />
-      <InfoRow label="Grad i država" value={place || null} />
-      <InfoRow label="Planirani dolazak" value={stop.plannedArrivalAt ? formatDateTime(stop.plannedArrivalAt) : null} />
-      <InfoRow label="Planirani odlazak" value={stop.plannedDepartureAt ? formatDateTime(stop.plannedDepartureAt) : null} />
-      <InfoRow label="Kontakt osoba" value={stop.contactName} />
-      <InfoRow label="Telefon" value={stop.contactPhone} />
-      <InfoRow label="Špediter" value={stop.freightForwarder} />
-      <InfoRow label="Carinska ispostava" value={stop.customsOffice} />
-      <NoteBlock label="Napomena za vozača" value={stop.driverNote} />
+      {mapsQuery ? (
+        <Pressable
+          onPress={() => openMapsNavigation(mapsQuery)}
+          className="mt-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-2.5"
+          style={{ backgroundColor: theme.accent.primarySoft }}
+        >
+          <Ionicons name="navigate-outline" size={18} color={theme.accent.primaryDark} />
+          <Text className="text-sm font-semibold" style={{ color: theme.accent.primaryDark }}>Navigacija</Text>
+        </Pressable>
+      ) : null}
 
-      <View className="mt-3 flex-row gap-2">
-        <StopActionButton
-          label={isPending ? "Slanje..." : "Stigao"}
-          disabled={!canAct || isPending}
-          onPress={() => onAction(stop, "ARRIVED")}
-          variant="secondary"
-        />
-        <StopActionButton
-          label={isPending ? "Slanje..." : "Krenuo"}
-          disabled={!canAct || isPending}
-          onPress={() => onAction(stop, "DEPARTED")}
-        />
-      </View>
-      {!stop.id ? (
-        <Text className="mt-2 text-xs" style={{ color: theme.text.secondary }}>
-          Akcije nisu dostupne jer backend nije poslao ID stanice.
-        </Text>
+      {expanded ? (
+        <>
+          <InfoRow label="Tip stanice" value={translateStopType(stop.type)} />
+          <InfoRow label="Grad i država" value={place || null} />
+          <InfoRow label="Planirani dolazak" value={stop.plannedArrivalAt ? formatDateTime(stop.plannedArrivalAt) : null} />
+          <InfoRow label="Planirani odlazak" value={stop.plannedDepartureAt ? formatDateTime(stop.plannedDepartureAt) : null} />
+          <InfoRow label="Kontakt osoba" value={stop.contactName} />
+          <InfoRow label="Telefon" value={stop.contactPhone} />
+          <InfoRow label="Špediter" value={stop.freightForwarder} />
+          <InfoRow label="Carinska ispostava" value={stop.customsOffice} />
+          <NoteBlock label="Napomena za vozača" value={stop.driverNote} />
+
+          <View className="mt-3 flex-row gap-2">
+            <StopActionButton
+              label={isPending ? "Slanje..." : "Stigao"}
+              disabled={!canAct || isPending}
+              onPress={() => onAction(stop, "ARRIVED")}
+              variant="secondary"
+            />
+            <StopActionButton
+              label={isPending ? "Slanje..." : "Krenuo"}
+              disabled={!canAct || isPending}
+              onPress={() => onAction(stop, "DEPARTED")}
+            />
+          </View>
+          {!stop.id ? (
+            <Text className="mt-2 text-xs" style={{ color: theme.text.secondary }}>
+              Akcije nisu dostupne jer backend nije poslao ID stanice.
+            </Text>
+          ) : null}
+        </>
       ) : null}
     </View>
   );
