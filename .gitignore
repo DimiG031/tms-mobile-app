@@ -1,8 +1,10 @@
 .expo/
 .expo-shared/
 node_modules/
-android/
-ios/
+# Anchored to repo root so they only ignore the generated native folders,
+# not source folders like src/components/ios/.
+/android/
+/ios/
 dist/
 web-build/
 *.log
