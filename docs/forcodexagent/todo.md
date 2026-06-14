@@ -1,4 +1,4 @@
-# Coordination TODO za Codex agente
+﻿# Coordination TODO za Codex agente
 
 Ovaj dokument je ručni most između mobilnog i backend projekta.
 
