@@ -4,6 +4,12 @@
     "slug": "tms-mobile-app",
     "scheme": "tmsmobile",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b622376b-4950-4cc7-9d87-ff4bf586d9a8"
+    },
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
