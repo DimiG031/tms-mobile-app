@@ -46,7 +46,7 @@ export default function NewChatScreen() {
 
   return (
     <View style={styles.screen}>
-      <TextInput value={search} onChangeText={setSearch} placeholder="Pretrazi korisnike..." placeholderTextColor={theme.text.muted} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+      <TextInput value={search} onChangeText={setSearch} placeholder="Pretraži korisnike..." placeholderTextColor={theme.text.muted} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
 
       {usersQuery.isLoading ? <Text style={styles.loading}>Učitavanje korisnika...</Text> : null}
 

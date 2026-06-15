@@ -15,10 +15,10 @@
 
 ## 2) Status faza
 
-- Faza 1: zavrsena
-- Faza 2: zavrsena
-- Faza 3: zavrsena
-- Faza 4: zavrsena
+- Faza 1: završena
+- Faza 2: završena
+- Faza 3: završena
+- Faza 4: završena
 - Faza 5: implementirana (offline polish + EAS setup)
 - Faza 6: implementirana (Chat / Messenger MVP)
 
@@ -29,9 +29,9 @@
 - JWT mobile login + refresh
 - Session u SecureStore
 - Auto refresh tokena na 401
-- Biometrijsko otkljucavanje
+- Biometrijsko otključavanje
 - Driver/SUPERADMIN guard
-- Tab navigacija: `Pocetna`, `Ture`, `Poruke`, `Obavestenja`, `Profil`
+- Tab navigacija: `Početna`, `Ture`, `Poruke`, `Obaveštenja`, `Profil`
 
 ### Faza 2 - Status ture + GPS
 
@@ -40,12 +40,12 @@
 - GPS start/stop vezan za status ture
 - Background slanje logova na `/api/gps-logs`
 
-### Faza 3 - Troskovnik
+### Faza 3 - Troškovnik
 
-- Sheet i item endpointi uskladjeni sa backendom
+- Sheet i item endpointi usklađeni sa backendom
 - DatePicker + `date` polje u payload-u
 - Lifecycle: `OPEN` editable, ostalo read-only
-- `Zakljucaj troskovnik`
+- `Zaključaj troškovnik`
 - `COMPLETED` blokiran dok je sheet `OPEN`
 
 ### Faza 4 - Dokumenti + notifikacije
@@ -65,7 +65,7 @@
 - StaleTime:
   - ture lista + detalji: 5 min
   - notifikacije: 2 min
-  - profil vozaca: 10 min
+  - profil vozača: 10 min
   - expense sheet: 1 min
 
 ### 5b NetInfo + OfflineBanner
@@ -102,7 +102,7 @@
 ### 5f Offline UX dodatno
 
 - Expense ekran prikazuje pending sync stanje
-- Marker uz stavke koje cekaju sync
+- Marker uz stavke koje čekaju sync
 
 ## 5) Faza 6 - Chat / Messenger
 
@@ -263,9 +263,9 @@ Implementirano kao bezbedan, izolovan preview koji ne menja poslovnu logiku apli
   - `src/lib/theme.ts`
 
 Napomena:
-- Preview sluzi za dizajn iteracije i demonstraciju stila.
-- Ne koristi API mutacije, ne dira auth/session flow i ne menja postojece query/mutation logike.
-- Design preview: dodate animacije prelaza izmedju modova (fade + blagi slide), bez uticaja na poslovnu logiku.
+- Preview služi za dizajn iteracije i demonstraciju stila.
+- Ne koristi API mutacije, ne dira auth/session flow i ne menja postojeće query/mutation logike.
+- Design preview: dodate animacije prelaza između modova (fade + blagi slide), bez uticaja na poslovnu logiku.
 - UI redesign promoted to main driver experience (Home, Tours, Tour Details, Notifications, Profile, Chat list/new/thread), using IOSCard + IOSGlassPill while preserving all existing business logic and API/query flows.
-- Expense i Documents ekrani su takodje uskladjeni sa glavnim iOS glass vizuelnim stilom (bez izmene API/mutation logike).
+- Expense i Documents ekrani su takođe usklađeni sa glavnim iOS glass vizuelnim stilom (bez izmene API/mutation logike).
 - Expense modal UX polish: unified bottom-sheet styling, glass-style chip selectors, and consistent primary/secondary action buttons.
