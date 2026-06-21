@@ -219,6 +219,60 @@ Molba: dodati `latitude` i `longitude` po stanici u `GET /api/route-stops?tourId
 
 Ako koordinate ne postoje, mobile će ih privremeno dobiti **geokodiranjem adrese preko OSM Nominatim** (besplatno, uz rate-limit). Kad backend počne da šalje lat/lng, koriste se one (tačnije). Idealno bi bilo da dispečer na webu može da pomeri pin i sačuva tačan ulaz (kao što je predloženo), pa mobile uvek dobija precizne koordinate.
 
+### Pogodnosti na carini / graničnom prelazu
+
+Status: `NEEDS_BACKEND`
+
+Mobile želi da vozač na klik **carinske stanice** (kad je `type` = carina, odnosno za `customsOffice` stanice) vidi **pogodnosti** tog prelaza: restoran, toalet, tuš, parking, gorivo, menjačnica, radno vreme.
+
+Molba: izložiti pogodnosti po carinskoj ispostavi/prelazu. Predlog (jedna od opcija):
+
+```text
+A) Inline uz carinsku stanicu u GET /api/route-stops (i u detaljima ture):
+   customs: { amenities: {...}, workingHours, notes }
+B) Zaseban GET /api/mobile/customs/:id  → pogodnosti po id-u carinske ispostave
+```
+
+Predlog oblika:
+
+```json
+{
+  "id": "customs-id",
+  "name": "Carina Horgoš",
+  "amenities": { "restaurant": true, "toilet": true, "shower": false, "parking": true, "fuel": true, "exchange": true },
+  "workingHours": "0-24",
+  "notes": "..."
+}
+```
+
+Mobile prikazuje ikonice pogodnosti u sekciji „Pogodnosti" na proširenoj carinskoj stanici. Polja su opciona; nepoznate pogodnosti se ne prikazuju.
+
+### Rokovnik vozača (mobilni)
+
+Status: `NEEDS_BACKEND`
+
+Web aplikacija već ima rokovnik. Mobile želi isti rokovnik za vozača, sa **prostijim UI** (lista zapisa po datumu + dodavanje/izmena/brisanje).
+
+Molba backendu:
+
+1. Izložiti rokovnik vozača na mobilnom, **driver-scoped** (vozač vidi/uređuje samo svoje zapise).
+2. Podeliti **tačan model i endpoint-e koje web već koristi** za rokovnik (da mobile reuse-uje ili dobije mobilni ekvivalent). Predlog ruta:
+
+```text
+GET    /api/mobile/rokovnik            → lista zapisa (po datumu)
+POST   /api/mobile/rokovnik            → nov zapis
+PATCH  /api/mobile/rokovnik/:id        → izmena
+DELETE /api/mobile/rokovnik/:id        → brisanje
+```
+
+3. Predlog oblika zapisa (backend da potvrdi/uskladi prema web modelu):
+
+```json
+{ "id": "...", "date": "2026-06-21", "title": "...", "note": "...", "done": false, "reminderAt": null }
+```
+
+Mobile će napraviti jednostavan ekran: lista grupisana po datumu + forma za dodavanje/izmenu. Ako rokovnik ima podsetnike (`reminderAt`), mobile kasnije može da veže lokalne notifikacije.
+
 ## Završeni zahtevi prema backendu
 
 ### Telefon u listi kontakata (za poziv/SMS/Viber)
