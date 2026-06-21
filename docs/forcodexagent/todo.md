@@ -219,24 +219,13 @@ Molba: dodati `latitude` i `longitude` po stanici u `GET /api/route-stops?tourId
 
 Ako koordinate ne postoje, mobile će ih privremeno dobiti **geokodiranjem adrese preko OSM Nominatim** (besplatno, uz rate-limit). Kad backend počne da šalje lat/lng, koriste se one (tačnije). Idealno bi bilo da dispečer na webu može da pomeri pin i sačuva tačan ulaz (kao što je predloženo), pa mobile uvek dobija precizne koordinate.
 
+## Završeni zahtevi prema backendu
+
 ### Telefon u listi kontakata (za poziv/SMS/Viber)
 
-Status: `NEEDS_BACKEND`
+Status: `DONE`
 
-Mobile je dodao ekran `Profil > Kontakti` — direktorijum kolega sa akcijama poziv / SMS / Viber / mejl (deep-link preko `tel:`, `sms:`, `viber://chat?number=`, `mailto:`).
-
-Trenutno `GET /api/chat/users` vraća `id`, `name`, `email`, `role`, `avatarUrl` — **bez telefona**. Zato mejl radi za sve, ali poziv/SMS/Viber rade samo za sopstveni kontakt vozača (telefon iz `driver-profile`).
-
-Molba (jedna od dve opcije):
-
-```text
-A) Dodati polje "phone" u GET /api/chat/users  (najmanje izmene)
-B) Novi GET /api/mobile/contacts → [{ id, name, role, phone, email }]  (company-scoped)
-```
-
-Mobile već čita `phone` iz `ChatUser` (opciono polje); čim backend počne da ga vraća, poziv/SMS/Viber se aktiviraju za sve kontakte bez dalje mobilne izmene.
-
-## Završeni zahtevi prema backendu
+Backend je 2026-06-14 dodao polje `phone` u `GET /api/chat/users` (opcija A). Mobile već čita `phone` iz `ChatUser`, pa su u `Profil > Kontakti` aktivirane akcije **poziv** (`tel:`), **SMS** (`sms:`) i **Viber** (`viber://chat?number=`) za sve kolege — bez dalje mobilne izmene. `phone` može biti `null` (tad se te akcije ne prikazuju za tog kontakta).
 
 ### Nedeljni i godišnji agregat za istoriju vozača
 
@@ -476,6 +465,15 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-06-21 - Sinhronizacija sa backend izmenama (2026-06-17)
+
+Status: `DONE` (provera, bez koda)
+
+- **Kontakti telefon:** backend dodao `phone` u `GET /api/chat/users` → `Profil > Kontakti` sada ima poziv/SMS/Viber za kolege; naš `NEEDS_BACKEND` zatvoren.
+- **`Notification.companyId` je sada NULLABLE** (platform notifikacije za superadmina). Provereno: mobile nigde ne radi strogi `companyId` filter na notifikacijama — prikazuje samo ono što backend (company-scoped) vrati, pa nema uticaja.
+- **RBAC:** server enforce-uje `checkPermission` na create/update/delete; vozač zadržava driver-scope. Mobile već čita `role`+`permissions` iz `/api/mobile/profile`; eventualni `403` na akciji je sad očekivano ponašanje dozvola.
+- Otvoreno prema backendu i dalje: **lat/lng po stanici** (mape Faza 2).
 
 ### 2026-06-14 - Stanice: sklopив prikaz + Navigacija (mape Faza 1)
 
