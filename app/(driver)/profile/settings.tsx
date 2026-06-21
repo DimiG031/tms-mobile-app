@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useMobileProfile, useUpdateMobilePreferences } from "@/queries/useMobileProfile";
 import { useChangePassword, useUpdateMobileSettings } from "@/queries/useMobileAccount";
-import { getModuleDefinition, sortModulesByPreference } from "@/lib/mobile-modules";
+import { getAvailableMobileModules, getModuleDefinition, sortModulesByPreference } from "@/lib/mobile-modules";
 import { useTheme } from "@/providers/ThemeProvider";
 import type {
   MobileModuleKey,
@@ -418,7 +418,7 @@ export default function ProfileSettingsScreen() {
       {profile ? (
         <>
           <SectionHeader title="Navigacija" />
-          <ModuleSettings availableModules={profile.availableMobileModules} preferences={profile.preferences} />
+          <ModuleSettings availableModules={getAvailableMobileModules(profile)} preferences={profile.preferences} />
 
           <SectionHeader title="Izgled i obaveštenja" />
           <AppearanceSection settings={profile.settings} />

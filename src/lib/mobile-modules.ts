@@ -49,6 +49,13 @@ export const MOBILE_MODULES: MobileModuleDefinition[] = [
     icon: "document-text-outline"
   },
   {
+    key: "rokovnik",
+    label: "Rokovnik",
+    description: "Lični podsetnici i zadaci po datumu.",
+    routeName: "rokovnik",
+    icon: "calendar-outline"
+  },
+  {
     key: "more",
     label: "Više",
     description: "Brz izbor dodatnih modula.",
@@ -66,6 +73,14 @@ export const MOBILE_MODULES: MobileModuleDefinition[] = [
 ];
 
 const FALLBACK_ORDER: MobileModuleKey[] = ["home", "tours", "chat", "notifications", "profile"];
+
+// Moduli koje mobile nudi i pre nego što ih backend doda u availableMobileModules.
+const CLIENT_EXTRA_MODULES: MobileModuleKey[] = ["rokovnik"];
+
+export function getAvailableMobileModules(profile?: MobileProfile | null): MobileModuleKey[] {
+  const base = profile?.availableMobileModules ?? FALLBACK_ORDER;
+  return Array.from(new Set([...base, ...CLIENT_EXTRA_MODULES]));
+}
 
 export function getModuleDefinition(key: MobileModuleKey): MobileModuleDefinition {
   return MOBILE_MODULES.find((module) => module.key === key) ?? {
@@ -90,7 +105,7 @@ export function sortModulesByPreference(keys: MobileModuleKey[], order: MobileMo
 export function getEffectiveSelectedModules(profile?: MobileProfile | null): MobileModuleKey[] {
   if (!profile) return FALLBACK_ORDER;
 
-  const available = new Set(profile.availableMobileModules);
+  const available = new Set(getAvailableMobileModules(profile));
   const selected = profile.preferences.selectedModules.filter((key) => available.has(key));
   const withFixed = new Set<MobileModuleKey>(selected);
 

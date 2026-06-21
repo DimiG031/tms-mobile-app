@@ -202,6 +202,7 @@ export function normalizeTourStop(value: unknown, fallbackSequence: number): Tou
     contactPhone: pickString(obj, ["contactPhone", "phone"]) ?? pickNestedString(contact, ["phone", "mobile"]),
     freightForwarder: pickString(obj, ["freightForwarder"]) ?? pickNestedString(freightForwarder, ["name"]),
     customsOffice: pickString(obj, ["customsOffice"]) ?? pickNestedString(customsOffice, ["name"]),
+    customsOfficeId: pickString(obj, ["customsOfficeId"]) ?? pickNestedString(customsOffice, ["id"]),
     driverNote: pickString(obj, ["driverNote", "noteForDriver", "driverNotes", "notes"]),
     status: pickString(obj, ["status"])
   };

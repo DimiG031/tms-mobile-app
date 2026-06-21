@@ -219,61 +219,33 @@ Molba: dodati `latitude` i `longitude` po stanici u `GET /api/route-stops?tourId
 
 Ako koordinate ne postoje, mobile će ih privremeno dobiti **geokodiranjem adrese preko OSM Nominatim** (besplatno, uz rate-limit). Kad backend počne da šalje lat/lng, koriste se one (tačnije). Idealno bi bilo da dispečer na webu može da pomeri pin i sačuva tačan ulaz (kao što je predloženo), pa mobile uvek dobija precizne koordinate.
 
-### Pogodnosti na carini / graničnom prelazu
+### Rokovnik u `availableMobileModules` (da bude pravi modul)
 
-Status: `NEEDS_BACKEND`
+Status: `NEEDS_BACKEND` (malo, nije blokirajuće)
 
-Mobile želi da vozač na klik **carinske stanice** (kad je `type` = carina, odnosno za `customsOffice` stanice) vidi **pogodnosti** tog prelaza: restoran, toalet, tuš, parking, gorivo, menjačnica, radno vreme.
+Mobile je dodao `rokovnik` kao modul (ekran + u „Više" krug). Da bi bio backend-vođen (i podložan dozvolama), molba: dodati `"rokovnik"` u `availableMobileModules` u `GET /api/mobile/profile` za vozače.
 
-Molba: izložiti pogodnosti po carinskoj ispostavi/prelazu. Predlog (jedna od opcija):
-
-```text
-A) Inline uz carinsku stanicu u GET /api/route-stops (i u detaljima ture):
-   customs: { amenities: {...}, workingHours, notes }
-B) Zaseban GET /api/mobile/customs/:id  → pogodnosti po id-u carinske ispostave
-```
-
-Predlog oblika:
-
-```json
-{
-  "id": "customs-id",
-  "name": "Carina Horgoš",
-  "amenities": { "restaurant": true, "toilet": true, "shower": false, "parking": true, "fuel": true, "exchange": true },
-  "workingHours": "0-24",
-  "notes": "..."
-}
-```
-
-Mobile prikazuje ikonice pogodnosti u sekciji „Pogodnosti" na proširenoj carinskoj stanici. Polja su opciona; nepoznate pogodnosti se ne prikazuju.
-
-### Rokovnik vozača (mobilni)
-
-Status: `NEEDS_BACKEND`
-
-Web aplikacija već ima rokovnik. Mobile želi isti rokovnik za vozača, sa **prostijim UI** (lista zapisa po datumu + dodavanje/izmena/brisanje).
-
-Molba backendu:
-
-1. Izložiti rokovnik vozača na mobilnom, **driver-scoped** (vozač vidi/uređuje samo svoje zapise).
-2. Podeliti **tačan model i endpoint-e koje web već koristi** za rokovnik (da mobile reuse-uje ili dobije mobilni ekvivalent). Predlog ruta:
-
-```text
-GET    /api/mobile/rokovnik            → lista zapisa (po datumu)
-POST   /api/mobile/rokovnik            → nov zapis
-PATCH  /api/mobile/rokovnik/:id        → izmena
-DELETE /api/mobile/rokovnik/:id        → brisanje
-```
-
-3. Predlog oblika zapisa (backend da potvrdi/uskladi prema web modelu):
-
-```json
-{ "id": "...", "date": "2026-06-21", "title": "...", "note": "...", "done": false, "reminderAt": null }
-```
-
-Mobile će napraviti jednostavan ekran: lista grupisana po datumu + forma za dodavanje/izmenu. Ako rokovnik ima podsetnike (`reminderAt`), mobile kasnije može da veže lokalne notifikacije.
+Do tada mobile tretira `rokovnik` kao klijentski-dostupan modul (vidljiv u biraču modula i u „Više" krugu), pa radi i bez backend izmene.
 
 ## Završeni zahtevi prema backendu
+
+### Pogodnosti na carini — `DONE` (backend + mobile)
+
+Backend je 2026-06-21 dodao `GET /api/mobile/customs/:id` (Opcija B): `{ id, name, city, country, amenities, amenitiesList[{key,label,details}], workingHours, notes, phone, email, address }`. Mobile (`src/queries/useCustomsAmenities.ts`) prikazuje sekciju „Pogodnosti na carini" u proširenoj carinskoj stanici (`Detaljnije > Stanice`) kad stanica ima `customsOffice.id` (normalizer sad hvata `customsOfficeId`). Ključevi: `parking, toilet, shower, restaurant, wifi, atm, fuel, store, lodging` (napomena: „menjačnica" ne postoji — najbliže `atm`).
+
+### Rokovnik vozača — `DONE` (backend + mobile)
+
+Backend je 2026-06-21 dodao `GET/POST/PATCH/DELETE /api/mobile/rokovnik[/:id]` (model `ReminderNote`, driver-scoped). Mobile (`src/queries/useRokovnik.ts`, ekran `app/(driver)/rokovnik.tsx`, modul „Rokovnik"):
+
+- lista grupisana po datumu; vozač vidi firmske (`COMPANY`) + svoje (`PRIVATE`) + dodeljene (`ASSIGNED`);
+- vozač pravi/uređuje/briše/označava **samo svoje** (`visibility === "PRIVATE"`) zapise; ostali su read-only sa oznakom „Firmski"/„Dodeljeno";
+- forma: naslov, napomena, datum, kategorija (`GENERAL…OTHER`), prioritet (`LOW…URGENT`).
+
+### Telefon u listi kontakata (za poziv/SMS/Viber)
+
+Status: `DONE`
+
+Backend je 2026-06-14 dodao polje `phone` u `GET /api/chat/users` (opcija A). Mobile već čita `phone` iz `ChatUser`, pa su u `Profil > Kontakti` aktivirane akcije **poziv** (`tel:`), **SMS** (`sms:`) i **Viber** (`viber://chat?number=`) za sve kolege — bez dalje mobilne izmene. `phone` može biti `null` (tad se te akcije ne prikazuju za tog kontakta).
 
 ### Telefon u listi kontakata (za poziv/SMS/Viber)
 
@@ -519,6 +491,13 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-06-21 - Rokovnik (modul) + carinske pogodnosti
+
+Status: `DONE` (JS-only — ide preko OTA, bez rebuild-a)
+
+- **Rokovnik** (`app/(driver)/rokovnik.tsx`, `src/queries/useRokovnik.ts`): nov modul „Rokovnik" (u „Više" krugu, izaberi ga u podešavanjima modula). Lista po datumu + dodavanje/izmena/brisanje/označavanje sopstvenih zapisa; firmski/dodeljeni su read-only. Klijentski je dostupan modul; tražen i backend `availableMobileModules` unos.
+- **Carinske pogodnosti** (`src/queries/useCustomsAmenities.ts`): u proširenoj carinskoj stanici prikaz „Pogodnosti na carini" (parking/toalet/tuš/restoran/wifi/atm/gorivo/prodavnica/smeštaj) + radno vreme/napomena, preko `GET /api/mobile/customs/:id`. Normalizer stanica sad hvata `customsOfficeId`.
 
 ### 2026-06-21 - Sinhronizacija sa backend izmenama (2026-06-17)
 

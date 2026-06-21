@@ -9,6 +9,7 @@ import { formatDateTime, formatRouteLabel, translateTourStatus } from "@/lib/for
 import { useTourDetails } from "@/queries/useTourDetails";
 import { useTourDocuments } from "@/queries/useTourDocuments";
 import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
+import { useCustomsAmenities } from "@/queries/useCustomsAmenities";
 import { openMapsNavigation, stopMapsQuery } from "@/lib/maps";
 
 const EMPTY = "Nije uneto";
@@ -99,6 +100,46 @@ function StopActionButton({
   );
 }
 
+function CustomsAmenities({ customsOfficeId }: Readonly<{ customsOfficeId: string }>) {
+  const theme = useTheme();
+  const { data, isLoading } = useCustomsAmenities(customsOfficeId);
+
+  if (isLoading) {
+    return <Text className="mt-3 text-xs" style={{ color: theme.text.muted }}>Učitavanje pogodnosti...</Text>;
+  }
+  if (!data) return null;
+
+  const list = data.amenitiesList.length
+    ? data.amenitiesList
+    : Object.entries(data.amenities)
+        .filter(([, value]) => value)
+        .map(([key]) => ({ key, label: key }));
+
+  if (!list.length && !data.workingHours && !data.notes) return null;
+
+  return (
+    <View className="mt-3 rounded-xl p-3" style={{ backgroundColor: theme.surface.subtle }}>
+      <Text className="text-xs font-bold uppercase" style={{ color: theme.text.muted }}>Pogodnosti na carini</Text>
+      {list.length ? (
+        <View className="mt-2 flex-row flex-wrap gap-2">
+          {list.map((amenity) => (
+            <View key={amenity.key} className="flex-row items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.card }}>
+              <Ionicons name="checkmark-circle" size={14} color={theme.accent.primary} />
+              <Text className="text-xs font-semibold" style={{ color: theme.text.primary }}>{amenity.label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {data.workingHours ? (
+        <Text className="mt-2 text-xs" style={{ color: theme.text.secondary }}>Radno vreme: {data.workingHours}</Text>
+      ) : null}
+      {data.notes ? (
+        <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>{data.notes}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 function StopCard({
   stop,
   index,
@@ -166,6 +207,7 @@ function StopCard({
           <InfoRow label="Telefon" value={stop.contactPhone} />
           <InfoRow label="Špediter" value={stop.freightForwarder} />
           <InfoRow label="Carinska ispostava" value={stop.customsOffice} />
+          {stop.customsOfficeId ? <CustomsAmenities customsOfficeId={stop.customsOfficeId} /> : null}
           <NoteBlock label="Napomena za vozača" value={stop.driverNote} />
 
           <View className="mt-3 flex-row gap-2">

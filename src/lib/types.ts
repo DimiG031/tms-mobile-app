@@ -123,6 +123,7 @@ export type TourStop = {
   contactPhone: string | null;
   freightForwarder: string | null;
   customsOffice: string | null;
+  customsOfficeId: string | null;
   driverNote: string | null;
   status: string | null;
 };
