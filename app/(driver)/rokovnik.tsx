@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Stack } from "expo-router";
 import { ActivityIndicator, Alert, Modal, Platform, ScrollView } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
@@ -63,6 +64,7 @@ function emptyDraft(): Draft {
 
 export default function RokovnikScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { data: items = [], isLoading, isError } = useRokovnik();
   const createItem = useCreateRokovnik();
   const updateItem = useUpdateRokovnik();
@@ -74,18 +76,10 @@ export default function RokovnikScreen() {
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, RokovnikItem[]>();
-    for (const item of items) {
-      const key = item.date ?? "";
-      const list = map.get(key) ?? [];
-      list.push(item);
-      map.set(key, list);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => {
-      if (!a) return 1;
-      if (!b) return -1;
-      return a.localeCompare(b);
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      return (a.date ?? "9999-99-99").localeCompare(b.date ?? "9999-99-99");
     });
   }, [items]);
 
@@ -157,16 +151,24 @@ export default function RokovnikScreen() {
   const isSaving = createItem.isPending || updateItem.isPending;
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      <Stack.Screen options={{ title: "Rokovnik" }} />
+    <ScrollView
+      className="flex-1"
+      style={{ backgroundColor: theme.surface.app }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 14, paddingBottom: 40 }}
+    >
+      <StatusBar style={theme.isDark ? "light" : "dark"} />
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
-          <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Rokovnik</Text>
-          <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Tvoji podsetnici i zadaci.</Text>
+          <Text style={{ color: theme.text.primary, fontSize: 26, fontWeight: "800" }}>Rokovnik</Text>
+          <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>Tvoji podsetnici i zadaci.</Text>
         </View>
-        <Pressable onPress={openCreate} className="flex-row items-center gap-1 rounded-xl px-3 py-2" style={{ backgroundColor: theme.accent.primary }}>
-          <Ionicons name="add" size={18} color="#fff" />
-          <Text className="font-semibold text-white">Novi</Text>
+        <Pressable
+          onPress={openCreate}
+          className="flex-row items-center gap-1 rounded-full border px-3 py-2"
+          style={{ borderColor: theme.accent.primary, backgroundColor: theme.accent.primaryLight }}
+        >
+          <Ionicons name="add" size={16} color={theme.accent.primaryDark} />
+          <Text className="text-xs font-bold" style={{ color: theme.accent.primaryDark }}>Novi</Text>
         </Pressable>
       </View>
 
@@ -174,68 +176,68 @@ export default function RokovnikScreen() {
       {isError ? <Text className="mt-4 text-red-600">Greška pri učitavanju rokovnika.</Text> : null}
 
       {!isLoading && !items.length ? (
-        <View className="mt-5 rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
+        <View className="mt-4 rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
           <Text className="text-sm" style={{ color: theme.text.secondary }}>Nema zapisa. Dodaj prvi podsetnik dugmetom „Novi".</Text>
         </View>
       ) : null}
 
-      {groups.map(([date, list]) => (
-        <View key={date || "no-date"} className="mt-5">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>
-            {date ? formatDate(date) : "Bez datuma"}
-          </Text>
-          <View className="gap-2">
-            {list.map((item) => {
-              const editable = item.visibility === "PRIVATE";
-              const prio = priorityMeta(item.priority);
-              return (
-                <View key={item.id} className="rounded-2xl border p-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
-                  <View className="flex-row items-start gap-3">
-                    <Pressable onPress={() => onToggle(item)} disabled={!editable} className="pt-0.5">
-                      <Ionicons
-                        name={item.done ? "checkmark-circle" : "ellipse-outline"}
-                        size={24}
-                        color={item.done ? theme.accent.primary : theme.text.muted}
-                      />
-                    </Pressable>
-                    <Pressable className="flex-1" onPress={() => openEdit(item)} disabled={!editable}>
-                      <Text
-                        className="text-base font-semibold"
-                        style={{ color: theme.text.primary, textDecorationLine: item.done ? "line-through" : "none" }}
-                      >
-                        {item.title}
-                      </Text>
-                      {item.note ? <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>{item.note}</Text> : null}
-                      <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
-                        {categoryLabel(item.category) ? (
-                          <Text className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: theme.surface.subtle, color: theme.text.secondary }}>
-                            {categoryLabel(item.category)}
-                          </Text>
-                        ) : null}
-                        {prio ? (
-                          <Text className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${prio.color}22`, color: prio.color }}>
-                            {prio.label}
-                          </Text>
-                        ) : null}
-                        {!editable ? (
-                          <Text className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: theme.surface.subtle, color: theme.text.muted }}>
-                            {item.visibility === "COMPANY" ? "Firmski" : "Dodeljeno"}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                    {editable ? (
-                      <Pressable onPress={() => onDelete(item)} className="pt-0.5">
-                        <Ionicons name="trash-outline" size={20} color={theme.text.muted} />
-                      </Pressable>
-                    ) : null}
+      <View className="mt-4 gap-2.5">
+        {sortedItems.map((item) => {
+          const editable = item.visibility === "PRIVATE";
+          const prio = priorityMeta(item.priority);
+          const hasBadges = Boolean(categoryLabel(item.category) || prio || !editable);
+          return (
+            <View key={item.id} className="rounded-2xl border p-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+              <View className="flex-row items-start gap-3">
+                <Pressable onPress={() => onToggle(item)} disabled={!editable} className="pt-0.5">
+                  <Ionicons
+                    name={item.done ? "checkmark-circle" : "ellipse-outline"}
+                    size={26}
+                    color={item.done ? theme.accent.primary : theme.text.muted}
+                  />
+                </Pressable>
+                <Pressable className="flex-1" onPress={() => openEdit(item)} disabled={!editable}>
+                  <View className="flex-row items-center justify-between gap-2">
+                    <Text
+                      className="flex-1 text-base font-bold"
+                      numberOfLines={1}
+                      style={{ color: theme.text.primary, textDecorationLine: item.done ? "line-through" : "none" }}
+                    >
+                      {item.title}
+                    </Text>
+                    {item.date ? <Text className="text-xs" style={{ color: theme.text.muted }}>{formatDate(item.date)}</Text> : null}
                   </View>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      ))}
+                  {item.note ? <Text className="mt-0.5 text-sm" numberOfLines={2} style={{ color: theme.text.secondary }}>{item.note}</Text> : null}
+                  {hasBadges ? (
+                    <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
+                      {categoryLabel(item.category) ? (
+                        <Text className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: theme.surface.subtle, color: theme.text.secondary }}>
+                          {categoryLabel(item.category)}
+                        </Text>
+                      ) : null}
+                      {prio ? (
+                        <Text className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${prio.color}22`, color: prio.color }}>
+                          {prio.label}
+                        </Text>
+                      ) : null}
+                      {!editable ? (
+                        <Text className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: theme.surface.subtle, color: theme.text.muted }}>
+                          {item.visibility === "COMPANY" ? "Firmski" : "Dodeljeno"}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </Pressable>
+                {editable ? (
+                  <Pressable onPress={() => onDelete(item)} className="pt-0.5">
+                    <Ionicons name="trash-outline" size={18} color={theme.text.muted} />
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          );
+        })}
+      </View>
 
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View className="flex-1 justify-end bg-black/40">
