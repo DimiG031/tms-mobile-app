@@ -65,7 +65,7 @@ function emptyDraft(): Draft {
 export default function RokovnikScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { data: items = [], isLoading, isError } = useRokovnik();
+  const { data: items = [], isLoading, isError, error } = useRokovnik();
   const createItem = useCreateRokovnik();
   const updateItem = useUpdateRokovnik();
   const toggleItem = useToggleRokovnik();
@@ -173,7 +173,14 @@ export default function RokovnikScreen() {
       </View>
 
       {isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
-      {isError ? <Text className="mt-4 text-red-600">Greška pri učitavanju rokovnika.</Text> : null}
+      {isError ? (
+        <View className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
+          <Text className="font-semibold text-red-700 dark:text-red-300">Greška pri učitavanju rokovnika</Text>
+          <Text className="mt-1 text-xs text-red-600 dark:text-red-400">
+            {error instanceof Error ? error.message : "Nepoznata greška."}
+          </Text>
+        </View>
+      ) : null}
 
       {!isLoading && !items.length ? (
         <View className="mt-4 rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
