@@ -78,6 +78,10 @@ export function subscribeOfflineQueueCount(listener: QueueCountListener): () => 
 }
 
 export function isLikelyOfflineError(error: unknown): boolean {
+  // ApiError mrežne greške nose isNetwork flag (poruka je prevedena na srpski).
+  if (error && typeof error === "object" && (error as { isNetwork?: boolean }).isNetwork === true) {
+    return true;
+  }
   const text = error instanceof Error ? error.message : String(error);
   const normalized = text.toLowerCase();
   return (

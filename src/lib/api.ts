@@ -15,6 +15,47 @@ let queueFlushInFlight: Promise<void> | null = null;
 type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type QueuedResult<T> = { queued: false; data: T } | { queued: true; data: null };
 
+export class ApiError extends Error {
+  status: number;
+  isNetwork: boolean;
+  constructor(message: string, status: number, isNetwork = false) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.isNetwork = isNetwork;
+  }
+}
+
+// Generičke (najčešće engleske) backend poruke koje zamenjujemo srpskim tekstom.
+const GENERIC_BACKEND_MESSAGES = new Set([
+  "unauthorized",
+  "forbidden",
+  "not found",
+  "bad request",
+  "server error",
+  "internal server error",
+  "error"
+]);
+
+function isMeaningfulBackendMessage(message?: string): boolean {
+  const trimmed = message?.trim();
+  if (!trimmed) return false;
+  return !GENERIC_BACKEND_MESSAGES.has(trimmed.toLowerCase());
+}
+
+function serbianMessageForStatus(status: number): string {
+  if (status === 401) return "Sesija je istekla. Prijavite se ponovo.";
+  if (status === 403) return "Nemate dozvolu za ovu radnju.";
+  if (status === 404) return "Traženi podatak nije pronađen.";
+  if (status === 408 || status === 504) return "Zahtev je istekao. Pokušajte ponovo.";
+  if (status === 429) return "Previše zahteva. Sačekajte malo pa pokušajte ponovo.";
+  if (status >= 500) return "Greška na serveru. Pokušajte kasnije ili kontaktirajte administratora.";
+  if (status >= 400) return "Neispravan zahtev. Proverite unete podatke.";
+  return "Došlo je do greške. Pokušajte ponovo.";
+}
+
+const NETWORK_ERROR_MESSAGE = "Nema veze sa serverom. Proverite internet i pokušajte ponovo.";
+
 async function refreshToken(): Promise<string | null> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
@@ -56,32 +97,42 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
     });
 
   const session = await readSession();
-  let response = await run(session?.token);
+  let response: Response;
+  try {
+    response = await run(session?.token);
+  } catch {
+    throw new ApiError(NETWORK_ERROR_MESSAGE, 0, true);
+  }
 
   if (response.status === 401 && session?.refreshToken) {
     const nextToken = await refreshToken();
     if (!nextToken) {
-      throw new Error("Sesija je istekla");
+      throw new ApiError("Sesija je istekla. Prijavite se ponovo.", 401);
     }
-    response = await run(nextToken);
+    try {
+      response = await run(nextToken);
+    } catch {
+      throw new ApiError(NETWORK_ERROR_MESSAGE, 0, true);
+    }
   }
 
   if (!response.ok) {
     const rawText = await response.text();
-    let message = rawText;
+    let backendMessage: string | undefined;
 
     try {
       const parsed = JSON.parse(rawText) as { error?: unknown; message?: unknown };
-      if (typeof parsed.error === "string" && parsed.error.trim()) {
-        message = parsed.error;
-      } else if (typeof parsed.message === "string" && parsed.message.trim()) {
-        message = parsed.message;
-      }
+      if (typeof parsed.error === "string") backendMessage = parsed.error;
+      else if (typeof parsed.message === "string") backendMessage = parsed.message;
     } catch {
-      // Keep raw text when body is not JSON.
+      // Body nije JSON — koristimo srpsku poruku po statusu.
     }
 
-    throw new Error(message || `Zahtev nije uspeo: ${response.status}`);
+    const message = isMeaningfulBackendMessage(backendMessage)
+      ? (backendMessage as string)
+      : serbianMessageForStatus(response.status);
+
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {

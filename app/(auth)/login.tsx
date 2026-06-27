@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,6 +33,7 @@ export default function LoginScreen() {
 
   const email = watch("email");
   const password = watch("password");
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async (values: LoginValues) => {
     try {
@@ -91,14 +93,24 @@ export default function LoginScreen() {
         <Text className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
           Lozinka
         </Text>
-        <TextInput
-          secureTextEntry
-          placeholder="Unesite lozinku"
-          value={password}
-          onChangeText={(v: string) => setValue("password", v, { shouldDirty: true })}
-          placeholderTextColor={theme.text.muted}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        />
+        <View className="relative justify-center">
+          <TextInput
+            secureTextEntry={!showPassword}
+            placeholder="Unesite lozinku"
+            value={password}
+            onChangeText={(v: string) => setValue("password", v, { shouldDirty: true })}
+            placeholderTextColor={theme.text.muted}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-3 pr-12 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+          <Pressable
+            onPress={() => setShowPassword((v) => !v)}
+            hitSlop={8}
+            className="absolute right-3 h-8 w-8 items-center justify-center"
+            accessibilityLabel={showPassword ? "Sakrij lozinku" : "Prikaži lozinku"}
+          >
+            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color={theme.text.muted} />
+          </Pressable>
+        </View>
         {errors.password ? <Text className="mt-1 text-xs text-red-600">{errors.password.message}</Text> : null}
 
         <Pressable
