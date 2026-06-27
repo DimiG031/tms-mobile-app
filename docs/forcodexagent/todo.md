@@ -223,9 +223,9 @@ Ako koordinate ne postoje, mobile će ih privremeno dobiti **geokodiranjem adres
 
 Status: `NEEDS_BACKEND` (malo, nije blokirajuće)
 
-Mobile je dodao `rokovnik` kao modul (ekran + u „Više" krug). Da bi bio backend-vođen (i podložan dozvolama), molba: dodati `"rokovnik"` u `availableMobileModules` u `GET /api/mobile/profile` za vozače.
+Mobile je dodao `rokovnik` kao modul (ekran + uvek u „Više" krugu). Da bi bio backend-vođen (i podložan dozvolama / izboru u podešavanjima), molba: dodati `"rokovnik"` u `availableMobileModules` u `GET /api/mobile/profile` za vozače.
 
-Do tada mobile tretira `rokovnik` kao klijentski-dostupan modul (vidljiv u biraču modula i u „Više" krugu), pa radi i bez backend izmene.
+Do tada mobile **forsira** `rokovnik` samo u „Više" krug (klijentski, `getSliceModules`) — NE šalje ga kroz `PATCH /api/mobile/preferences` (backend bi vratio „Nedozvoljeni moduli"). Zato `rokovnik` nije u biraču modula u podešavanjima dok ga backend ne doda u `availableMobileModules`.
 
 ## Završeni zahtevi prema backendu
 

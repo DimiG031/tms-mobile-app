@@ -74,13 +74,10 @@ export const MOBILE_MODULES: MobileModuleDefinition[] = [
 
 const FALLBACK_ORDER: MobileModuleKey[] = ["home", "tours", "chat", "notifications", "profile"];
 
-// Moduli koje mobile nudi i pre nego što ih backend doda u availableMobileModules.
-const CLIENT_EXTRA_MODULES: MobileModuleKey[] = ["rokovnik"];
-
-export function getAvailableMobileModules(profile?: MobileProfile | null): MobileModuleKey[] {
-  const base = profile?.availableMobileModules ?? FALLBACK_ORDER;
-  return Array.from(new Set([...base, ...CLIENT_EXTRA_MODULES]));
-}
+// Moduli koje mobile uvek nudi u „Više" krugu, čak i pre nego što ih backend
+// doda u availableMobileModules. NE šalju se kroz preferences (backend bi ih
+// odbio), nego se samo prikazuju u slice/„Više" navigaciji klijentski.
+const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik"];
 
 export function getModuleDefinition(key: MobileModuleKey): MobileModuleDefinition {
   return MOBILE_MODULES.find((module) => module.key === key) ?? {
@@ -105,7 +102,7 @@ export function sortModulesByPreference(keys: MobileModuleKey[], order: MobileMo
 export function getEffectiveSelectedModules(profile?: MobileProfile | null): MobileModuleKey[] {
   if (!profile) return FALLBACK_ORDER;
 
-  const available = new Set(getAvailableMobileModules(profile));
+  const available = new Set(profile.availableMobileModules);
   const selected = profile.preferences.selectedModules.filter((key) => available.has(key));
   const withFixed = new Set<MobileModuleKey>(selected);
 
@@ -136,7 +133,18 @@ export function getVisibleTabModules(profile?: MobileProfile | null): MobileModu
 }
 
 export function getSliceModules(profile?: MobileProfile | null): MobileModuleDefinition[] {
-  return getEffectiveSelectedModules(profile)
+  const modules = getEffectiveSelectedModules(profile)
     .map(getModuleDefinition)
     .filter((module) => module.routeName && module.key !== "home" && module.key !== "profile" && module.key !== "more");
+
+  // Uvek dodaj klijentske module (npr. Rokovnik) u „Više" krug, bez slanja
+  // kroz preferences (backend ih još ne zna).
+  for (const key of CLIENT_ONLY_SLICE_MODULES) {
+    if (!modules.some((module) => module.key === key)) {
+      const def = getModuleDefinition(key);
+      if (def.routeName) modules.push(def);
+    }
+  }
+
+  return modules;
 }
