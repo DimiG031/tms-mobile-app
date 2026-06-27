@@ -492,6 +492,14 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 
 ## Najnovije mobile izmene
 
+### 2026-06-28 - Rokovnik/carina greška: uzrok bio backend (auth + deploy)
+
+Status: `RESOLVED` (backend), mobilna bez izmene koda
+
+- Na telefonu je „Greška pri učitavanju rokovnika". Uzrok je bio backend: `/api/mobile/rokovnik` i `/api/mobile/customs/:id` su koristili `requireTenant()` koji nije čitao mobilni Bearer JWT → backend prebacio na `requireMobileAuth(req)` (commit `490df43`). Plus produkcija (Vercel) nije bila redeploy-ovana posle 21.06 — posle redeploy-a radi.
+- Mobilna strana: dodato samo prikazivanje **stvarne poruke greške** na `Rokovnik` ekranu (lakša dijagnostika ubuduće). Nema druge izmene.
+- Provera domena: aplikacija ispravno gađa `https://tms.softechrs.com` (živ, mobilni API vraća 401 bez tokena). `app.softechrs.com` ne postoji (000).
+
 ### 2026-06-21 - Rokovnik (modul) + carinske pogodnosti
 
 Status: `DONE` (JS-only — ide preko OTA, bez rebuild-a)
