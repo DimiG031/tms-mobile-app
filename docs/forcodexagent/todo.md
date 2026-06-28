@@ -492,6 +492,15 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 
 ## Najnovije mobile izmene
 
+### 2026-06-28 - Login mrežna greška (URL) + srpske greške + oko za lozinku
+
+Status: `DONE` (JS-only — ide preko OTA, bez rebuild-a), bez backend zavisnosti
+
+- **Login „Network request failed" rešen:** `mobileLogin` (`src/services/auth.ts`) ide preko raw `fetch`-a na `config.apiUrl`, a bundle je iz `.env` ume da ugradi `localhost:3000` → na pravom telefonu mreža puca. Sad `src/lib/config.ts` u produkciji (`!__DEV__`) **forsira `https://tms.softechrs.com`** i ignoriše localhost/127.0.0.1/10.0.2.2 i kad ih bundle ugradi. Lokalni dev (Metro/emulator) i dalje koristi `.env` + 10.0.2.2 rewrite.
+- **Srpske poruke grešaka:** `src/lib/api.ts` ima `ApiError` + mapiranje po statusu (401 „Sesija je istekla", 403 „Nemate dozvolu", 5xx „Greška na serveru. Pokušajte kasnije ili kontaktirajte administratora", mreža „Proverite internet vezu"). Smislena backend poruka se zadržava; generičke se prevode. `offline-queue` čita `isNetwork` flag.
+- **Oko za prikaz lozinke** na login ekranu (`app/(auth)/login.tsx`): toggle `secureTextEntry`, ikonica pozicionirana inline `style`-om na desnoj ivici polja.
+- Napomena za OTA: `.env.production` je uklonjen jer je menjao fingerprint runtimeVersion (OTA tad ne stiže na postojeći build). URL se sad rešava u `config.ts`, ne preko env fajla.
+
 ### 2026-06-28 - Rokovnik/carina greška: uzrok bio backend (auth + deploy)
 
 Status: `RESOLVED` (backend), mobilna bez izmene koda
