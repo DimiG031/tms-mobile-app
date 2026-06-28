@@ -105,7 +105,7 @@ export default function LoginScreen() {
           <Pressable
             onPress={() => setShowPassword((v) => !v)}
             hitSlop={8}
-            className="absolute right-3 h-8 w-8 items-center justify-center"
+            style={{ position: "absolute", right: 10, height: 32, width: 32, alignItems: "center", justifyContent: "center" }}
             accessibilityLabel={showPassword ? "Sakrij lozinku" : "Prikaži lozinku"}
           >
             <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color={theme.text.muted} />
