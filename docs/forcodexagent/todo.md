@@ -517,6 +517,7 @@ Vozač na svojoj mapi obeležava korisna mesta sa terena — **parkinzi, pumpe, 
 ### Dogovorene odluke (2026-07-03 — vlasnik potvrdio)
 - **Prag GLOBAL:** neto skor = (jedinstvene potvrde +1) − (jedinstvena osporavanja −1). **Promocija u GLOBAL na neto ≥ 5**, **dem_ovanje na COMPANY na neto ≤ 2** (histereza da ne treperi); ako neto ode u minus preko nekog broja glasova → **sakrij/soft-delete**. Svi pragovi = **server konfiguracija** (menjaju se bez koda).
 - **Pojedinačne tvrdnje po pogodnosti** („ima toalet") — **NE u MVP-u**; glasa se o mestu kao celini. Per-pogodnost tek Faza 2 ako zatreba.
+- **Zaseban modul „Mapa mesta"** — odvojen od poslovne/rute mape. Otvara se **na GPS lokaciji vozača** i prikazuje **najbliža mesta** („u blizini", `near=`), filter po tipu. Mapa rute ture ostaje čista (samo stanice). Preklapanje POI-jeva na rutu je opcija za Fazu 2 (prekidač „prikaži parkinge/pumpe uz rutu").
 - **Pinovi:** slobodni na mapi (GPS „na trenutnoj lokaciji" ili tap). Veza sa stanicom ture nije MVP.
 - **Freshness:** mesto bez potvrde > 12 meseci → oznaka „za proveru" (izbledeo pin) + ponuda re-potvrde. Radi backend cron (dnevno).
 - **Duplikati:** pri dodavanju, ako postoji mesto **istog tipa u krugu ~75 m** → ponudi „Potvrdi postojeće" umesto novog pina (backend proximity provera; mobilni prikaže „u blizini je već…").
