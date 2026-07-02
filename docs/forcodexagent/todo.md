@@ -205,35 +205,19 @@ Nije hitno za backend:
 
 ## Novi zahtevi prema backendu
 
-### Koordinate (lat/lng) po stanici — za mape (Faza 2)
-
-Status: `NEEDS_BACKEND` (poželjno, nije blokirajuće)
-
-Mobile uvodi mape za stanice. Faza 1 (deep-link „Navigacija" preko adrese) radi bez backenda. Za Fazu 2 (ugrađena Leaflet mapa sa pinovima i rutom) trebaju koordinate.
-
-Molba: dodati `latitude` i `longitude` po stanici u `GET /api/route-stops?tourId=...` (i u detalje ture), kad postoje.
-
-```json
-{ "id": "stop-id", "latitude": 44.8125, "longitude": 20.4612, "address": "...", "city": "...", "country": "..." }
-```
-
-Ako koordinate ne postoje, mobile će ih privremeno dobiti **geokodiranjem adrese preko OSM Nominatim** (besplatno, uz rate-limit). Kad backend počne da šalje lat/lng, koriste se one (tačnije). Idealno bi bilo da dispečer na webu može da pomeri pin i sačuva tačan ulaz (kao što je predloženo), pa mobile uvek dobija precizne koordinate.
-
-### Rokovnik u `availableMobileModules` (da bude pravi modul)
-
-Status: `NEEDS_BACKEND` (malo, nije blokirajuće)
-
-Mobile je dodao `rokovnik` kao modul (ekran + uvek u „Više" krugu). Da bi bio backend-vođen (i podložan dozvolama / izboru u podešavanjima), molba: dodati `"rokovnik"` u `availableMobileModules` u `GET /api/mobile/profile` za vozače.
-
-Do tada mobile **forsira** `rokovnik` samo u „Više" krug (klijentski, `getSliceModules`) — NE šalje ga kroz `PATCH /api/mobile/preferences` (backend bi vratio „Nedozvoljeni moduli"). Zato `rokovnik` nije u biraču modula u podešavanjima dok ga backend ne doda u `availableMobileModules`.
-
-### `putni-nalog` u `availableMobileModules`
-
-Status: `NEEDS_BACKEND` (malo, nije blokirajuće)
-
-Isto kao za rokovnik: mobilni je dodao modul „Putni nalog" (ekran + prečica na početnoj + uvek u „Više" krugu). Molba: dodati `"putni-nalog"` u `availableMobileModules` u `GET /api/mobile/profile` za vozače, da bude backend-vođen i podložan izboru u podešavanjima. Do tada je klijentski forsiran u „Više" krug i NE šalje se kroz preferences.
+Trenutno **nema otvorenih** zahteva prema backendu — sve iz ranije liste je isporučeno (vidi „Završeni zahtevi prema backendu").
 
 ## Završeni zahtevi prema backendu
+
+### Koordinate (lat/lng) po stanici — `DONE` (backend + mobile)
+
+Backend je 2026-07-02 dodao `latitude`/`longitude` u `GET /api/route-stops?tourId=` (razrešeno: eksplicitna stanica → lokacija → geokodirano → `null`) + auto-geokodiranje lokacija pri čuvanju. Mobile: `TourStop` proširen, mapa rute (`app/(driver)/tours/[id]/map.tsx`, Leaflet u WebView-u) koristi backend koordinate, a `src/lib/geocode.ts` (OSM Nominatim, keš + throttle) je rezerva kad su `null`.
+
+### `rokovnik` i `putni-nalog` u `availableMobileModules` — `DONE` (backend + mobile)
+
+Backend je 2026-07-02 dodao oba modula u `availableMobileModules` (`rokovnik` = `notes`, `putni-nalog` = `travelOrders`). Mobile: sada se pojavljuju u biraču modula (`Profil > Podešavanja`) i mogu se slati kroz `PATCH /api/mobile/preferences` bez odbijanja; i dalje su „pinovani" u „Više" krug radi zajamčene dostupnosti. Nisu podrazumevano uključeni (backend `DEFAULT_DRIVER_MODULES` netaknut).
+
+### Pogodnosti na carini — `DONE` (backend + mobile)
 
 ### Pogodnosti na carini — `DONE` (backend + mobile)
 
@@ -497,6 +481,17 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-07-03 - Mape Faza 2 (Leaflet u WebView-u) + moduli u biraču
+
+Status: `DONE` (JS-only — ide preko OTA; `react-native-webview` je u build-u od početka)
+
+Backend je 2026-07-02 isporučio `latitude`/`longitude` po stanici u `GET /api/route-stops?tourId=` + auto-geokodiranje lokacija. Mobilna strana je dodala ugrađenu mapu.
+
+- **Ugrađena mapa rute** (`app/(driver)/tours/[id]/map.tsx`): Leaflet + OSM pločice u `react-native-webview`. Numerisani pinovi po stanicama (boja po tipu: utovar zeleno, istovar crveno, carina amber), polilinija rute, `fitBounds`, popup sa nazivom/mestom. Dugme „Navigacija (Google Mape)" otvara eksternu navigaciju sa waypoint-ima.
+- **Ulaz:** dugme „Mapa rute" u `Detaljnije > Stanice`; ruta registrovana u `tours/_layout.tsx`.
+- **Koordinate:** `TourStop` proširen `latitude`/`longitude` (normalizer čita top-level + nested `location`/`geocoded*`). Prednost imaju backend koordinate; ako su `null`, mobilni **geokodira adresu preko OSM Nominatim** kao rezervu (`src/lib/geocode.ts`, keš + throttle ~1 req/s).
+- **Moduli (B):** backend je 2026-07-02 dodao `putni-nalog` i `rokovnik` u `availableMobileModules`, pa se sada **sami pojavljuju u biraču modula** (`Profil > Podešavanja > Navigacija`) i mogu se čuvati kroz `PATCH /api/mobile/preferences` bez odbijanja. Mobilni ih i dalje „pinuje" u „Više" krug radi zajamčene dostupnosti. `notes`→`rokovnik` preimenovanje nas ne dira (koristimo `rokovnik`).
 
 ### 2026-07-02 - Putni nalog (modul) — povezan mobilni UI
 

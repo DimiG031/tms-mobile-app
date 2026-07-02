@@ -196,6 +196,14 @@ export function normalizeTourStop(value: unknown, fallbackSequence: number): Tou
       pickNestedString(partnerCountry, ["name"]) ??
       pickNestedString(customsCountry, ["name"]) ??
       pickNestedString(forwarderCountry, ["name"]),
+    latitude:
+      pickNumber(obj, ["latitude", "lat"]) ??
+      (location ? pickNumber(location, ["latitude", "lat", "geocodedLatitude"]) : null) ??
+      null,
+    longitude:
+      pickNumber(obj, ["longitude", "lng", "lon"]) ??
+      (location ? pickNumber(location, ["longitude", "lng", "lon", "geocodedLongitude"]) : null) ??
+      null,
     plannedArrivalAt: pickString(obj, ["plannedArrival", "plannedArrivalAt", "arrivalAt", "eta", "unloadingDate"]),
     plannedDepartureAt: pickString(obj, ["plannedDeparture", "plannedDepartureAt", "departureAt", "etd"]),
     contactName: pickString(obj, ["contactName", "contactPerson"]) ?? pickNestedString(contact, ["name"]),

@@ -81,9 +81,11 @@ export const MOBILE_MODULES: MobileModuleDefinition[] = [
 
 const FALLBACK_ORDER: MobileModuleKey[] = ["home", "tours", "chat", "notifications", "profile"];
 
-// Moduli koje mobile uvek nudi u „Više" krugu, čak i pre nego što ih backend
-// doda u availableMobileModules. NE šalju se kroz preferences (backend bi ih
-// odbio), nego se samo prikazuju u slice/„Više" navigaciji klijentski.
+// Moduli koje mobile uvek prikazuje u „Više" krugu radi zajamčene dostupnosti.
+// Backend ih od 2026-07-02 uključuje u availableMobileModules (pa se pojavljuju
+// i u biraču modula i mogu se slati kroz preferences), ali ih ovde i dalje
+// „pinujemo" u „Više" da budu dostupni i kad ih vozač ne izabere kao karticu,
+// i kao rezerva dok se profil ne deploy-uje.
 const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik", "putni-nalog"];
 
 export function getModuleDefinition(key: MobileModuleKey): MobileModuleDefinition {

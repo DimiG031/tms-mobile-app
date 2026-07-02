@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Linking, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Link, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { AppDocument, TourForwarderInfo, TourNotes, TourStop } from "@/lib/types";
@@ -383,6 +383,17 @@ export default function TourMoreDetailsScreen() {
     if (activeSection === "Stanice") {
       return (
         <Section title="Stanice ture">
+          {stops.length ? (
+            <Link href={`/(driver)/tours/${tourId}/map`} asChild>
+              <Pressable
+                className="mb-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3"
+                style={{ backgroundColor: theme.accent.primaryLight }}
+              >
+                <Ionicons name="map-outline" size={18} color={theme.accent.primaryDark} />
+                <Text className="font-semibold" style={{ color: theme.accent.primaryDark }}>Mapa rute</Text>
+              </Pressable>
+            </Link>
+          ) : null}
           {stops.length ? (
             stops.map((stop, index) => (
               <StopCard
