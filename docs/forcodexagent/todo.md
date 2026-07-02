@@ -480,6 +480,45 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
+## PLANIRANO — Vozačeva mapa mesta (POI), crowd-sourced (2026-07-03)
+
+Status: `PLAN` (mobilna strana; usklađeno sa backend `PLAN` dokumentom). Čeka potvrdu vlasnika i backend Fazu 1.
+
+### Ideja (od vlasnika)
+Vozač na svojoj mapi obeležava korisna mesta sa terena — **parkinzi, pumpe, odmorišta, mesta za pauzu** — sa **pogodnostima** (toalet, tuš, restoran, gorivo, veliki parking, wifi, atm, prodavnica, smeštaj) i **ocenom**. Deli ih sa firmom (`COMPANY`), a najkorisnija automatski postaju **globalna** (`GLOBAL`) kad ih potvrdi dovoljno različitih vozača (prag, npr. 10) — bez odobrenja superadmina.
+
+### Zašto je izvodljivo bez novog build-a (OTA)
+`react-native-webview` (mapa), `expo-location` (GPS, kao SOS) i upload slika (`src/services/upload.ts`, presign — kao računi) su **već u build-u**. Cela funkcija je JS-only → ide preko OTA.
+
+### Ponovna upotreba
+- Leaflet/OSM mapa — proširiti obrazac iz `app/(driver)/tours/[id]/map.tsx`.
+- Pogodnosti — postojeći ključevi `parking/toilet/shower/restaurant/wifi/atm/fuel/store/lodging` (+ dodati `bigParking` ako backend uvede).
+- Vidljivost — obrazac `PRIVATE`/`COMPANY` (kao `ReminderNote`/rokovnik).
+- Offline queue + query obrasci (kao `useTravelOrders`/`useRokovnik`).
+
+### Mobilni posao (šta treba napraviti)
+- **Nov modul „Mapa mesta"** (ekran + prečica na početnoj + „Više" krug, kao putni nalog/rokovnik).
+- **Interaktivna mapa (WebView ↔ RN most):** `onMessage` + `injectJavaScript`; tap na mapu spušta pin (šalje lat/lng u RN), dugmad u popup-u (Potvrdi/Ospori/Izmeni) zovu nazad u RN. Ovo je glavni deo posla.
+- **Forma pina:** tip (`PARKING/FUEL/REST/PAUSE/FOOD/OTHER`), naziv, pogodnosti (čekboksovi), ocena (1–5 zvezdica), napomena, slike (presign upload), vidljivost (`PRIVATE`→`COMPANY`).
+- **Prikaz + filteri:** pinovi po boji/tipu, filter po tipu, učitavanje po `bbox`/blizini dok se mapa pomera; „Dodaj na trenutnoj lokaciji" (GPS).
+- **Glasanje:** Potvrdi/Ospori na tuđim pinovima (`{ vote: 1 | -1 }`); prikaz broja potvrda i „provereno/globalno".
+- **Query hooks:** `useDriverPlaces(bbox|near, types)`, create/patch/delete/confirm (offline-aware).
+
+### Očekivani backend API (iz backend PLAN-a — potvrditi pri implementaciji)
+- `GET /api/mobile/places?bbox=|near=&types=` — svoja + firmska + globalna, filter po okviru.
+- `POST/PATCH/DELETE /api/mobile/places[/:id]` — CRUD svog pina (+ `visibility: COMPANY`).
+- `POST /api/mobile/places/:id/confirm` — `{ vote: 1|-1 }`, auto-promocija u GLOBAL na pragu (server broji jedinstvene glasove).
+
+### Procena (mobilna strana)
+- **Faza 1 (MVP):** interaktivna mapa + CRUD + PRIVATE/COMPANY + pogodnosti + ocena + filter → **~3–4 dana**.
+- **Faza 2:** glasanje + auto-GLOBAL + slike + prosečna ocena + bbox optimizacija → **~2–3 dana**.
+- Ukupno **~1.5–2 nedelje**; MVP demo za **~1 nedelju** uz paralelan rad sa backendom. Sve preko OTA.
+
+### Otvorena pitanja (za dogovor)
+- Prag za GLOBAL (predlog N=10) i da li i pojedinačne tvrdnje (npr. „ima toalet") imaju zaseban prag.
+- Da li pinovi mogu i uz stanicu ture, ili čisto slobodni na mapi (MVP: slobodni).
+- Moderacija/uklanjanje globalnih mesta ako preovlada osporavanje (backend cron).
+
 ## Najnovije mobile izmene
 
 ### 2026-07-03 - Mape Faza 2 (Leaflet u WebView-u) + moduli u biraču
