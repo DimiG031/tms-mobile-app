@@ -416,6 +416,7 @@ export default function DriverHomeScreen() {
             Brze akcije
           </Text>
           <View className="flex-row flex-wrap gap-2">
+            <QuickAction href="/(driver)/putni-nalog" label="Putni nalog" iconName="clipboard-text-outline" />
             <QuickAction href="/(driver)/tours" label="Sve ture" iconName="truck-outline" />
             <QuickAction href="/(driver)/istorija" label="Istorija" iconName="history" />
             <QuickAction href="/(driver)/chat" label="Poruke" iconName="message-text-outline" badge={unreadMessages} />

@@ -23,7 +23,7 @@ type TabBarProps = {
   navigation: { navigate: (name: string) => void };
 };
 
-const TOP_LEVEL_TAB_ROUTES = ["index", "tours", "chat", "notifications", "documents", "rokovnik", "more", "profile"];
+const TOP_LEVEL_TAB_ROUTES = ["index", "tours", "chat", "notifications", "documents", "rokovnik", "putni-nalog", "more", "profile"];
 
 function makeTabIcon(name: IconName) {
   return function TabIcon({ color, size }: IconProps) {

@@ -227,6 +227,12 @@ Mobile je dodao `rokovnik` kao modul (ekran + uvek u „Više" krugu). Da bi bio
 
 Do tada mobile **forsira** `rokovnik` samo u „Više" krug (klijentski, `getSliceModules`) — NE šalje ga kroz `PATCH /api/mobile/preferences` (backend bi vratio „Nedozvoljeni moduli"). Zato `rokovnik` nije u biraču modula u podešavanjima dok ga backend ne doda u `availableMobileModules`.
 
+### `putni-nalog` u `availableMobileModules`
+
+Status: `NEEDS_BACKEND` (malo, nije blokirajuće)
+
+Isto kao za rokovnik: mobilni je dodao modul „Putni nalog" (ekran + prečica na početnoj + uvek u „Više" krugu). Molba: dodati `"putni-nalog"` u `availableMobileModules` u `GET /api/mobile/profile` za vozače, da bude backend-vođen i podložan izboru u podešavanjima. Do tada je klijentski forsiran u „Više" krug i NE šalje se kroz preferences.
+
 ## Završeni zahtevi prema backendu
 
 ### Pogodnosti na carini — `DONE` (backend + mobile)
@@ -491,6 +497,21 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 `normalizeTourSummary` čita kilometražu (prihvata `distanceKm`, `routeDistanceKm`, `totalDistanceKm`, `plannedDistanceKm`, `mileageKm`), a dashboard je sabira u ukupan zbir (`totalDistanceKm`). Ako kilometraža nije uneta, prikazuje `Nije uneto`.
 
 ## Najnovije mobile izmene
+
+### 2026-07-02 - Putni nalog (modul) — povezan mobilni UI
+
+Status: `DONE` (JS-only — ide preko OTA, bez rebuild-a)
+
+Backend je 2026-06-30/07-01 isporučio mobilne endpoint-e za putni nalog; mobilna strana ih je povezala.
+
+- Nov modul **„Putni nalog"** (`app/(driver)/putni-nalog.tsx`, `src/queries/useTravelOrders.ts`): prečica na početnom ekranu (Brze akcije) + u „Više" krugu (klijentski, kao Rokovnik). Ruta registrovana u `_layout.tsx`.
+- Lista aktivnih naloga (`GET /api/mobile/travel-orders`) — svaka kartica sklopiva: broj, relacija, status (`OPEN`→Otvoren / `ON_ROAD`→Na putu / `RETURNED`→Vraćen / `CLOSED`→Zatvoren), polazak, početna km, broj događaja + dnevnik puta.
+- Dodavanje događaja (`POST /api/mobile/travel-orders/:id/events`) preko brzih dugmadi: **Granica, Utovar, Istovar, Gorivo, Kilometraža, Pauza, Beleška**. Ide kroz offline queue.
+  - `BORDER`: `countryFrom`/`countryTo` biraju se iz kataloga `GET /api/countries?limit=100` (šalje se `name`).
+  - `LOAD`/`UNLOAD`: obavezan `locationId` iz `GET /api/locations?limit=100` (nije slobodan tekst; validacija na klijentu + poruka backenda).
+  - `FUEL`: litri + iznos + valuta (EUR/RSD/USD/CHF); `ODOMETER`: obavezno stanje km; `REST`/`NOTE`: napomena; opcioni `odometer`, `at` (datum+vreme, default sada).
+- Vraćanje naloga (`POST /api/mobile/travel-orders/:id/return`) — opciono `odoEnd` + `note`, uz potvrdu. Vozač NE zatvara nalog (`CLOSED` radi dispečer).
+- Otvoreno prema backendu: dodati `"putni-nalog"` u `availableMobileModules` (sad je klijentski forsiran u „Više" krug, kao `rokovnik`).
 
 ### 2026-06-28 - Login mrežna greška (URL) + srpske greške + oko za lozinku
 

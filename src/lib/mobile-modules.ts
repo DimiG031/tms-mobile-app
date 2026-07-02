@@ -56,6 +56,13 @@ export const MOBILE_MODULES: MobileModuleDefinition[] = [
     icon: "calendar-outline"
   },
   {
+    key: "putni-nalog",
+    label: "Putni nalog",
+    description: "Beleženje događaja sa puta i vraćanje naloga.",
+    routeName: "putni-nalog",
+    icon: "clipboard-outline"
+  },
+  {
     key: "more",
     label: "Više",
     description: "Brz izbor dodatnih modula.",
@@ -77,7 +84,7 @@ const FALLBACK_ORDER: MobileModuleKey[] = ["home", "tours", "chat", "notificatio
 // Moduli koje mobile uvek nudi u „Više" krugu, čak i pre nego što ih backend
 // doda u availableMobileModules. NE šalju se kroz preferences (backend bi ih
 // odbio), nego se samo prikazuju u slice/„Više" navigaciji klijentski.
-const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik"];
+const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik", "putni-nalog"];
 
 export function getModuleDefinition(key: MobileModuleKey): MobileModuleDefinition {
   return MOBILE_MODULES.find((module) => module.key === key) ?? {
