@@ -482,7 +482,7 @@ Backend `GET /api/tours` sada vraća `distanceKm` (alias za `Tour.kilometers`) p
 
 ## PLANIRANO — Vozačeva mapa mesta (POI), crowd-sourced (2026-07-03)
 
-Status: `PLAN` (mobilna strana; usklađeno sa backend `PLAN` dokumentom). Čeka potvrdu vlasnika i backend Fazu 1.
+Status: `PLAN` (mobilna strana; usklađeno sa backend `PLAN` dokumentom). **Vlasnik potvrdio parametre 2026-07-03** (vidi „Dogovorene odluke"); čeka backend Fazu 1.
 
 ### Ideja (od vlasnika)
 Vozač na svojoj mapi obeležava korisna mesta sa terena — **parkinzi, pumpe, odmorišta, mesta za pauzu** — sa **pogodnostima** (toalet, tuš, restoran, gorivo, veliki parking, wifi, atm, prodavnica, smeštaj) i **ocenom**. Deli ih sa firmom (`COMPANY`), a najkorisnija automatski postaju **globalna** (`GLOBAL`) kad ih potvrdi dovoljno različitih vozača (prag, npr. 10) — bez odobrenja superadmina.
@@ -514,10 +514,21 @@ Vozač na svojoj mapi obeležava korisna mesta sa terena — **parkinzi, pumpe, 
 - **Faza 2:** glasanje + auto-GLOBAL + slike + prosečna ocena + bbox optimizacija → **~2–3 dana**.
 - Ukupno **~1.5–2 nedelje**; MVP demo za **~1 nedelju** uz paralelan rad sa backendom. Sve preko OTA.
 
-### Otvorena pitanja (za dogovor)
-- Prag za GLOBAL (predlog N=10) i da li i pojedinačne tvrdnje (npr. „ima toalet") imaju zaseban prag.
-- Da li pinovi mogu i uz stanicu ture, ili čisto slobodni na mapi (MVP: slobodni).
-- Moderacija/uklanjanje globalnih mesta ako preovlada osporavanje (backend cron).
+### Dogovorene odluke (2026-07-03 — vlasnik potvrdio)
+- **Prag GLOBAL:** neto skor = (jedinstvene potvrde +1) − (jedinstvena osporavanja −1). **Promocija u GLOBAL na neto ≥ 5**, **dem_ovanje na COMPANY na neto ≤ 2** (histereza da ne treperi); ako neto ode u minus preko nekog broja glasova → **sakrij/soft-delete**. Svi pragovi = **server konfiguracija** (menjaju se bez koda).
+- **Pojedinačne tvrdnje po pogodnosti** („ima toalet") — **NE u MVP-u**; glasa se o mestu kao celini. Per-pogodnost tek Faza 2 ako zatreba.
+- **Pinovi:** slobodni na mapi (GPS „na trenutnoj lokaciji" ili tap). Veza sa stanicom ture nije MVP.
+- **Freshness:** mesto bez potvrde > 12 meseci → oznaka „za proveru" (izbledeo pin) + ponuda re-potvrde. Radi backend cron (dnevno).
+- **Duplikati:** pri dodavanju, ako postoji mesto **istog tipa u krugu ~75 m** → ponudi „Potvrdi postojeće" umesto novog pina (backend proximity provera; mobilni prikaže „u blizini je već…").
+- **Ocena:** prosek (1–5) + broj glasova; **1 ocena po vozaču**, izmenljiva.
+- **Privatnost:** GLOBAL pin gubi `companyId` i **ime autora** (prikaz „zajednica"); COMPANY pin sme da pokaže ime kolege.
+- **Slike:** Faza 2, **max 3** po mestu, preko postojećeg `POST /api/upload/presign`.
+- **Pogodnosti = HIBRID:** strukturni toggle-ovi (za filter/ikone) **+ slobodan tekst** (`note`) za savete/komentare („izbegavati meso, teleća čorba odlična" i sl.). Čist string se NE koristi (izgubio bi se filter).
+  - Toggle ključevi: `parking, toilet, shower, restaurant, fuel, wifi, atm, store, lodging` (postoje) **+ novi:** `bigParking, guarded, truckWash` → **tražiti od backenda da doda u `AmenityKey`**.
+- **Moderacija GLOBAL free-text:** slobodan tekst uvek dozvoljen; na GLOBAL mestima dodati lagano **„Prijavi"** dugme; loša mesta i inače padaju kroz dispute/dem_ovanje. PRIVATE/COMPANY bez ograničenja.
+
+### Sledeći korak
+Backend kreće sa **Fazom 1** po gornjim odlukama i javlja tačne endpoint-e ovde; mobilni paralelno pravi map ekran (WebView ↔ RN most). Traži se i dopuna `AmenityKey` sa `bigParking, guarded, truckWash`.
 
 ## Najnovije mobile izmene
 
