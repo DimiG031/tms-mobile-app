@@ -217,12 +217,10 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
   const fixedKeys = useMemo(() => availableModules.filter((key) => getModuleDefinition(key).fixed), [availableModules]);
   const [selectedModules, setSelectedModules] = useState<MobileModuleKey[]>(preferences.selectedModules);
   const [moduleOrder, setModuleOrder] = useState<MobileModuleKey[]>(preferences.moduleOrder);
-  const [sliceNavigationEnabled, setSliceNavigationEnabled] = useState(preferences.sliceNavigationEnabled);
 
   useEffect(() => {
     setSelectedModules(preferences.selectedModules);
     setModuleOrder(preferences.moduleOrder);
-    setSliceNavigationEnabled(preferences.sliceNavigationEnabled);
   }, [preferences]);
 
   const orderedSelectedModules = useMemo(() => {
@@ -237,8 +235,7 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
 
   const hasChanges =
     !sameList(selectedModules, preferences.selectedModules) ||
-    !sameList(moduleOrder, preferences.moduleOrder) ||
-    sliceNavigationEnabled !== preferences.sliceNavigationEnabled;
+    !sameList(moduleOrder, preferences.moduleOrder);
 
   function toggleModule(key: MobileModuleKey) {
     const definition = getModuleDefinition(key);
@@ -285,7 +282,7 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
       await updatePreferences.mutateAsync({
         selectedModules: withFixed,
         moduleOrder: normalizedOrder,
-        sliceNavigationEnabled
+        sliceNavigationEnabled: true
       });
       Alert.alert("Podešavanja", "Podešavanja navigacije su sačuvana.");
     } catch (error) {
@@ -332,20 +329,9 @@ function ModuleSettings({ availableModules, preferences }: Readonly<{ availableM
       })}
 
       <View className="py-3" style={{ borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 pr-4">
-            <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>Točak navigacije</Text>
-            <Text className="mt-0.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
-              Prikazuje izbor stranica u donjoj navigaciji kada ima više modula.
-            </Text>
-          </View>
-          <Switch
-            value={sliceNavigationEnabled}
-            onValueChange={setSliceNavigationEnabled}
-            trackColor={{ false: (theme.isDark ? "#334155" : "#cbd5e1"), true: "#99f6e4" }}
-            thumbColor={sliceNavigationEnabled ? theme.accent.primary : "#f8fafc"}
-          />
-        </View>
+        <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
+          Donja navigacija je uvek: Početna · Više · Profil. Izabrani moduli se prikazuju u točku „Više".
+        </Text>
       </View>
 
       <View className="py-3">

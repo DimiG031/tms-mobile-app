@@ -174,7 +174,7 @@ function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: 
   const insets = useSafeAreaInsets();
   const visibleTabs = getVisibleTabModules(profile);
   const sliceModules = getSliceModules(profile);
-  const isSliceMode = Boolean(profile?.preferences.sliceNavigationEnabled && sliceModules.length > 0 && visibleTabs.some((module) => module.key === "more"));
+  const isSliceMode = sliceModules.length > 0 && visibleTabs.some((module) => module.key === "more");
   const [wheelOpen, setWheelOpen] = useState(false);
   const [activeWheelIndex, setActiveWheelIndex] = useState(0);
 

@@ -132,20 +132,13 @@ export function getEffectiveSelectedModules(profile?: MobileProfile | null): Mob
   return sortModulesByPreference(normalized, profile.preferences.moduleOrder);
 }
 
-export function getVisibleTabModules(profile?: MobileProfile | null): MobileModuleDefinition[] {
-  const modules = getEffectiveSelectedModules(profile)
-    .map(getModuleDefinition)
-    .filter((module) => module.routeName);
-
-  if (!profile?.preferences.sliceNavigationEnabled || modules.length <= 5) {
-    return modules;
-  }
-
-  const home = modules.find((module) => module.key === "home") ?? getModuleDefinition("home");
-  const profileModule = modules.find((module) => module.key === "profile") ?? getModuleDefinition("profile");
-  const more = getModuleDefinition("more");
-
-  return [home, more, profileModule].filter((module) => module.routeName);
+export function getVisibleTabModules(_profile?: MobileProfile | null): MobileModuleDefinition[] {
+  // Donja navigacija je uvek: Početna · Više · Profil. „Više" (točak) je uvek
+  // prisutan i sadrži sve ostale module; koji su moduli u točku bira se u
+  // Podešavanja > Navigacija (izbor modula). Početna i Profil su fiksni.
+  return [getModuleDefinition("home"), getModuleDefinition("more"), getModuleDefinition("profile")].filter(
+    (module) => module.routeName
+  );
 }
 
 export function getSliceModules(profile?: MobileProfile | null): MobileModuleDefinition[] {
