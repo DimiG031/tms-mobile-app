@@ -542,8 +542,17 @@ Backend je implementirao sve rute + pune šeme (`DriverPlace`/`PlaceConfirmation
 
 `Place` odgovor: `{ id,type,name,latitude,longitude,amenities{},note,visibility,status,confirmCount,disputeCount,netScore,rating,ratingCount,author("zajednica"|ime|null),canEdit,myVote,myRating,distanceM,lastConfirmedAt,updatedAt }`. Config: promocija net≥5 / democija ≤2 / HIDE ≤−3, dedup 75 m (same-name 40 m), freshness 12 mes.
 
-### Sledeći korak (mobilni — U TOKU)
-Mobilni pravi modul **„Mapa mesta"** (`mapa-mesta`): zaseban ekran (WebView ↔ RN most, GPS/`near`, prikaz + filter po tipu), forma pina (tip, naziv, pogodnosti-toggle + slobodan tekst, ocena, vidljivost PRIVATE/COMPANY), dedup flow („Ovo je to mesto" `confirm` / „Nije, drugo" nov `POST`), glasanje potvrdi/ospori. Sve JS-only → OTA. **Napomena:** živi test na telefonu radi tek posle prod `migrate deploy` + redeploy-a.
+### Mobilni Faza 1 — ISPORUČENO (2026-07-03, JS-only → OTA)
+Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries/useDriverPlaces.ts`):
+- zaseban ekran, interaktivna Leaflet mapa u `react-native-webview` sa **WebView ↔ RN mostom** (`postMessage`/`injectJavaScript`): tap markera → detalji, „+" pa tap na mapu (ili „Moja lokacija") → nova tačka;
+- GPS preko `expo-location`, učitavanje `GET /places?near=&radius=50000&types=`, filter čipovi po tipu (Parking/Pumpa/Odmorište/Pauza/Hrana/Perionica/Ostalo);
+- forma pina: tip, naziv, **pogodnosti-toggle** (uklj. `bigParking/guarded/truckWash`) + **slobodan tekst** (napomena/saveti), ocena (zvezdice), vidljivost `PRIVATE`/`COMPANY`;
+- **dedup flow:** pri unosu poziva `GET /places/nearby` i nudi „Ovo je to mesto" (`confirm {vote:1}`) ili „Nije, drugo" (nov `POST`);
+- **glasanje:** Potvrdi/Ospori (`confirm {vote:±1, rating?}`) na detaljima; prikaz `netScore`/potvrde/ocena/`author`/`STALE`;
+- modul registrovan (mobile-modules + `_layout`) i „pinovan" u „Više" + prečica na početnoj.
+- Registruje se preko OTA; `mapa-mesta` je i u backend `availableMobileModules` (pa se vidi i u biraču).
+
+**Ostaje:** prod `prisma migrate deploy` + redeploy backenda da rute rade uživo (do tada telefon vraća grešku na `places`). Faza 2 (slike, „Prijavi" na GLOBAL, per-amenity) kasnije.
 
 ## Najnovije mobile izmene
 

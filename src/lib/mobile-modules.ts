@@ -63,6 +63,13 @@ export const MOBILE_MODULES: MobileModuleDefinition[] = [
     icon: "clipboard-outline"
   },
   {
+    key: "mapa-mesta",
+    label: "Mapa mesta",
+    description: "Parkinzi, pumpe i mesta za pauzu sa terena.",
+    routeName: "mapa-mesta",
+    icon: "location-outline"
+  },
+  {
     key: "more",
     label: "Više",
     description: "Brz izbor dodatnih modula.",
@@ -86,7 +93,7 @@ const FALLBACK_ORDER: MobileModuleKey[] = ["home", "tours", "chat", "notificatio
 // i u biraču modula i mogu se slati kroz preferences), ali ih ovde i dalje
 // „pinujemo" u „Više" da budu dostupni i kad ih vozač ne izabere kao karticu,
 // i kao rezerva dok se profil ne deploy-uje.
-const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik", "putni-nalog"];
+const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik", "putni-nalog", "mapa-mesta"];
 
 export function getModuleDefinition(key: MobileModuleKey): MobileModuleDefinition {
   return MOBILE_MODULES.find((module) => module.key === key) ?? {
