@@ -435,35 +435,43 @@ export default function MapaMestaScreen() {
 
       {/* Detalji mesta */}
       <Modal visible={Boolean(selected)} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <View className="flex-1 justify-end bg-black/40">
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}>
           {selected ? (
-            <ScrollView className="max-h-[80%] rounded-t-3xl px-4 pt-4" style={{ backgroundColor: theme.surface.card }} contentContainerStyle={{ paddingBottom: 28 }}>
-              <PlaceDetail
-                place={selected}
-                theme={theme}
-                voteRating={voteRating}
-                onSetVoteRating={setVoteRating}
-                onClose={() => setSelected(null)}
-                onVote={vote}
-                onEdit={() => openEdit(selected)}
-                onDelete={onDelete}
-                voting={confirmPlace.isPending}
-              />
-            </ScrollView>
+            <View style={{ maxHeight: "85%", backgroundColor: theme.surface.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: insets.bottom + 10 }}>
+              <View style={{ alignItems: "center", paddingTop: 8, paddingBottom: 2 }}>
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.surface.border }} />
+              </View>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 12 }}>
+                <PlaceDetail
+                  place={selected}
+                  theme={theme}
+                  voteRating={voteRating}
+                  onSetVoteRating={setVoteRating}
+                  onClose={() => setSelected(null)}
+                  onVote={vote}
+                  onEdit={() => openEdit(selected)}
+                  onDelete={onDelete}
+                  voting={confirmPlace.isPending}
+                />
+              </ScrollView>
+            </View>
           ) : null}
         </View>
       </Modal>
 
       {/* Forma pina */}
       <Modal visible={Boolean(form)} transparent animationType="slide" onRequestClose={closeForm}>
-        <View className="flex-1 justify-end bg-black/40">
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}>
           {form ? (
-            <ScrollView
-              className="max-h-[92%] rounded-t-3xl px-4 pt-5"
-              style={{ backgroundColor: theme.surface.card }}
-              contentContainerStyle={{ paddingBottom: 32 }}
-              keyboardShouldPersistTaps="handled"
-            >
+            <View style={{ maxHeight: "90%", backgroundColor: theme.surface.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: insets.bottom + 10 }}>
+              <View style={{ alignItems: "center", paddingTop: 8, paddingBottom: 2 }}>
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: theme.surface.border }} />
+              </View>
+              <ScrollView
+                style={{ paddingHorizontal: 16 }}
+                contentContainerStyle={{ paddingTop: 6, paddingBottom: 16 }}
+                keyboardShouldPersistTaps="handled"
+              >
               <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
                 {form.editingId ? "Izmena mesta" : "Novo mesto"}
               </Text>
@@ -596,7 +604,8 @@ export default function MapaMestaScreen() {
                   <Text className="text-center font-semibold text-white">{savingForm ? "Čuvanje..." : "Sačuvaj"}</Text>
                 </Pressable>
               </View>
-            </ScrollView>
+              </ScrollView>
+            </View>
           ) : null}
         </View>
       </Modal>
@@ -679,22 +688,24 @@ function PlaceDetail({
       ) : null}
 
       {/* Ocena + potvrde */}
-      <View className="mt-3 flex-row gap-4">
-        <View>
-          <Text className="text-[11px] uppercase" style={{ color: theme.text.muted }}>Ocena</Text>
-          <Text className="text-base font-bold" style={{ color: theme.text.primary }}>
-            {place.rating != null ? `${place.rating.toFixed(1)} ★` : "—"} <Text className="text-xs" style={{ color: theme.text.muted }}>({place.ratingCount})</Text>
+      <View style={{ flexDirection: "row", marginTop: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.surface.border, paddingVertical: 10 }}>
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Text style={{ fontSize: 11, textTransform: "uppercase", color: theme.text.muted, marginBottom: 2 }}>Ocena</Text>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: theme.text.primary }}>
+            {place.rating != null ? `${place.rating.toFixed(1)} ★` : "—"}
           </Text>
+          <Text style={{ fontSize: 11, color: theme.text.muted }}>({place.ratingCount})</Text>
         </View>
-        <View>
-          <Text className="text-[11px] uppercase" style={{ color: theme.text.muted }}>Potvrde</Text>
-          <Text className="text-base font-bold" style={{ color: theme.text.primary }}>
-            {place.confirmCount} <Text className="text-xs" style={{ color: theme.text.muted }}>/ ospor. {place.disputeCount}</Text>
-          </Text>
+        <View style={{ width: 1, backgroundColor: theme.surface.border }} />
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Text style={{ fontSize: 11, textTransform: "uppercase", color: theme.text.muted, marginBottom: 2 }}>Potvrde</Text>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: theme.text.primary }}>{place.confirmCount}</Text>
+          <Text style={{ fontSize: 11, color: theme.text.muted }}>ospor. {place.disputeCount}</Text>
         </View>
-        <View>
-          <Text className="text-[11px] uppercase" style={{ color: theme.text.muted }}>Vidljivost</Text>
-          <Text className="text-base font-bold" style={{ color: theme.text.primary }}>
+        <View style={{ width: 1, backgroundColor: theme.surface.border }} />
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Text style={{ fontSize: 11, textTransform: "uppercase", color: theme.text.muted, marginBottom: 2 }}>Vidljivost</Text>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: theme.text.primary }}>
             {place.visibility === "GLOBAL" ? "Globalno" : place.visibility === "COMPANY" ? "Firma" : "Privatno"}
           </Text>
         </View>
