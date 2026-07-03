@@ -43,7 +43,14 @@ export type Place = {
   distanceM: number | null;
   lastConfirmedAt: string | null;
   updatedAt: string | null;
+  photos?: PlacePhoto[];
+  images?: string[];
+  reportCount?: number;
+  amenityStats?: Record<string, AmenityStat>;
 };
+
+export type PlacePhoto = { id: string; url: string };
+export type AmenityStat = { confirms: number; disputes: number; net: number };
 
 export type NearbyCandidate = Place & { likelySame: boolean };
 
@@ -158,6 +165,56 @@ export function useConfirmPlace() {
       if (params.rating != null) body.rating = params.rating;
       return api.post<{ data: Place }>(`/api/mobile/places/${params.id}/confirm`, body);
     },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["driver-places"] });
+    }
+  });
+}
+
+export function useAddPlacePhoto() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { id: string; url: string }) =>
+      api.post<{ data: { photo: PlacePhoto; photos: PlacePhoto[] } }>(`/api/mobile/places/${params.id}/photos`, { url: params.url }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["driver-places"] });
+    }
+  });
+}
+
+export function useDeletePlacePhoto() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { id: string; photoId: string }) =>
+      api.delete<{ data: { photos: PlacePhoto[] } }>(`/api/mobile/places/${params.id}/photos/${params.photoId}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["driver-places"] });
+    }
+  });
+}
+
+export function useReportPlace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { id: string; reason?: string | null }) => {
+      const body: Record<string, unknown> = {};
+      if (params.reason && params.reason.trim()) body.reason = params.reason.trim();
+      return api.post<{ data: { reportCount: number } }>(`/api/mobile/places/${params.id}/report`, body);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["driver-places"] });
+    }
+  });
+}
+
+export function useAmenityVote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { id: string; key: AmenityKey; vote: 1 | -1 }) =>
+      api.post<{ data: { amenityStats: Record<string, AmenityStat> } }>(`/api/mobile/places/${params.id}/amenity-vote`, {
+        key: params.key,
+        vote: params.vote
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["driver-places"] });
     }

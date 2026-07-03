@@ -1,17 +1,23 @@
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, Share } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, Modal, ScrollView, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
+import { uploadFromFileUri } from "@/services/upload";
 import {
   fetchNearbyCandidates,
+  useAddPlacePhoto,
+  useAmenityVote,
   useConfirmPlace,
   useCreatePlace,
   useDeletePlace,
+  useDeletePlacePhoto,
   useDriverPlaces,
+  useReportPlace,
   useUpdatePlace,
   type AmenityKey,
   type AmenityMap,
@@ -59,12 +65,6 @@ function visibilityMeta(v: string): { label: string; bg: string; text: string } 
   if (v === "GLOBAL") return { label: "Globalno", bg: "#dcfce7", text: "#15803d" };
   if (v === "COMPANY") return { label: "Firma", bg: "#dbeafe", text: "#1d4ed8" };
   return { label: "Privatno", bg: "#e2e8f0", text: "#475569" };
-}
-
-function activeAmenities(map: AmenityMap): string[] {
-  return Object.entries(map ?? {})
-    .filter(([, v]) => v === true)
-    .map(([k]) => amenityLabel(k));
 }
 
 function formatDistance(m: number | null): string | null {
@@ -176,6 +176,11 @@ export default function MapaMestaScreen() {
   const updatePlace = useUpdatePlace();
   const deletePlace = useDeletePlace();
   const confirmPlace = useConfirmPlace();
+  const addPhoto = useAddPlacePhoto();
+  const deletePhoto = useDeletePlacePhoto();
+  const reportPlace = useReportPlace();
+  const amenityVote = useAmenityVote();
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const html = useMemo(() => buildHtml(), []);
 
@@ -376,6 +381,93 @@ export default function MapaMestaScreen() {
     );
   }
 
+  async function pickAndUpload(fromCamera: boolean): Promise<string | null> {
+    const perm = fromCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (perm.status !== "granted") {
+      Alert.alert("Mapa mesta", fromCamera ? "Potrebna je dozvola za kameru." : "Potrebna je dozvola za galeriju.");
+      return null;
+    }
+    const result = fromCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.7, mediaTypes: ImagePicker.MediaTypeOptions.Images })
+      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+    if (result.canceled || !result.assets.length) return null;
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType || "image/jpeg";
+    const ext = mimeType === "image/png" ? "png" : "jpg";
+    const upload = await uploadFromFileUri({ uri: asset.uri, filename: `${Date.now()}-place.${ext}`, mimeType, folder: "places" });
+    return upload.fileUrl;
+  }
+
+  async function runAddPhoto(fromCamera: boolean) {
+    if (!selected) return;
+    try {
+      setUploadingPhoto(true);
+      const url = await pickAndUpload(fromCamera);
+      if (!url) return;
+      const res = await addPhoto.mutateAsync({ id: selected.id, url });
+      setSelected((cur) => (cur ? { ...cur, photos: res.data.photos, images: res.data.photos.map((p) => p.url) } : cur));
+    } catch (err) {
+      Alert.alert("Mapa mesta", err instanceof Error ? err.message : "Otpremanje slike nije uspelo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  function addPhotoFlow() {
+    if (!selected) return;
+    Alert.alert("Dodaj sliku", undefined, [
+      { text: "Kamera", onPress: () => void runAddPhoto(true) },
+      { text: "Galerija", onPress: () => void runAddPhoto(false) },
+      { text: "Odustani", style: "cancel" }
+    ]);
+  }
+
+  function removePhoto(photoId: string) {
+    if (!selected) return;
+    deletePhoto.mutate(
+      { id: selected.id, photoId },
+      {
+        onSuccess: (res) => setSelected((cur) => (cur ? { ...cur, photos: res.data.photos, images: res.data.photos.map((p) => p.url) } : cur)),
+        onError: (err) => Alert.alert("Mapa mesta", err instanceof Error ? err.message : "Brisanje slike nije uspelo.")
+      }
+    );
+  }
+
+  function reportFlow() {
+    if (!selected) return;
+    Alert.alert("Prijavi mesto", "Prijaviti ovo mesto kao netačno ili neprikladno?", [
+      { text: "Odustani", style: "cancel" },
+      {
+        text: "Prijavi",
+        style: "destructive",
+        onPress: () =>
+          reportPlace.mutate(
+            { id: selected.id },
+            {
+              onSuccess: (res) => {
+                setSelected((cur) => (cur ? { ...cur, reportCount: res.data.reportCount } : cur));
+                Alert.alert("Mapa mesta", "Prijava je poslata. Hvala.");
+              },
+              onError: (err) => Alert.alert("Mapa mesta", err instanceof Error ? err.message : "Prijava nije uspela.")
+            }
+          )
+      }
+    ]);
+  }
+
+  function voteAmenity(key: AmenityKey, vote: 1 | -1) {
+    if (!selected) return;
+    amenityVote.mutate(
+      { id: selected.id, key, vote },
+      {
+        onSuccess: (res) => setSelected((cur) => (cur ? { ...cur, amenityStats: res.data.amenityStats } : cur)),
+        onError: (err) => Alert.alert("Mapa mesta", err instanceof Error ? err.message : "Glasanje nije uspelo.")
+      }
+    );
+  }
+
   function onDelete() {
     if (!selected) return;
     Alert.alert("Brisanje", `Obrisati „${selected.name ?? typeMeta(selected.type).label}"?`, [
@@ -508,6 +600,12 @@ export default function MapaMestaScreen() {
                   onSetVisibility={setVisibility}
                   updatingVisibility={updatePlace.isPending}
                   voting={confirmPlace.isPending}
+                  onAddPhoto={addPhotoFlow}
+                  onDeletePhoto={removePhoto}
+                  onReport={reportFlow}
+                  onAmenityVote={voteAmenity}
+                  uploadingPhoto={uploadingPhoto}
+                  busy={amenityVote.isPending || reportPlace.isPending}
                 />
               </ScrollView>
             </View>
@@ -704,7 +802,13 @@ function PlaceDetail({
   onDelete,
   onSetVisibility,
   updatingVisibility,
-  voting
+  voting,
+  onAddPhoto,
+  onDeletePhoto,
+  onReport,
+  onAmenityVote,
+  uploadingPhoto,
+  busy
 }: {
   place: Place;
   theme: AppTheme;
@@ -717,11 +821,25 @@ function PlaceDetail({
   onSetVisibility: (v: "PRIVATE" | "COMPANY") => void;
   updatingVisibility: boolean;
   voting: boolean;
+  onAddPhoto: () => void;
+  onDeletePhoto: (photoId: string) => void;
+  onReport: () => void;
+  onAmenityVote: (key: AmenityKey, vote: 1 | -1) => void;
+  uploadingPhoto: boolean;
+  busy: boolean;
 }) {
   const meta = typeMeta(place.type);
   const vis = visibilityMeta(place.visibility);
-  const amenities = activeAmenities(place.amenities);
   const distance = formatDistance(place.distanceM);
+  const amenityKeys = Array.from(
+    new Set([
+      ...Object.entries(place.amenities ?? {})
+        .filter(([, v]) => v === true)
+        .map(([k]) => k),
+      ...Object.keys(place.amenityStats ?? {})
+    ])
+  );
+  const photos = place.photos ?? [];
 
   return (
     <View>
@@ -798,11 +916,59 @@ function PlaceDetail({
         </View>
       </View>
 
-      {amenities.length ? (
-        <View className="mt-3 flex-row flex-wrap gap-1.5">
-          {amenities.map((a) => (
-            <Text key={a} className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ backgroundColor: theme.surface.subtle, color: theme.text.secondary }}>{a}</Text>
-          ))}
+      {amenityKeys.length ? (
+        <View className="mt-3">
+          <Text className="mb-1 text-[11px] font-bold uppercase" style={{ color: theme.text.muted }}>Pogodnosti — glasaj</Text>
+          {amenityKeys.map((key) => {
+            const stat = place.amenityStats?.[key];
+            return (
+              <View key={key} className="flex-row items-center justify-between py-1.5" style={{ borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
+                <Text className="flex-1 text-sm" style={{ color: theme.text.primary }}>{amenityLabel(key)}</Text>
+                <View className="flex-row items-center gap-3">
+                  <Text className="text-xs" style={{ color: theme.text.muted }}>
+                    {stat ? `+${stat.confirms} / −${stat.disputes}` : "bez glasova"}
+                  </Text>
+                  <Pressable onPress={() => onAmenityVote(key as AmenityKey, 1)} disabled={busy} hitSlop={6}>
+                    <Ionicons name="thumbs-up-outline" size={18} color={theme.accent.primary} />
+                  </Pressable>
+                  <Pressable onPress={() => onAmenityVote(key as AmenityKey, -1)} disabled={busy} hitSlop={6}>
+                    <Ionicons name="thumbs-down-outline" size={18} color={theme.text.muted} />
+                  </Pressable>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {/* Slike */}
+      {photos.length || place.canEdit ? (
+        <View className="mt-3">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-[11px] font-bold uppercase" style={{ color: theme.text.muted }}>Slike</Text>
+            {place.canEdit && photos.length < 3 ? (
+              <Pressable onPress={onAddPhoto} disabled={uploadingPhoto} className="flex-row items-center gap-1" hitSlop={6}>
+                <Ionicons name="camera-outline" size={16} color={theme.accent.primary} />
+                <Text className="text-xs font-semibold" style={{ color: theme.accent.primary }}>{uploadingPhoto ? "Otpremanje..." : "Dodaj"}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {photos.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2" contentContainerStyle={{ gap: 8 }}>
+              {photos.map((ph) => (
+                <View key={ph.id} style={{ position: "relative" }}>
+                  <Image source={{ uri: ph.url }} style={{ width: 120, height: 90, borderRadius: 10, backgroundColor: theme.surface.subtle }} />
+                  {place.canEdit ? (
+                    <Pressable onPress={() => onDeletePhoto(ph.id)} style={{ position: "absolute", top: 4, right: 4, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 999, padding: 2 }}>
+                      <Ionicons name="close" size={14} color="#fff" />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text className="mt-1 text-xs" style={{ color: theme.text.muted }}>Nema slika. Dodaj fotografiju mesta.</Text>
+          )}
         </View>
       ) : null}
 
@@ -876,6 +1042,13 @@ function PlaceDetail({
             <Text className="text-sm font-semibold" style={{ color: "#dc2626" }}>Obriši</Text>
           </Pressable>
         </View>
+      ) : null}
+
+      {!place.canEdit ? (
+        <Pressable onPress={onReport} disabled={busy} className="mt-3 flex-row items-center justify-center gap-1.5 py-2">
+          <Ionicons name="flag-outline" size={14} color={theme.text.muted} />
+          <Text className="text-xs" style={{ color: theme.text.muted }}>Prijavi mesto</Text>
+        </Pressable>
       ) : null}
     </View>
   );
