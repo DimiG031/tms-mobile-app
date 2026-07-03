@@ -385,7 +385,7 @@ export default function MapaMestaScreen() {
           onMessage={onMessage}
           startInLoadingState
           renderLoading={() => (
-            <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: theme.surface.app }}>
+            <View className="items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.surface.app }}>
               <ActivityIndicator color={theme.accent.primary} />
             </View>
           )}
@@ -393,7 +393,7 @@ export default function MapaMestaScreen() {
 
         {/* Placing baner */}
         {placing ? (
-          <View className="absolute left-3 right-3 flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ top: 12, backgroundColor: theme.accent.primary }}>
+          <View className="flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ position: "absolute", top: 12, left: 12, right: 12, backgroundColor: theme.accent.primary }}>
             <Text className="flex-1 pr-2 text-sm font-semibold text-white">Tapni na mapu gde je mesto</Text>
             {myLoc ? (
               <Pressable onPress={() => openFormAt(myLoc.lat, myLoc.lng)} className="mr-2 rounded-lg bg-white/20 px-3 py-1.5">
@@ -407,7 +407,7 @@ export default function MapaMestaScreen() {
         ) : null}
 
         {/* Akcije dole desno */}
-        <View className="absolute bottom-6 right-4 items-end gap-3" pointerEvents="box-none">
+        <View style={{ position: "absolute", bottom: 24, right: 16, alignItems: "flex-end", gap: 12 }} pointerEvents="box-none">
           {myLoc ? (
             <Pressable
               onPress={() => webRef.current?.injectJavaScript(`window.setCenter(${myLoc.lat}, ${myLoc.lng}, 14); true;`)}
@@ -427,7 +427,7 @@ export default function MapaMestaScreen() {
         </View>
 
         {placesQuery.isError ? (
-          <View className="absolute bottom-6 left-4 rounded-xl bg-red-600 px-3 py-2">
+          <View className="rounded-xl bg-red-600 px-3 py-2" style={{ position: "absolute", bottom: 24, left: 16 }}>
             <Text className="text-xs font-semibold text-white">Greška pri učitavanju mesta</Text>
           </View>
         ) : null}
