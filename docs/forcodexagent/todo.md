@@ -520,7 +520,7 @@ Vozač na svojoj mapi obeležava korisna mesta sa terena — **parkinzi, pumpe, 
 - **Zaseban modul „Mapa mesta"** — odvojen od poslovne/rute mape. Otvara se **na GPS lokaciji vozača** i prikazuje **najbliža mesta** („u blizini", `near=`), filter po tipu. Mapa rute ture ostaje čista (samo stanice). Preklapanje POI-jeva na rutu je opcija za Fazu 2 (prekidač „prikaži parkinge/pumpe uz rutu").
 - **Pinovi:** slobodni na mapi (GPS „na trenutnoj lokaciji" ili tap). Veza sa stanicom ture nije MVP.
 - **Freshness:** mesto bez potvrde > 12 meseci → oznaka „za proveru" (izbledeo pin) + ponuda re-potvrde. Radi backend cron (dnevno).
-- **Duplikati:** pri dodavanju, ako postoji mesto **istog tipa u krugu ~75 m** → ponudi „Potvrdi postojeće" umesto novog pina (backend proximity provera; mobilni prikaže „u blizini je već…").
+- **Duplikati (predlog, NE blokada — usklađeno sa backendom):** pri dodavanju, `GET /api/mobile/places/nearby?lat=&lng=&type=` vraća kandidate **istog tipa u krugu ~75 m**. Mobilni ih prikaže; vozač bira: „**Ovo je to mesto**" → `confirm {vote:1}` (ne pravi nov pin) ili „**Nije, drugo mesto**" → svejedno pravi nov pin. **Nikad automatsko spajanje, nikad odbijanje unosa.** Dva restorana < 75 m ostaju dva odvojena pina. Kandidati sortirani po rastojanju + sličnosti imena.
 - **Ocena:** prosek (1–5) + broj glasova; **1 ocena po vozaču**, izmenljiva.
 - **Privatnost:** GLOBAL pin gubi `companyId` i **ime autora** (prikaz „zajednica"); COMPANY pin sme da pokaže ime kolege.
 - **Slike:** Faza 2, **max 3** po mestu, preko postojećeg `POST /api/upload/presign`.
@@ -528,8 +528,17 @@ Vozač na svojoj mapi obeležava korisna mesta sa terena — **parkinzi, pumpe, 
   - Toggle ključevi: `parking, toilet, shower, restaurant, fuel, wifi, atm, store, lodging` (postoje) **+ novi:** `bigParking, guarded, truckWash` → **tražiti od backenda da doda u `AmenityKey`**.
 - **Moderacija GLOBAL free-text:** slobodan tekst uvek dozvoljen; na GLOBAL mestima dodati lagano **„Prijavi"** dugme; loša mesta i inače padaju kroz dispute/dem_ovanje. PRIVATE/COMPANY bez ograničenja.
 
+### Backend endpoint-i (Faza 1) — potvrđeno od backenda 2026-07-03
+Backend isporučuje (šeme odgovora stižu kad rute budu gotove):
+- `GET /api/mobile/places?near=lat,lng&radius=&types=` — svoja (PRIVATE) + firmska (COMPANY) + globalna (GLOBAL), sort po blizini.
+- `GET /api/mobile/places/nearby?lat=&lng=&type=` — dedup kandidati (~75 m).
+- `POST /api/mobile/places` — nov pin (default PRIVATE) + amenities + rating + note.
+- `PATCH /api/mobile/places/:id` — vozač menja SVOJ pin (uklj. `visibility: COMPANY`).
+- `DELETE /api/mobile/places/:id` — soft-delete svog pina.
+- `POST /api/mobile/places/:id/confirm { vote: 1 | -1 }` — glas; server broji jedinstvene, net-score promocija/democija.
+
 ### Sledeći korak
-Backend kreće sa **Fazom 1** po gornjim odlukama i javlja tačne endpoint-e ovde; mobilni paralelno pravi map ekran (WebView ↔ RN most). Traži se i dopuna `AmenityKey` sa `bigParking, guarded, truckWash`.
+Backend kreće sa **Fazom 1** (potvrđeno). Kad isporuči šeme odgovora, mobilni pravi zaseban modul „Mapa mesta" (WebView ↔ RN most, GPS/`near`, dedup flow, forma pina). Sve JS-only → OTA. Traži se i dopuna `AmenityKey` sa `bigParking, guarded, truckWash`.
 
 ## Najnovije mobile izmene
 
