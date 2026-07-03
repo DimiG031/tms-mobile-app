@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { ActivityIndicator, Alert, Modal, ScrollView } from "react-native";
-import { Stack } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
@@ -132,6 +132,7 @@ type FormState = {
 
 export default function MapaMestaScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const webRef = useRef<WebView>(null);
   const [webReady, setWebReady] = useState(false);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
@@ -358,27 +359,13 @@ export default function MapaMestaScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.surface.app }}>
-      <Stack.Screen options={{ title: "Mapa mesta" }} />
-
-      <WebView
-        ref={webRef}
-        originWhitelist={["*"]}
-        source={{ html }}
-        style={{ flex: 1, backgroundColor: "#e5e7eb" }}
-        javaScriptEnabled
-        domStorageEnabled
-        onMessage={onMessage}
-        startInLoadingState
-        renderLoading={() => (
-          <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: theme.surface.app }}>
-            <ActivityIndicator color={theme.accent.primary} />
-          </View>
-        )}
-      />
-
-      {/* Filter po tipu */}
-      <View className="absolute left-0 right-0" style={{ top: 8 }} pointerEvents="box-none">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10, gap: 6 }}>
+      {/* Gornji bar */}
+      <View style={{ paddingTop: insets.top, backgroundColor: theme.surface.card, borderBottomWidth: 1, borderBottomColor: theme.surface.border }}>
+        <View className="flex-row items-center justify-between px-4 pb-1 pt-2">
+          <Text style={{ color: theme.text.primary, fontSize: 20, fontWeight: "800" }}>Mapa mesta</Text>
+          {placesQuery.isFetching ? <ActivityIndicator size="small" color={theme.accent.primary} /> : null}
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10, gap: 6 }}>
           <FilterChip label="Sve" active={filter === null} color={theme.accent.primary} theme={theme} onPress={() => setFilter(null)} />
           {TYPES.map((t) => (
             <FilterChip key={t.value} label={t.label} active={filter === t.value} color={t.color} theme={theme} onPress={() => setFilter(t.value)} />
@@ -386,46 +373,65 @@ export default function MapaMestaScreen() {
         </ScrollView>
       </View>
 
-      {/* Placing baner */}
-      {placing ? (
-        <View className="absolute left-3 right-3 flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ top: 52, backgroundColor: theme.accent.primary }}>
-          <Text className="flex-1 pr-2 text-sm font-semibold text-white">Tapni na mapu gde je mesto</Text>
+      {/* Prostor mape */}
+      <View className="flex-1" style={{ position: "relative" }}>
+        <WebView
+          ref={webRef}
+          originWhitelist={["*"]}
+          source={{ html }}
+          style={{ flex: 1, backgroundColor: "#e5e7eb" }}
+          javaScriptEnabled
+          domStorageEnabled
+          onMessage={onMessage}
+          startInLoadingState
+          renderLoading={() => (
+            <View className="absolute inset-0 items-center justify-center" style={{ backgroundColor: theme.surface.app }}>
+              <ActivityIndicator color={theme.accent.primary} />
+            </View>
+          )}
+        />
+
+        {/* Placing baner */}
+        {placing ? (
+          <View className="absolute left-3 right-3 flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ top: 12, backgroundColor: theme.accent.primary }}>
+            <Text className="flex-1 pr-2 text-sm font-semibold text-white">Tapni na mapu gde je mesto</Text>
+            {myLoc ? (
+              <Pressable onPress={() => openFormAt(myLoc.lat, myLoc.lng)} className="mr-2 rounded-lg bg-white/20 px-3 py-1.5">
+                <Text className="text-xs font-bold text-white">Moja lokacija</Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => setPlacing(false)}>
+              <Ionicons name="close" size={20} color="#fff" />
+            </Pressable>
+          </View>
+        ) : null}
+
+        {/* Akcije dole desno */}
+        <View className="absolute bottom-6 right-4 items-end gap-3" pointerEvents="box-none">
           {myLoc ? (
-            <Pressable onPress={() => openFormAt(myLoc.lat, myLoc.lng)} className="mr-2 rounded-lg bg-white/20 px-3 py-1.5">
-              <Text className="text-xs font-bold text-white">Moja lokacija</Text>
+            <Pressable
+              onPress={() => webRef.current?.injectJavaScript(`window.setCenter(${myLoc.lat}, ${myLoc.lng}, 14); true;`)}
+              className="h-12 w-12 items-center justify-center rounded-full border shadow"
+              style={{ backgroundColor: theme.surface.card, borderColor: theme.surface.border }}
+            >
+              <Ionicons name="locate" size={22} color={theme.accent.primary} />
             </Pressable>
           ) : null}
-          <Pressable onPress={() => setPlacing(false)}>
-            <Ionicons name="close" size={20} color="#fff" />
-          </Pressable>
-        </View>
-      ) : null}
-
-      {/* Akcije dole desno */}
-      <View className="absolute bottom-6 right-4 items-end gap-3" pointerEvents="box-none">
-        {myLoc ? (
           <Pressable
-            onPress={() => webRef.current?.injectJavaScript(`window.setCenter(${myLoc.lat}, ${myLoc.lng}, 14); true;`)}
-            className="h-12 w-12 items-center justify-center rounded-full border shadow"
-            style={{ backgroundColor: theme.surface.card, borderColor: theme.surface.border }}
+            onPress={() => setPlacing((v) => !v)}
+            className="h-14 w-14 items-center justify-center rounded-full shadow"
+            style={{ backgroundColor: placing ? "#dc2626" : theme.accent.primary }}
           >
-            <Ionicons name="locate" size={22} color={theme.accent.primary} />
+            <Ionicons name={placing ? "close" : "add"} size={28} color="#fff" />
           </Pressable>
-        ) : null}
-        <Pressable
-          onPress={() => setPlacing((v) => !v)}
-          className="h-14 w-14 items-center justify-center rounded-full shadow"
-          style={{ backgroundColor: placing ? "#dc2626" : theme.accent.primary }}
-        >
-          <Ionicons name={placing ? "close" : "add"} size={28} color="#fff" />
-        </Pressable>
-      </View>
-
-      {placesQuery.isError ? (
-        <View className="absolute bottom-6 left-4 rounded-xl bg-red-600 px-3 py-2">
-          <Text className="text-xs font-semibold text-white">Greška pri učitavanju mesta</Text>
         </View>
-      ) : null}
+
+        {placesQuery.isError ? (
+          <View className="absolute bottom-6 left-4 rounded-xl bg-red-600 px-3 py-2">
+            <Text className="text-xs font-semibold text-white">Greška pri učitavanju mesta</Text>
+          </View>
+        ) : null}
+      </View>
 
       {/* Detalji mesta */}
       <Modal visible={Boolean(selected)} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
