@@ -710,7 +710,8 @@ function PlaceDetail({
 
       {place.note ? <Text className="mt-3 text-sm" style={{ color: theme.text.secondary }}>{place.note}</Text> : null}
 
-      {/* Glasanje */}
+      {/* Glasanje — samo za tuđa mesta (svoje si već potvrdio kreiranjem) */}
+      {!place.canEdit ? (
       <View className="mt-4 rounded-2xl border p-3" style={{ borderColor: theme.surface.border }}>
         <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
           {place.myVote === 1 ? "Potvrdio si ovo mesto." : place.myVote === -1 ? "Osporio si ovo mesto." : "Da li je informacija tačna?"}
@@ -730,6 +731,11 @@ function PlaceDetail({
           </Pressable>
         </View>
       </View>
+      ) : (
+        <Text className="mt-4 text-xs" style={{ color: theme.text.muted }}>
+          Ovo je tvoje mesto. Kolege ga potvrđuju ili osporavaju; ti ga uređuješ ili brišeš.
+        </Text>
+      )}
 
       {place.canEdit ? (
         <View className="mt-3 flex-row gap-2">
