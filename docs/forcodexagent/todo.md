@@ -537,8 +537,13 @@ Backend isporučuje (šeme odgovora stižu kad rute budu gotove):
 - `DELETE /api/mobile/places/:id` — soft-delete svog pina.
 - `POST /api/mobile/places/:id/confirm { vote: 1 | -1 }` — glas; server broji jedinstvene, net-score promocija/democija.
 
-### Sledeći korak
-Backend kreće sa **Fazom 1** (potvrđeno). Kad isporuči šeme odgovora, mobilni pravi zaseban modul „Mapa mesta" (WebView ↔ RN most, GPS/`near`, dedup flow, forma pina). Sve JS-only → OTA. Traži se i dopuna `AmenityKey` sa `bigParking, guarded, truckWash`.
+### Backend Faza 1 — ISPORUČENO (2026-07-03)
+Backend je implementirao sve rute + pune šeme (`DriverPlace`/`PlaceConfirmation`, migracija lokalno; **prod treba `prisma migrate deploy`**). Modul **`mapa-mesta`** dodat u `availableMobileModules` (driverOnly). Pogodnosti camelCase: `parking,toilet,shower,restaurant,wifi,atm,fuel,store,lodging,bigParking,guarded,truckWash`.
+
+`Place` odgovor: `{ id,type,name,latitude,longitude,amenities{},note,visibility,status,confirmCount,disputeCount,netScore,rating,ratingCount,author("zajednica"|ime|null),canEdit,myVote,myRating,distanceM,lastConfirmedAt,updatedAt }`. Config: promocija net≥5 / democija ≤2 / HIDE ≤−3, dedup 75 m (same-name 40 m), freshness 12 mes.
+
+### Sledeći korak (mobilni — U TOKU)
+Mobilni pravi modul **„Mapa mesta"** (`mapa-mesta`): zaseban ekran (WebView ↔ RN most, GPS/`near`, prikaz + filter po tipu), forma pina (tip, naziv, pogodnosti-toggle + slobodan tekst, ocena, vidljivost PRIVATE/COMPANY), dedup flow („Ovo je to mesto" `confirm` / „Nije, drugo" nov `POST`), glasanje potvrdi/ospori. Sve JS-only → OTA. **Napomena:** živi test na telefonu radi tek posle prod `migrate deploy` + redeploy-a.
 
 ## Najnovije mobile izmene
 
