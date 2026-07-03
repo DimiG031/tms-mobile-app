@@ -55,6 +55,12 @@ function amenityLabel(key: string): string {
   return AMENITIES.find((a) => a.key === key)?.label ?? key;
 }
 
+function visibilityMeta(v: string): { label: string; bg: string; text: string } {
+  if (v === "GLOBAL") return { label: "Globalno", bg: "#dcfce7", text: "#15803d" };
+  if (v === "COMPANY") return { label: "Firma", bg: "#dbeafe", text: "#1d4ed8" };
+  return { label: "Privatno", bg: "#e2e8f0", text: "#475569" };
+}
+
 function activeAmenities(map: AmenityMap): string[] {
   return Object.entries(map ?? {})
     .filter(([, v]) => v === true)
@@ -124,6 +130,7 @@ function buildHtml(): string {
     }
   };
   map.on('click', function(e){ post({ type:'map', lat: e.latlng.lat, lng: e.latlng.lng }); });
+  map.on('moveend', function(){ var c = map.getCenter(); post({ type: 'move', lat: c.lat, lng: c.lng }); });
   map.whenReady(function(){ post({ type:'ready' }); });
 </script>
 </body>
@@ -152,6 +159,7 @@ export default function MapaMestaScreen() {
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [filter, setFilter] = useState<PlaceType | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [pendingCenter, setPendingCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [selected, setSelected] = useState<Place | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [voteRating, setVoteRating] = useState<number | null>(null);
@@ -286,6 +294,11 @@ export default function MapaMestaScreen() {
     }
     if (msg.type === "map" && placing && msg.lat != null && msg.lng != null) {
       openFormAt(msg.lat, msg.lng);
+      return;
+    }
+    if (msg.type === "move" && msg.lat != null && msg.lng != null) {
+      const far = !center || Math.abs(center.lat - msg.lat) > 0.02 || Math.abs(center.lng - msg.lng) > 0.02;
+      setPendingCenter(far ? { lat: msg.lat, lng: msg.lng } : null);
     }
   }
 
@@ -426,6 +439,23 @@ export default function MapaMestaScreen() {
             ) : null}
             <Pressable onPress={() => setPlacing(false)}>
               <Ionicons name="close" size={20} color="#fff" />
+            </Pressable>
+          </View>
+        ) : null}
+
+        {/* Pretraži ovde (posle pomeranja mape) */}
+        {pendingCenter && !placing ? (
+          <View style={{ position: "absolute", top: 12, left: 0, right: 0, alignItems: "center" }} pointerEvents="box-none">
+            <Pressable
+              onPress={() => {
+                setCenter(pendingCenter);
+                setPendingCenter(null);
+              }}
+              className="flex-row items-center gap-1.5 rounded-full px-4 py-2 shadow"
+              style={{ backgroundColor: theme.surface.card, borderWidth: 1, borderColor: theme.surface.border }}
+            >
+              <Ionicons name="refresh" size={15} color={theme.accent.primary} />
+              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.accent.primary }}>Pretraži ovde</Text>
             </Pressable>
           </View>
         ) : null}
@@ -689,6 +719,7 @@ function PlaceDetail({
   voting: boolean;
 }) {
   const meta = typeMeta(place.type);
+  const vis = visibilityMeta(place.visibility);
   const amenities = activeAmenities(place.amenities);
   const distance = formatDistance(place.distanceM);
 
@@ -705,6 +736,11 @@ function PlaceDetail({
             {distance ? ` · ${distance}` : ""}
             {place.author ? ` · ${place.author}` : ""}
           </Text>
+          <View style={{ flexDirection: "row", marginTop: 4 }}>
+            <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: vis.bg }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: vis.text }}>{vis.label}</Text>
+            </View>
+          </View>
         </View>
         <Pressable onPress={onClose} hitSlop={8}>
           <Ionicons name="close" size={24} color={theme.text.muted} />
@@ -759,13 +795,6 @@ function PlaceDetail({
           <Text style={{ fontSize: 11, textTransform: "uppercase", color: theme.text.muted, marginBottom: 2 }}>Potvrde</Text>
           <Text style={{ fontSize: 15, fontWeight: "700", color: theme.text.primary }}>{place.confirmCount}</Text>
           <Text style={{ fontSize: 11, color: theme.text.muted }}>ospor. {place.disputeCount}</Text>
-        </View>
-        <View style={{ width: 1, backgroundColor: theme.surface.border }} />
-        <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={{ fontSize: 11, textTransform: "uppercase", color: theme.text.muted, marginBottom: 2 }}>Vidljivost</Text>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: theme.text.primary }}>
-            {place.visibility === "GLOBAL" ? "Globalno" : place.visibility === "COMPANY" ? "Firma" : "Privatno"}
-          </Text>
         </View>
       </View>
 
