@@ -339,6 +339,17 @@ export default function MapaMestaScreen() {
     );
   }
 
+  function setVisibility(v: "PRIVATE" | "COMPANY") {
+    if (!selected) return;
+    updatePlace.mutate(
+      { id: selected.id, data: { visibility: v } },
+      {
+        onSuccess: (res) => setSelected(res.data),
+        onError: (err) => Alert.alert("Mapa mesta", err instanceof Error ? err.message : "Promena vidljivosti nije uspela.")
+      }
+    );
+  }
+
   function onDelete() {
     if (!selected) return;
     Alert.alert("Brisanje", `Obrisati „${selected.name ?? typeMeta(selected.type).label}"?`, [
@@ -451,6 +462,8 @@ export default function MapaMestaScreen() {
                   onVote={vote}
                   onEdit={() => openEdit(selected)}
                   onDelete={onDelete}
+                  onSetVisibility={setVisibility}
+                  updatingVisibility={updatePlace.isPending}
                   voting={confirmPlace.isPending}
                 />
               </ScrollView>
@@ -646,6 +659,8 @@ function PlaceDetail({
   onVote,
   onEdit,
   onDelete,
+  onSetVisibility,
+  updatingVisibility,
   voting
 }: {
   place: Place;
@@ -656,6 +671,8 @@ function PlaceDetail({
   onVote: (v: 1 | -1) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onSetVisibility: (v: "PRIVATE" | "COMPANY") => void;
+  updatingVisibility: boolean;
   voting: boolean;
 }) {
   const meta = typeMeta(place.type);
@@ -743,9 +760,39 @@ function PlaceDetail({
         </View>
       </View>
       ) : (
-        <Text className="mt-4 text-xs" style={{ color: theme.text.muted }}>
-          Ovo je tvoje mesto. Kolege ga potvrđuju ili osporavaju; ti ga uređuješ ili brišeš.
-        </Text>
+        <View className="mt-4 rounded-2xl border p-3" style={{ borderColor: theme.surface.border }}>
+          {place.visibility === "COMPANY" ? (
+            <>
+              <Text style={{ color: theme.text.secondary, fontSize: 12, lineHeight: 17 }}>
+                Deljeno sa firmom — kolege ga vide i mogu da glasaju. Kad ga potvrdi dovoljno kolega, postaje globalno (vidljivo svim vozačima).
+              </Text>
+              <Pressable
+                onPress={() => onSetVisibility("PRIVATE")}
+                disabled={updatingVisibility}
+                className="mt-2 flex-row items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 disabled:opacity-60"
+                style={{ borderColor: theme.surface.border }}
+              >
+                <Ionicons name="lock-closed-outline" size={16} color={theme.text.secondary} />
+                <Text className="text-sm font-semibold" style={{ color: theme.text.secondary }}>Vrati na privatno</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={{ color: theme.text.secondary, fontSize: 12, lineHeight: 17 }}>
+                Privatno — vidiš ga samo ti. Podeli ga sa firmom da bi kolege mogle da ga vide i glasaju.
+              </Text>
+              <Pressable
+                onPress={() => onSetVisibility("COMPANY")}
+                disabled={updatingVisibility}
+                className="mt-2 flex-row items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 disabled:opacity-60"
+                style={{ backgroundColor: theme.accent.primary }}
+              >
+                <Ionicons name="people-outline" size={16} color="#fff" />
+                <Text className="text-sm font-semibold text-white">{updatingVisibility ? "Deljenje..." : "Podeli sa firmom"}</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
       )}
 
       {place.canEdit ? (
