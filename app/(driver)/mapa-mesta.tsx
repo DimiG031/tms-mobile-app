@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView } from "react-native";
+import { ActivityIndicator, Alert, Linking, Modal, ScrollView, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import * as Location from "expo-location";
@@ -70,6 +70,14 @@ function formatDistance(m: number | null): string | null {
 function openPlaceNavigation(lat: number, lng: number) {
   const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
   Linking.openURL(url).catch(() => Alert.alert("Mapa mesta", "Otvaranje mapa nije uspelo na ovom uređaju."));
+}
+
+async function copyCoords(lat: number, lng: number) {
+  try {
+    await Share.share({ message: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
+  } catch {
+    // korisnik odustao ili deljenje nije dostupno
+  }
 }
 
 function buildHtml(): string {
@@ -703,23 +711,33 @@ function PlaceDetail({
         </Pressable>
       </View>
 
-      {/* Koordinate — tap za navigaciju */}
-      <Pressable
-        onPress={() => openPlaceNavigation(place.latitude, place.longitude)}
-        className="mt-3 flex-row items-center justify-between rounded-xl border px-3 py-2.5"
-        style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.subtle }}
-      >
+      {/* Koordinate */}
+      <View className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.subtle }}>
         <View className="flex-row items-center gap-2">
           <Ionicons name="location-outline" size={16} color={theme.text.secondary} />
-          <Text style={{ fontSize: 13, color: theme.text.primary }}>
+          <Text selectable style={{ fontSize: 13, color: theme.text.primary }}>
             {place.latitude.toFixed(6)}, {place.longitude.toFixed(6)}
           </Text>
         </View>
-        <View className="flex-row items-center gap-1">
-          <Ionicons name="navigate" size={14} color={theme.accent.primary} />
-          <Text style={{ fontSize: 12, fontWeight: "600", color: theme.accent.primary }}>Navigacija</Text>
+        <View className="mt-2 flex-row gap-2">
+          <Pressable
+            onPress={() => copyCoords(place.latitude, place.longitude)}
+            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border px-3 py-2"
+            style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}
+          >
+            <Ionicons name="copy-outline" size={15} color={theme.text.secondary} />
+            <Text style={{ fontSize: 13, fontWeight: "600", color: theme.text.secondary }}>Kopiraj</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => openPlaceNavigation(place.latitude, place.longitude)}
+            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg px-3 py-2"
+            style={{ backgroundColor: theme.accent.primary }}
+          >
+            <Ionicons name="navigate" size={14} color="#fff" />
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Navigacija</Text>
+          </Pressable>
         </View>
-      </Pressable>
+      </View>
 
       {place.status === "STALE" ? (
         <View className="mt-3 rounded-lg px-3 py-2" style={{ backgroundColor: "#fef3c7" }}>
