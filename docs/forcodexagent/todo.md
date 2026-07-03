@@ -552,7 +552,28 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 - modul registrovan (mobile-modules + `_layout`) i „pinovan" u „Više" + prečica na početnoj.
 - Registruje se preko OTA; `mapa-mesta` je i u backend `availableMobileModules` (pa se vidi i u biraču).
 
-**Ostaje:** prod `prisma migrate deploy` + redeploy backenda da rute rade uživo (do tada telefon vraća grešku na `places`). Faza 2 (slike, „Prijavi" na GLOBAL, per-amenity) kasnije.
+**Potvrđeno uživo (2026-07-03):** prod je deploy-ovan — kreiranje pina, prikaz na mapi i čuvanje rade na telefonu.
+
+### Mapa mesta — dorade posle prve isporuke (2026-07-03, sve OTA)
+- **Navigacija „Više" (točak) uvek prisutna:** izbačen prag „>5 modula" i `sliceNavigationEnabled` uslov; donja nav je uvek Početna · Više · Profil; izbor modula u Podešavanjima kontroliše sadržaj točka. Uklonjen bespredmetan prekidač „Točak navigacije".
+- **UI:** gornji bar sa safe-area (naslov + filter čipovi ne ulaze u statusnu traku); FAB „+" pomeren u donji desni ugao (bio je preko Leaflet zoom-a zbog NativeWind `absolute` bug-a → inline style). Detalji i forma su pravi bottom-sheet (safe-area, „grabber", maxHeight) i ne ulaze u sat/bateriju. Statistika (Ocena/Potvrde/Vidljivost) u uokvirenoj kartici sa 3 kolone.
+- **Glasanje samo za tuđa mesta:** na svom mestu se sakriva Potvrdi/Ospori (self-confirm je vraćao 404); umesto toga stoje kontrole vidljivosti.
+- **„Podeli sa firmom":** na svom PRIVATE mestu dugme prebacuje `visibility=COMPANY` (da kolege vide i glasaju) / „Vrati na privatno". Objašnjeno korisniku: kolega glasa samo na COMPANY/GLOBAL mestima.
+- **Koordinate:** prikaz u detaljima (`lat,lng`, 6 decimala) + **Kopiraj** (preko RN `Share` — OTA-safe; selektabilan tekst) + **Navigacija** (Google Mape do tačke).
+
+**Ostaje (mobilni):** vidi „Šta ostaje / dalje".
+
+### Šta ostaje / dalje (Mapa mesta i šire)
+- **Test crowd-toka sa 2 vozača:** podeli pin sa firmom → drugi vozač (nalog iz iste firme) glasa Potvrdi/Ospori → provera net-score promocije u GLOBAL na pragu. Traži drugi test nalog.
+- **Faza 2 (Mapa mesta):**
+  - slike uz mesto (max 3, `POST /api/upload/presign`) — `NEEDS_BACKEND` da potvrdi da places prima `photos`/`receiptUrl`-stil polja;
+  - „Prijavi" dugme na GLOBAL mestima (moderacija) — `NEEDS_BACKEND` endpoint;
+  - per-amenity potvrde („ima toalet" zasebno) — `NEEDS_BACKEND`;
+  - preklapanje POI-jeva na mapu rute ture (prekidač „prikaži parkinge/pumpe uz rutu").
+- **Sitne dorade (mobilni, OTA):** obojene značke vidljivosti (globalno/firma/privatno), bolje ikone tipova, „u blizini" lista pored mape, osvežavanje po pomeranju mape (bbox).
+- **Pravi jedno-dodirni „Kopirano" (clipboard):** traži `expo-clipboard` (native) → ide u **sledeći `eas build`**, ne OTA. Trenutno kopiranje ide preko `Share`.
+- **Putni nalog — živi test:** čeka da dispečer dodeli nalog vozaču na webu, pa proveriti listu/događaje/vraćanje na telefonu.
+- **Mape Faza 2 (rute):** koordinate stanica rade; eventualno keširanje/oflajn nije MVP.
 
 ## Najnovije mobile izmene
 
