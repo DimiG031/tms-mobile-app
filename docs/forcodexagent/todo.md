@@ -565,11 +565,12 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ### Šta ostaje / dalje (Mapa mesta i šire)
 - **Test crowd-toka sa 2 vozača:** podeli pin sa firmom → drugi vozač (nalog iz iste firme) glasa Potvrdi/Ospori → provera net-score promocije u GLOBAL na pragu. Traži drugi test nalog.
-- **Faza 2 (Mapa mesta) — `NEEDS_BACKEND` (može paralelno dok se seed-uje):** predlozi ugovora da backend krene, mobilni povezuje čim stignu:
-  - **Slike (max 3):** `Place` dobija `photos: [{ id, url }]`. Upload preko postojećeg `POST /api/upload/presign` (folder `places`), pa `POST /api/mobile/places/:id/photos { url }` (autor, dok nije GLOBAL zaključano) i `DELETE /api/mobile/places/:id/photos/:photoId`. Mobilni: dodavanje iz kamere/galerije (kao računi troškovnika) + galerija u detaljima.
-  - **„Prijavi" (moderacija GLOBAL):** `POST /api/mobile/places/:id/report { reason? }` → uvećava `reportCount`, po pragu prelazi u `HIDDEN`/na proveru. Mobilni: dugme „Prijavi" na GLOBAL mestima.
-  - **Per-amenity potvrde:** `POST /api/mobile/places/:id/amenity-vote { key, vote: 1|-1 }`; `Place.amenities` postaje `{ key: { value, confirmCount } }` ili odvojena `amenityStats`. Mobilni: „palac gore/dole" po pogodnosti. (Niži prioritet.)
-  - **Preklapanje POI-jeva na mapu rute ture** (mobilni-samostalno, OTA): prekidač „prikaži parkinge/pumpe uz rutu" na `tours/[id]/map.tsx` koji povuče `GET /places?near=` duž trase.
+- **Faza 2 (Mapa mesta) — `DONE` (backend + mobilni, 2026-07-03):** backend isporučio sve tri, mobilni povezao (JS-only → OTA).
+  - **Slike (max 3):** `Place` ima `photos:[{id,url}]` + `images:string[]`. Mobilni: `Dodaj` (kamera/galerija → `POST /api/upload/presign` folder `places` → `POST /places/:id/photos {url}`) + galerija u detaljima + brisanje (autor, ne-GLOBAL).
+  - **„Prijavi":** `POST /places/:id/report {reason?}` (1/vozač, ne svoje, prag `PLACES_REPORT_HIDE=3` → HIDDEN). Mobilni: „Prijavi mesto" na tuđim mestima.
+  - **Per-amenity glasanje:** `POST /places/:id/amenity-vote {key,vote}` → `Place.amenityStats {key:{confirms,disputes,net}}`. Mobilni: 👍/👎 po pogodnosti sa brojačima.
+  - **Ostaje:** prod deploy Faze 2 (backend: „Prod čeka `git push`").
+  - **Nije urađeno (mobilni-samostalno, OTA, kasnije):** preklapanje POI-jeva na mapu rute ture (prekidač „prikaži parkinge/pumpe uz rutu" na `tours/[id]/map.tsx`).
 - **Sitne dorade (mobilni, OTA):** obojene značke vidljivosti (globalno/firma/privatno), bolje ikone tipova, „u blizini" lista pored mape, osvežavanje po pomeranju mape (bbox).
 - **Pravi jedno-dodirni „Kopirano" (clipboard):** traži `expo-clipboard` (native) → ide u **sledeći `eas build`**, ne OTA. Trenutno kopiranje ide preko `Share`.
 - **Putni nalog — živi test:** čeka da dispečer dodeli nalog vozaču na webu, pa proveriti listu/događaje/vraćanje na telefonu.
