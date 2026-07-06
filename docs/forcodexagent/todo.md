@@ -527,6 +527,7 @@ Vozač na svojoj mapi obeležava korisna mesta sa terena — **parkinzi, pumpe, 
 - **Pogodnosti = HIBRID:** strukturni toggle-ovi (za filter/ikone) **+ slobodan tekst** (`note`) za savete/komentare („izbegavati meso, teleća čorba odlična" i sl.). Čist string se NE koristi (izgubio bi se filter).
   - Toggle ključevi: `parking, toilet, shower, restaurant, fuel, wifi, atm, store, lodging` (postoje) **+ novi:** `bigParking, guarded, truckWash` → **tražiti od backenda da doda u `AmenityKey`**.
 - **Moderacija GLOBAL free-text:** slobodan tekst uvek dozvoljen; na GLOBAL mestima dodati lagano **„Prijavi"** dugme; loša mesta i inače padaju kroz dispute/dem_ovanje. PRIVATE/COMPANY bez ograničenja.
+- **Samo mobilna, bez web UI (odluka vlasnika 2026-07-03):** Mapa mesta ostaje isključivo za vozače u aplikaciji. Backend NE pravi web ekran za `DriverPlace` (ni pregled ni moderaciju). Moderacija ide čisto kroz crowd (prijave + net-score + cron), bez dispečerske/superadmin web strane.
 
 ### Backend endpoint-i (Faza 1) — potvrđeno od backenda 2026-07-03
 Backend isporučuje (šeme odgovora stižu kad rute budu gotove):
