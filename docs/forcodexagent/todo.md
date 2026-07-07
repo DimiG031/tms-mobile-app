@@ -205,7 +205,19 @@ Nije hitno za backend:
 
 ## Novi zahtevi prema backendu
 
-Trenutno **nema otvorenih** zahteva prema backendu — sve iz ranije liste je isporučeno (vidi „Završeni zahtevi prema backendu").
+### Platni listić za vozača (self-service) — `NEEDS_BACKEND`
+
+Vlasnik traži da vozač u aplikaciji (`Profil > Plata`) izabere **godinu/mesec** i vidi svoj **platni listić** sa stavkama (osnovna, doprinosi, administrativna, stimulacija, dnevnice…) + **PDF**. Backend VEĆ ima `Payroll`/`PayrollItem` + per-diem + web `/dashboard/administracija/payroll`, ali NEMA self-scoped mobilni endpoint (a `me/stats` namerno ne vraća platu). Molba:
+
+- `GET /api/mobile/me/payslips?year=YYYY` → `{ ok, data: { items: [{ id, year, month, periodLabel, net, gross, currency, status }] } }` — **samo svoji** obračuni, **samo finalizovani/isplaćeni** (ne draft).
+- `GET /api/mobile/me/payslips/:id` → `{ ok, data: { id, year, month, periodLabel, net, gross, currency, status, items: [{ label, type, amount, currency? }], pdfUrl? } }` — `amount` predznačen (doprinosi/porez negativni, stimulacija/dnevnice pozitivni); `type` npr. `BASE|CONTRIBUTIONS|ADMIN|BONUS|PER_DIEM|DEDUCTION|TAX|OTHER`.
+- `pdfUrl`: platni listić kao PDF (ako web već generiše, reuse); mobilni ga otvara/deli.
+- **Dnevnice:** pošto per-diem već postoji, uključiti kao stavke (`PER_DIEM`) ili poseban blok — po izboru backenda.
+- Sigurnost: strogo self-scoped (vozač vidi samo svoje); osetljivo.
+
+**Mobilna strana je gotova** (`app/(driver)/profile/plata.tsx`, `src/queries/useMobilePayslips.ts`) i defanzivno normalizuje odgovor (prihvata net/neto, gross/bruto, items/stavke…). Aktivira se čim endpoint proradi; do tada `Plata` prikazuje „Nema obračuna"/grešku.
+
+Ostalo (ranije) je isporučeno — vidi „Završeni zahtevi prema backendu".
 
 ## Završeni zahtevi prema backendu
 

@@ -191,6 +191,12 @@ export default function ProfileScreen() {
             subtitle="Vožnja, godišnji odmor i ugovor."
           />
           <HubCard
+            href="/(driver)/profile/plata"
+            icon="cash-outline"
+            title="Plata"
+            subtitle="Platni listić po mesecu — stavke i PDF."
+          />
+          <HubCard
             href="/(driver)/profile/settings"
             icon="settings-outline"
             title="Podešavanja"
