@@ -205,7 +205,17 @@ Nije hitno za backend:
 
 ## Novi zahtevi prema backendu
 
-### Platni listić za vozača (self-service) — `NEEDS_BACKEND`
+### Platni listić + dnevnice za vozača — `DONE` (backend 2026-07-07 + mobilni)
+
+Backend isporučio `GET /api/mobile/me/payslips[/:id]` **i** `GET /api/mobile/me/per-diem` (self-scoped, samo finalizovani). **Odluka vlasnika:** plata i dnevnice su **dva odvojena dokumenta** — listić = samo zarada (bez dnevnica), dnevnice odvojeno (neoporezivo, razbijeno po turi/zemlji). Mobilni povezao oba na `Profil > Plata` (`app/(driver)/profile/plata.tsx`, `src/queries/useMobilePayslips.ts`): izbor godine → lista listića (stavke, predznak) + poseban blok „Dnevnice (neoporezivo)" sa razradom po turi.
+
+Ostaje:
+- **Prod deploy** (backend: „treba `git push`, još lokalno") da proradi uživo.
+- **PDF:** `pdfUrl: null` (nema server PDF); backend preporuka: mobilni generiše PDF preko `expo-print` (native → traži `eas build`). Zasad ekran prikazuje stavke bez PDF-a; PDF ide u sledeći build ako se traži.
+
+Prethodni zahtev (arhiva):
+
+### ~~Platni listić za vozača (self-service)~~ — `NEEDS_BACKEND` (zatvoreno)
 
 Vlasnik traži da vozač u aplikaciji (`Profil > Plata`) izabere **godinu/mesec** i vidi svoj **platni listić** sa stavkama (osnovna, doprinosi, administrativna, stimulacija, dnevnice…) + **PDF**. Backend VEĆ ima `Payroll`/`PayrollItem` + per-diem + web `/dashboard/administracija/payroll`, ali NEMA self-scoped mobilni endpoint (a `me/stats` namerno ne vraća platu). Molba:
 
