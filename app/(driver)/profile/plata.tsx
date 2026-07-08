@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { ActivityIndicator, Alert, Linking, ScrollView } from "react-native";
+import { ActivityIndicator, Alert, ScrollView } from "react-native";
 import { Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useMobilePayslip, useMobilePayslips, useMobilePerDiem } from "@/queries/useMobilePayslips";
 import { formatMoney } from "@/lib/formatters";
+import { payslipHtml, perDiemHtml, sharePdfFromHtml } from "@/lib/pdf";
 
 function translatePayslipStatus(status?: string | null): string {
   const s = status?.toUpperCase();
@@ -30,8 +31,12 @@ export default function PlataScreen() {
   const perDiems = perDiemQuery.data ?? [];
   const [expandedPd, setExpandedPd] = useState<string | null>(null);
 
-  function openPdf(url: string) {
-    Linking.openURL(url).catch(() => Alert.alert("Plata", "Otvaranje PDF-a nije uspelo."));
+  async function exportPdf(html: string, title: string) {
+    try {
+      await sharePdfFromHtml(html, title);
+    } catch (e) {
+      Alert.alert("Plata", e instanceof Error ? e.message : "Izrada PDF-a nije uspela.");
+    }
   }
 
   return (
@@ -135,16 +140,14 @@ export default function PlataScreen() {
                         </Text>
                       </View>
 
-                      {detail.pdfUrl ? (
-                        <Pressable
-                          onPress={() => openPdf(detail.pdfUrl as string)}
-                          className="mt-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3"
-                          style={{ backgroundColor: theme.accent.primary }}
-                        >
-                          <Ionicons name="download-outline" size={18} color="#fff" />
-                          <Text className="font-semibold text-white">Preuzmi platni listić (PDF)</Text>
-                        </Pressable>
-                      ) : null}
+                      <Pressable
+                        onPress={() => void exportPdf(payslipHtml(detail), "Platni listić")}
+                        className="mt-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3"
+                        style={{ backgroundColor: theme.accent.primary }}
+                      >
+                        <Ionicons name="download-outline" size={18} color="#fff" />
+                        <Text className="font-semibold text-white">Preuzmi platni listić (PDF)</Text>
+                      </Pressable>
                     </>
                   ) : null}
                 </View>
@@ -199,6 +202,14 @@ export default function PlataScreen() {
                   ) : (
                     <Text className="pt-2 text-sm" style={{ color: theme.text.muted }}>Nema razrade po turi.</Text>
                   )}
+                  <Pressable
+                    onPress={() => void exportPdf(perDiemHtml(pd), "Dnevnice")}
+                    className="mt-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3"
+                    style={{ backgroundColor: theme.accent.primary }}
+                  >
+                    <Ionicons name="download-outline" size={18} color="#fff" />
+                    <Text className="font-semibold text-white">Preuzmi dnevnice (PDF)</Text>
+                  </Pressable>
                 </View>
               ) : null}
             </View>
