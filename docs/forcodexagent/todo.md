@@ -209,8 +209,10 @@ Nije hitno za backend:
 
 Backend isporučio `GET /api/mobile/me/payslips[/:id]` **i** `GET /api/mobile/me/per-diem` (self-scoped, samo finalizovani). **Odluka vlasnika:** plata i dnevnice su **dva odvojena dokumenta** — listić = samo zarada (bez dnevnica), dnevnice odvojeno (neoporezivo, razbijeno po turi/zemlji). Mobilni povezao oba na `Profil > Plata` (`app/(driver)/profile/plata.tsx`, `src/queries/useMobilePayslips.ts`): izbor godine → lista listića (stavke, predznak) + poseban blok „Dnevnice (neoporezivo)" sa razradom po turi.
 
+**🐞 BUG (backend) — detalj listića vraća 404 (2026-07-08):** lista `GET /api/mobile/me/payslips?year=2026` **radi** (vraća `{ id: "cmrbh82go001bunnsdjsca46j", net: 67000, status: "CONFIRMED", ... }`), ali `GET /api/mobile/me/payslips/cmrbh82go001bunnsdjsca46j` vraća **404** za taj isti id. Dnevnice (`/per-diem`) rade 200. Verovatno pogrešan lookup/scoping u detail ruti (`src/app/api/mobile/me/payslips/[id]/route.ts`) — npr. traži po `employeeId`/`companyId` uslovu koji lista ne primenjuje, ili po pogrešnom ključu. Mobilni šalje tačno id iz liste. **Molba: uskladiti detail lookup sa listom (isti scope/ključ).** Na mobilnoj se vidi „Greška pri učitavanju stavki".
+
 Ostaje:
-- **Prod deploy** (backend: „treba `git push`, još lokalno") da proradi uživo.
+- **Prod deploy** (backend: „treba `git push`, još lokalno") da proradi uživo. (Deploy je već urađen — endpoint-i su živi na produ; ostaje samo gornji bug.)
 - **PDF:** `pdfUrl: null` (nema server PDF); backend preporuka: mobilni generiše PDF preko `expo-print` (native → traži `eas build`). Zasad ekran prikazuje stavke bez PDF-a; PDF ide u sledeći build ako se traži.
 
 Prethodni zahtev (arhiva):

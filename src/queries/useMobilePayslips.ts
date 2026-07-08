@@ -195,6 +195,7 @@ export function useMobilePayslip(id: string | null) {
         pdfUrl: pickStr(data, ["pdfUrl", "pdf", "documentUrl", "fileUrl"])
       } satisfies PayslipDetail;
     },
-    staleTime: 5 * 60_000
+    staleTime: 5 * 60_000,
+    retry: 1
   });
 }
