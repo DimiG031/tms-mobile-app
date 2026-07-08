@@ -111,6 +111,67 @@ export function useMobilePayslips(year: number) {
   });
 }
 
+export type PerDiemBreakdownRow = { nalog: string | null; zemlja: string | null; dana: number | null; iznos: number | null };
+
+export type PerDiemPayout = {
+  id: string;
+  year: number | null;
+  month: number | null;
+  periodLabel: string;
+  amount: number | null;
+  currency: string;
+  status: string | null;
+  note: string | null;
+  breakdown: PerDiemBreakdownRow[];
+};
+
+function normalizePerDiem(raw: unknown): PerDiemPayout | null {
+  const obj = asObject(raw);
+  if (!obj) return null;
+  const id = pickStr(obj, ["id", "_id"]);
+  if (!id) return null;
+  const year = pickNum(obj, ["year", "godina"]);
+  const month = pickNum(obj, ["month", "mesec"]);
+  const breakdownRaw = Array.isArray(obj.breakdown) ? obj.breakdown : [];
+  const breakdown: PerDiemBreakdownRow[] = breakdownRaw
+    .map((entry) => {
+      const row = asObject(entry);
+      if (!row) return null;
+      return {
+        nalog: pickStr(row, ["nalog", "order", "orderCode", "travelOrder"]),
+        zemlja: pickStr(row, ["zemlja", "country"]),
+        dana: pickNum(row, ["dana", "days"]),
+        iznos: pickNum(row, ["iznos", "amount"])
+      } satisfies PerDiemBreakdownRow;
+    })
+    .filter((row): row is PerDiemBreakdownRow => Boolean(row));
+  return {
+    id,
+    year,
+    month,
+    periodLabel: periodLabelFor(year, month, pickStr(obj, ["periodLabel", "period", "label"])),
+    amount: pickNum(obj, ["amount", "iznos", "total"]),
+    currency: pickStr(obj, ["currency", "valuta"]) ?? "RSD",
+    status: pickStr(obj, ["status"]),
+    note: pickStr(obj, ["note", "napomena"]),
+    breakdown
+  };
+}
+
+export function useMobilePerDiem(year: number) {
+  return useQuery({
+    queryKey: ["per-diem", year],
+    queryFn: async () => {
+      const result = await api.get<unknown>(`/api/mobile/me/per-diem?year=${year}`);
+      return unwrapList(result)
+        .map(normalizePerDiem)
+        .filter((item): item is PerDiemPayout => Boolean(item))
+        .sort((a, b) => (b.month ?? 0) - (a.month ?? 0));
+    },
+    staleTime: 5 * 60_000
+  });
+}
+
 export function useMobilePayslip(id: string | null) {
   return useQuery({
     queryKey: ["payslip", id],

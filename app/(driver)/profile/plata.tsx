@@ -4,7 +4,7 @@ import { Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTheme } from "@/providers/ThemeProvider";
-import { useMobilePayslip, useMobilePayslips } from "@/queries/useMobilePayslips";
+import { useMobilePayslip, useMobilePayslips, useMobilePerDiem } from "@/queries/useMobilePayslips";
 import { formatMoney } from "@/lib/formatters";
 
 function translatePayslipStatus(status?: string | null): string {
@@ -25,6 +25,10 @@ export default function PlataScreen() {
   const listQuery = useMobilePayslips(year);
   const detailQuery = useMobilePayslip(expandedId);
   const payslips = listQuery.data ?? [];
+
+  const perDiemQuery = useMobilePerDiem(year);
+  const perDiems = perDiemQuery.data ?? [];
+  const [expandedPd, setExpandedPd] = useState<string | null>(null);
 
   function openPdf(url: string) {
     Linking.openURL(url).catch(() => Alert.alert("Plata", "Otvaranje PDF-a nije uspelo."));
@@ -143,6 +147,58 @@ export default function PlataScreen() {
                       ) : null}
                     </>
                   ) : null}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Dnevnice (neoporezivo) — odvojeno od plate */}
+      <Text className="mb-2 mt-6 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Dnevnice (neoporezivo)</Text>
+      {perDiemQuery.isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 12 }} /> : null}
+      {!perDiemQuery.isLoading && !perDiemQuery.isError && !perDiems.length ? (
+        <View className="rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
+          <Text className="text-sm" style={{ color: theme.text.secondary }}>Nema dnevnica za {year}.</Text>
+        </View>
+      ) : null}
+
+      <View className="mt-1 gap-2.5">
+        {perDiems.map((pd) => {
+          const open = expandedPd === pd.id;
+          return (
+            <View key={pd.id} className="rounded-2xl border" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+              <Pressable onPress={() => setExpandedPd(open ? null : pd.id)} className="p-4">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-bold" style={{ color: theme.text.primary }}>{pd.periodLabel}</Text>
+                    {pd.note ? <Text className="mt-0.5 text-xs" style={{ color: theme.text.muted }} numberOfLines={1}>{pd.note}</Text> : null}
+                  </View>
+                  <Text className="text-base font-extrabold" style={{ color: theme.text.primary }}>
+                    {pd.amount != null ? formatMoney(pd.amount, pd.currency) : "—"}
+                  </Text>
+                  <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={theme.text.muted} style={{ marginLeft: 8 }} />
+                </View>
+              </Pressable>
+              {open ? (
+                <View className="px-4 pb-4" style={{ borderTopWidth: 1, borderTopColor: theme.surface.border }}>
+                  {pd.breakdown.length ? (
+                    pd.breakdown.map((row, index) => (
+                      <View
+                        key={`${row.nalog ?? "row"}-${index}`}
+                        className="flex-row items-center justify-between py-2"
+                        style={index < pd.breakdown.length - 1 ? { borderBottomWidth: 1, borderBottomColor: theme.surface.border } : undefined}
+                      >
+                        <View className="flex-1 pr-3">
+                          <Text className="text-sm" style={{ color: theme.text.primary }}>{[row.nalog, row.zemlja].filter(Boolean).join(" · ") || "Stavka"}</Text>
+                          {row.dana != null ? <Text className="text-xs" style={{ color: theme.text.muted }}>{row.dana} {row.dana === 1 ? "dan" : "dana"}</Text> : null}
+                        </View>
+                        <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{row.iznos != null ? formatMoney(row.iznos, pd.currency) : "—"}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text className="pt-2 text-sm" style={{ color: theme.text.muted }}>Nema razrade po turi.</Text>
+                  )}
                 </View>
               ) : null}
             </View>
