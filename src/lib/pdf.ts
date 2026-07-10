@@ -1,5 +1,3 @@
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import { formatMoney } from "@/lib/formatters";
 import type { PayslipDetail, PerDiemPayout } from "@/queries/useMobilePayslips";
 
@@ -72,9 +70,24 @@ export function perDiemHtml(p: PerDiemPayout): string {
   </body></html>`;
 }
 
+async function loadPdfModules() {
+  try {
+    const Print = await import("expo-print");
+    const Sharing = await import("expo-sharing");
+    return { Print, Sharing };
+  } catch {
+    // Native modul nije u ovom build-u (npr. stari dev client).
+    return null;
+  }
+}
+
 export async function sharePdfFromHtml(html: string, dialogTitle: string): Promise<void> {
-  const { uri } = await Print.printToFileAsync({ html });
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle, UTI: "com.adobe.pdf" });
+  const mods = await loadPdfModules();
+  if (!mods) {
+    throw new Error("PDF izvoz nije dostupan u ovoj verziji aplikacije. Ažuriraj na najnoviji build.");
+  }
+  const { uri } = await mods.Print.printToFileAsync({ html });
+  if (await mods.Sharing.isAvailableAsync()) {
+    await mods.Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle, UTI: "com.adobe.pdf" });
   }
 }
