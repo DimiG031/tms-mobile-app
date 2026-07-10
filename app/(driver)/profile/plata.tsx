@@ -111,37 +111,40 @@ export default function PlataScreen() {
                 <View className="px-4 pb-4">
                   {detailQuery.isLoading ? (
                     <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 12 }} />
-                  ) : detailQuery.isError ? (
-                    <Text className="text-xs text-red-600">Greška pri učitavanju stavki.</Text>
-                  ) : detail ? (
+                  ) : (
                     <>
-                      <View style={{ borderTopWidth: 1, borderTopColor: theme.surface.border, paddingTop: 8 }}>
-                        {detail.items.length ? (
-                          detail.items.map((item, index) => {
-                            const negative = (item.amount ?? 0) < 0;
-                            return (
-                              <View key={`${item.label}-${index}`} className="flex-row items-center justify-between py-1.5">
-                                <Text className="flex-1 pr-3 text-sm" style={{ color: theme.text.secondary }}>{item.label}</Text>
-                                <Text className="text-sm font-semibold" style={{ color: negative ? "#dc2626" : theme.text.primary }}>
-                                  {item.amount != null ? formatMoney(item.amount, item.currency ?? detail.currency) : "—"}
-                                </Text>
-                              </View>
-                            );
-                          })
-                        ) : (
-                          <Text className="text-sm" style={{ color: theme.text.muted }}>Nema stavki.</Text>
-                        )}
-                      </View>
-
-                      <View className="mt-2 flex-row items-center justify-between" style={{ borderTopWidth: 1, borderTopColor: theme.surface.border, paddingTop: 8 }}>
-                        <Text className="text-sm font-bold" style={{ color: theme.text.primary }}>Za isplatu (neto)</Text>
-                        <Text className="text-base font-extrabold" style={{ color: theme.accent.primaryDark }}>
-                          {detail.net != null ? formatMoney(detail.net, detail.currency) : "—"}
+                      {detail && detail.items.length ? (
+                        <>
+                          <View style={{ borderTopWidth: 1, borderTopColor: theme.surface.border, paddingTop: 8 }}>
+                            {detail.items.map((item, index) => {
+                              const negative = (item.amount ?? 0) < 0;
+                              return (
+                                <View key={`${item.label}-${index}`} className="flex-row items-center justify-between py-1.5">
+                                  <Text className="flex-1 pr-3 text-sm" style={{ color: theme.text.secondary }}>{item.label}</Text>
+                                  <Text className="text-sm font-semibold" style={{ color: negative ? "#dc2626" : theme.text.primary }}>
+                                    {item.amount != null ? formatMoney(item.amount, item.currency ?? detail.currency) : "—"}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                          <View className="mt-2 flex-row items-center justify-between" style={{ borderTopWidth: 1, borderTopColor: theme.surface.border, paddingTop: 8 }}>
+                            <Text className="text-sm font-bold" style={{ color: theme.text.primary }}>Za isplatu (neto)</Text>
+                            <Text className="text-base font-extrabold" style={{ color: theme.accent.primaryDark }}>
+                              {detail.net != null ? formatMoney(detail.net, detail.currency) : "—"}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <Text className="pt-2 text-xs" style={{ color: theme.text.muted }}>
+                          {detailQuery.isError
+                            ? "Stavke trenutno nisu dostupne. Možeš preuzeti listić sa neto/bruto iznosom."
+                            : "Nema stavki."}
                         </Text>
-                      </View>
+                      )}
 
                       <Pressable
-                        onPress={() => void exportPdf(payslipHtml(detail), "Platni listić")}
+                        onPress={() => void exportPdf(payslipHtml(detail ?? { ...slip, items: [], pdfUrl: null }), "Platni listić")}
                         className="mt-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3"
                         style={{ backgroundColor: theme.accent.primary }}
                       >
@@ -149,7 +152,7 @@ export default function PlataScreen() {
                         <Text className="font-semibold text-white">Preuzmi platni listić (PDF)</Text>
                       </Pressable>
                     </>
-                  ) : null}
+                  )}
                 </View>
               ) : null}
             </View>
