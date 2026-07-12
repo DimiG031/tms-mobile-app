@@ -211,9 +211,11 @@ Backend isporučio `GET /api/mobile/me/payslips[/:id]` **i** `GET /api/mobile/me
 
 **🐞 BUG (backend) — detalj listića vraća 404 (2026-07-08):** lista `GET /api/mobile/me/payslips?year=2026` **radi** (vraća `{ id: "cmrbh82go001bunnsdjsca46j", net: 67000, status: "CONFIRMED", ... }`), ali `GET /api/mobile/me/payslips/cmrbh82go001bunnsdjsca46j` vraća **404** za taj isti id. Dnevnice (`/per-diem`) rade 200. Verovatno pogrešan lookup/scoping u detail ruti (`src/app/api/mobile/me/payslips/[id]/route.ts`) — npr. traži po `employeeId`/`companyId` uslovu koji lista ne primenjuje, ili po pogrešnom ključu. Mobilni šalje tačno id iz liste. **Molba: uskladiti detail lookup sa listom (isti scope/ključ).** Na mobilnoj se vidi „Greška pri učitavanju stavki".
 
-Ostaje:
-- **Prod deploy** (backend: „treba `git push`, još lokalno") da proradi uživo. (Deploy je već urađen — endpoint-i su živi na produ; ostaje samo gornji bug.)
-- **PDF:** `pdfUrl: null` (nema server PDF); backend preporuka: mobilni generiše PDF preko `expo-print` (native → traži `eas build`). Zasad ekran prikazuje stavke bez PDF-a; PDF ide u sledeći build ako se traži.
+Ostaje (BACKEND — da vlasnik testira na samostalnom preview APK-u koji gađa PROD `tms.softechrs.com`):
+1. **⬆️ Deploy SEED demo plata/dnevnica na PROD** — trenutno je seed samo lokalno („treba `git push`"). Vlasnik ne može da testira na preview APK-u jer prod nema demo obračune za `vozac1..5`. **Molba: puš-ovati/seed-ovati prod** (bar 1 platni listić + 1 `PerDiemPayout` po vozaču, kao lokalno).
+2. **🐞 Popraviti 404 na `GET /api/mobile/me/payslips/:id`** (vidi BUG gore) — da se učitaju stavke listića.
+
+Kad ovo dvoje prođe, mobilni radi bez izmene (lista + dnevnice + stavke + PDF). **PDF je REŠEN na mobilnoj** (`expo-print` u novom preview build-u od 2026-07-09 — runtime `53cba69…`); PDF dugme je uvek dostupno, generiše se na telefonu. `pdfUrl` sa backenda nije potreban.
 
 Prethodni zahtev (arhiva):
 
