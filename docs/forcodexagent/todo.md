@@ -217,6 +217,13 @@ Ostaje (BACKEND — da vlasnik testira na samostalnom preview APK-u koji gađa P
 
 Kad ovo dvoje prođe, mobilni radi bez izmene (lista + dnevnice + stavke + PDF). **PDF je REŠEN na mobilnoj** (`expo-print` u novom preview build-u od 2026-07-09 — runtime `53cba69…`); PDF dugme je uvek dostupno, generiše se na telefonu. `pdfUrl` sa backenda nije potreban.
 
+**PDF izgled (2026-07-13):** mobilni sam pravi „moćan" platni listić (zaglavlje: **ime i prezime, firma, adresa vozača**, period, status; istaknut neto; footer). Podatke vozača mobilni već ima iz profila — ništa dodatno ne treba od backenda za zaglavlje.
+
+**➕ ZAHTEV (rate administrativnih zabrana) — `NEEDS_BACKEND`:** za stavke tipa administrativna zabrana/odbitak koji se plaća na rate, vozač treba da vidi **koja je rata** (npr. „6/18 rata" = šesta od osamnaest). Molba: u `PayrollItem` odgovoru (`GET /api/mobile/me/payslips/:id` → `items[]`) dodati podatak o rati. Mobilni **već defanzivno prihvata** bilo koji od ovih oblika (nije bitno koji izaberete):
+- `installment: "6/18"` (string), ili
+- `installmentCurrent: 6` + `installmentTotal: 18` (brojevi), ili srpski nazivi `rataBr`/`rataUkupno`.
+Ako polja nema, mobilni samo ne prikaže ratu (nije blokirajuće). Prikazuje se i na ekranu i u PDF-u ispod naziva stavke.
+
 Prethodni zahtev (arhiva):
 
 ### ~~Platni listić za vozača (self-service)~~ — `NEEDS_BACKEND` (zatvoreno)
