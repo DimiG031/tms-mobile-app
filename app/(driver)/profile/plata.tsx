@@ -5,8 +5,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useMobilePayslip, useMobilePayslips, useMobilePerDiem } from "@/queries/useMobilePayslips";
+import { useMobileProfile } from "@/queries/useMobileProfile";
+import { useMobileDriverProfile } from "@/queries/useMobileDriverProfile";
+import { useAuth } from "@/providers/AuthProvider";
 import { formatMoney } from "@/lib/formatters";
-import { payslipHtml, perDiemHtml, sharePdfFromHtml } from "@/lib/pdf";
+import { payslipHtml, perDiemHtml, sharePdfFromHtml, type PdfHeader } from "@/lib/pdf";
 
 function translatePayslipStatus(status?: string | null): string {
   const s = status?.toUpperCase();
@@ -30,6 +33,16 @@ export default function PlataScreen() {
   const perDiemQuery = useMobilePerDiem(year);
   const perDiems = perDiemQuery.data ?? [];
   const [expandedPd, setExpandedPd] = useState<string | null>(null);
+
+  const { session } = useAuth();
+  const mobileProfileQuery = useMobileProfile();
+  const driverId = mobileProfileQuery.data?.user.driverId ?? session?.user.driverId ?? null;
+  const driverProfileQuery = useMobileDriverProfile(Boolean(driverId));
+  const pdfHeader: PdfHeader = {
+    name: driverProfileQuery.data?.driver.name ?? mobileProfileQuery.data?.driver?.name ?? session?.user.name ?? null,
+    company: mobileProfileQuery.data?.company?.name ?? driverProfileQuery.data?.company?.name ?? null,
+    address: driverProfileQuery.data?.driver.address ?? mobileProfileQuery.data?.driver?.address ?? null
+  };
 
   async function exportPdf(html: string, title: string) {
     try {
@@ -120,7 +133,14 @@ export default function PlataScreen() {
                               const negative = (item.amount ?? 0) < 0;
                               return (
                                 <View key={`${item.label}-${index}`} className="flex-row items-center justify-between py-1.5">
-                                  <Text className="flex-1 pr-3 text-sm" style={{ color: theme.text.secondary }}>{item.label}</Text>
+                                  <View className="flex-1 pr-3">
+                                    <Text className="text-sm" style={{ color: theme.text.secondary }}>{item.label}</Text>
+                                    {item.installment ? (
+                                      <Text className="mt-0.5 text-[11px] font-semibold" style={{ color: theme.accent.primaryDark }}>
+                                        {item.installment} rata
+                                      </Text>
+                                    ) : null}
+                                  </View>
                                   <Text className="text-sm font-semibold" style={{ color: negative ? "#dc2626" : theme.text.primary }}>
                                     {item.amount != null ? formatMoney(item.amount, item.currency ?? detail.currency) : "—"}
                                   </Text>
@@ -144,7 +164,7 @@ export default function PlataScreen() {
                       )}
 
                       <Pressable
-                        onPress={() => void exportPdf(payslipHtml(detail ?? { ...slip, items: [], pdfUrl: null }), "Platni listić")}
+                        onPress={() => void exportPdf(payslipHtml(detail ?? { ...slip, items: [], pdfUrl: null }, pdfHeader), "Platni listić")}
                         className="mt-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3"
                         style={{ backgroundColor: theme.accent.primary }}
                       >
@@ -206,7 +226,7 @@ export default function PlataScreen() {
                     <Text className="pt-2 text-sm" style={{ color: theme.text.muted }}>Nema razrade po turi.</Text>
                   )}
                   <Pressable
-                    onPress={() => void exportPdf(perDiemHtml(pd), "Dnevnice")}
+                    onPress={() => void exportPdf(perDiemHtml(pd, pdfHeader), "Dnevnice")}
                     className="mt-3 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3"
                     style={{ backgroundColor: theme.accent.primary }}
                   >

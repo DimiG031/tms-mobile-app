@@ -17,6 +17,7 @@ export type PayslipItem = {
   type: string | null;
   amount: number | null;
   currency: string | null;
+  installment: string | null; // npr. "6/18" (šesta od osamnaest rata)
 };
 
 export type PayslipDetail = PayslipSummary & {
@@ -72,6 +73,19 @@ function normalizeSummary(raw: unknown): PayslipSummary | null {
   };
 }
 
+function normalizeInstallment(obj: Record<string, unknown>): string | null {
+  // Direktni oblik "6/18"
+  const direct = pickStr(obj, ["installment", "installmentLabel", "rata", "rate"]);
+  if (direct) {
+    const m = direct.match(/(\d+)\s*\/\s*(\d+)/);
+    if (m) return `${m[1]}/${m[2]}`;
+  }
+  const current = pickNum(obj, ["installmentCurrent", "installmentNo", "currentInstallment", "rataBr", "rataRedni", "redniBrojRate"]);
+  const total = pickNum(obj, ["installmentTotal", "installmentsTotal", "totalInstallments", "rataUkupno", "brojRata", "ukupnoRata"]);
+  if (current != null && total != null) return `${current}/${total}`;
+  return null;
+}
+
 function normalizeItems(raw: unknown): PayslipItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -82,7 +96,8 @@ function normalizeItems(raw: unknown): PayslipItem[] {
         label: pickStr(obj, ["label", "name", "naziv", "opis", "description"]) ?? "Stavka",
         type: pickStr(obj, ["type", "kind", "category", "vrsta"]),
         amount: pickNum(obj, ["amount", "iznos", "value", "total"]),
-        currency: pickStr(obj, ["currency", "valuta"])
+        currency: pickStr(obj, ["currency", "valuta"]),
+        installment: normalizeInstallment(obj)
       } satisfies PayslipItem;
     })
     .filter((item): item is PayslipItem => Boolean(item));
