@@ -76,7 +76,7 @@ function topbar(header: PdfHeader | undefined, doctype: string, periodLabel: str
   return `<div class="topbar">
     <div class="brand">
       <div class="co">${esc(company)}</div>
-      <div class="co-sub">${doctype === "OBRAČUN DNEVNICA" ? "Obračun dnevnica (neoporezivo)" : "Obračun zarade zaposlenog"}</div>
+      <div class="co-sub">${doctype === "OBRAČUN DNEVNICA" ? "Obračun dnevnica" : "Obračun zarade zaposlenog"}</div>
     </div>
     <div class="doctype">
       <span class="badge">${esc(doctype)}</span>
@@ -120,7 +120,7 @@ export function payslipHtml(d: PayslipDetail, header?: PdfHeader): string {
       </table>
       ${gross}
       <div class="totalbox"><span class="tl">Za isplatu (neto)</span><span class="tv">${net}</span></div>
-      <div class="note">Dnevnice se obračunavaju i prikazuju u zasebnom dokumentu (neoporezivo), odvojeno od zarade.</div>
+      <div class="note">Dnevnice se obračunavaju i prikazuju u zasebnom dokumentu, odvojeno od zarade.</div>
       ${foot()}
     </div>
   </body></html>`;
@@ -146,7 +146,7 @@ export function perDiemHtml(p: PerDiemPayout, header?: PdfHeader): string {
         <thead><tr><th>Ruta (nalog · zemlja)</th><th class="mid">Dani</th><th class="amt">Iznos</th></tr></thead>
         <tbody>${body}</tbody>
       </table>
-      <div class="totalbox"><span class="tl">Ukupno dnevnice (neoporezivo)</span><span class="tv">${total}</span></div>
+      <div class="totalbox"><span class="tl">Ukupno dnevnice</span><span class="tv">${total}</span></div>
       ${note}
       ${foot()}
     </div>

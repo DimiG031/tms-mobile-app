@@ -22,7 +22,7 @@ function translatePayslipStatus(status?: string | null): string {
 export default function PlataScreen() {
   const theme = useTheme();
   const currentYear = new Date().getFullYear();
-  const years = [currentYear, currentYear - 1, currentYear - 2];
+  const years = Array.from({ length: 9 }, (_, i) => currentYear - i); // tekuća + 8 unazad
   const [year, setYear] = useState(currentYear);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -60,7 +60,7 @@ export default function PlataScreen() {
 
       {/* Godina */}
       <Text className="mb-2 mt-5 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Godina</Text>
-      <View className="flex-row gap-2">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
         {years.map((y) => {
           const active = y === year;
           return (
@@ -69,15 +69,16 @@ export default function PlataScreen() {
               onPress={() => {
                 setYear(y);
                 setExpandedId(null);
+                setExpandedPd(null);
               }}
-              className="flex-1 rounded-xl border px-3 py-2.5"
+              className="rounded-xl border px-5 py-2.5"
               style={{ borderColor: active ? theme.accent.primary : theme.surface.border, backgroundColor: active ? theme.accent.primaryLight : theme.surface.card }}
             >
               <Text className="text-center font-semibold" style={{ color: active ? theme.accent.primaryDark : theme.text.secondary }}>{y}</Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {listQuery.isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
 
@@ -180,8 +181,8 @@ export default function PlataScreen() {
         })}
       </View>
 
-      {/* Dnevnice (neoporezivo) — odvojeno od plate */}
-      <Text className="mb-2 mt-6 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Dnevnice (neoporezivo)</Text>
+      {/* Dnevnice — odvojeno od plate */}
+      <Text className="mb-2 mt-6 text-xs font-semibold uppercase tracking-widest" style={{ color: theme.text.secondary }}>Dnevnice</Text>
       {perDiemQuery.isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 12 }} /> : null}
       {!perDiemQuery.isLoading && !perDiemQuery.isError && !perDiems.length ? (
         <View className="rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
