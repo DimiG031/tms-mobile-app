@@ -222,6 +222,26 @@ Kad ovo dvoje prođe, mobilni radi bez izmene (lista + dnevnice + stavke + PDF).
 
 **PDF izgled (2026-07-13):** mobilni sam pravi „moćan" platni listić (zaglavlje: **ime i prezime, firma, adresa vozača**, period, status; istaknut neto; footer). Podatke vozača mobilni već ima iz profila — ništa dodatno ne treba od backenda za zaglavlje.
 
+#### 📄 Specifikacija izgleda PDF-a (da backend napravi IDENTIČAN server PDF)
+Izvor istine: `src/lib/pdf.ts` u mobilnom repou (`payslipHtml` / `perDiemHtml`). Format: HTML → PDF, A4, srpska latinica (č/ć/đ/š/ž).
+
+**Boje / tipografija:** akcenat **teal `#0d7d72`**; tekst `#0f172a`; muted `#64748b` i `#94a3b8`; borderi `#e2e8f0` / `#cbd5e1`; svetla pozadina kartica `#f8fafc`; sans-serif font; stranica `max-width: 760px`, padding ~34px; negativni iznosi **crveni `#dc2626`**.
+
+**Struktura platnog listića (odozgo nadole):**
+1. **Topbar** (donji border 3px teal):
+   - levo: **naziv firme** (teal, ~21px, bold 800) + ispod „Obračun zarade zaposlenog" (12px muted)
+   - desno: **badge „PLATNI LISTIĆ"** (teal pozadina, bela slova, 11px, letter-spacing 1.4px, radius 6, padding 6×13) → ispod **period** „Jun 2026" (15px bold) → ispod „Status: Konačan" (12px muted)
+2. **Dve kartice u redu** (svetla poz. `#f8fafc`, border, radius 10, padding 12×14): „ZAPOSLENI" (uppercase 10px muted) → **ime i prezime** (14px, 600); „ADRESA" → **adresa vozača**.
+3. **Tabela stavki** (`margin-top ~24`): header red „STAVKA | IZNOS" (uppercase 10px muted, donji border 2px `#cbd5e1`). Redovi (border-bottom 1px `#eef2f6`, padding ~11×6): naziv stavke levo (+ opciono ispod sitno „6/18 rata" u `#94a3b8` 11.5px), **iznos desno** (tabular, bold, negativni crveni).
+4. **Bruto linija:** poravnata desno, muted 13px: „Bruto 1: **X**".
+5. **Total boks:** teal pozadina, bela slova, radius 12, padding 15×20: levo „Za isplatu (neto)" (14px 600), desno **veliki iznos** (23px, 800).
+6. **Napomena:** muted 12px: „Dnevnice se obračunavaju i prikazuju u zasebnom dokumentu, odvojeno od zarade."
+7. **Footer** (gornji border 1px, muted 11px): levo „Generisano: dd.mm.yyyy.", desno „TMS aplikacija".
+
+**Mapiranje podataka:** firma = `company.name`; ime = `driver.name`; adresa = `driver.address`; period/`net`/`gross`/`status`/`items[]` iz `GET /me/payslips/:id`; „6/18 rata" iz polja rate na stavci (vidi zahtev ispod).
+
+**Dnevnice (`perDiemHtml`) — isti okvir, razlike:** badge **„OBRAČUN DNEVNICA"**, sub „Obračun dnevnica"; tabela **3 kolone**: „RUTA (nalog · zemlja) | DANI | IZNOS"; total boks „Ukupno dnevnice". **Bez** oznake „(ne)oporezivo" bilo gde.
+
 **➕ ZAHTEV (rate administrativnih zabrana) — `NEEDS_BACKEND`:** za stavke tipa administrativna zabrana/odbitak koji se plaća na rate, vozač treba da vidi **koja je rata** (npr. „6/18 rata" = šesta od osamnaest). Molba: u `PayrollItem` odgovoru (`GET /api/mobile/me/payslips/:id` → `items[]`) dodati podatak o rati. Mobilni **već defanzivno prihvata** bilo koji od ovih oblika (nije bitno koji izaberete):
 - `installment: "6/18"` (string), ili
 - `installmentCurrent: 6` + `installmentTotal: 18` (brojevi), ili srpski nazivi `rataBr`/`rataUkupno`.
