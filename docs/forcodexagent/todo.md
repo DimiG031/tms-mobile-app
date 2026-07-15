@@ -242,7 +242,9 @@ Izvor istine: `src/lib/pdf.ts` u mobilnom repou (`payslipHtml` / `perDiemHtml`).
 
 **Dnevnice (`perDiemHtml`) — isti okvir, razlike:** badge **„OBRAČUN DNEVNICA"**, sub „Obračun dnevnica"; tabela **3 kolone**: „RUTA (nalog · zemlja) | DANI | IZNOS"; total boks „Ukupno dnevnice". **Bez** oznake „(ne)oporezivo" bilo gde.
 
-**➕ ZAHTEV (rate administrativnih zabrana) — `NEEDS_BACKEND`:** za stavke tipa administrativna zabrana/odbitak koji se plaća na rate, vozač treba da vidi **koja je rata** (npr. „6/18 rata" = šesta od osamnaest). Molba: u `PayrollItem` odgovoru (`GET /api/mobile/me/payslips/:id` → `items[]`) dodati podatak o rati. Mobilni **već defanzivno prihvata** bilo koji od ovih oblika (nije bitno koji izaberete):
+**✅ ZAHTEV (rate administrativnih zabrana) — `DONE` (backend 2026-07-14 + mobilni):** backend dodao **`installment: "6/18"`** (string) na stavke koje se plaćaju na rate (unosi dispečer na webu „rata / od" na DEDUCTION stavci; čuva se u `PayrollItem.meta`). Mobilni prikazuje „6/18 rata" ispod naziva stavke — potvrđeno uživo na PDF-u (stavka „Administrativna zabrana (kredit)"). Ako nema rate, polja nema. (Mobilni defanzivno prihvata i ostale oblike ispod, ali backend je poslao `installment` string.)
+
+Prvobitni zahtev (arhiva) — prihvaćeni oblici:
 - `installment: "6/18"` (string), ili
 - `installmentCurrent: 6` + `installmentTotal: 18` (brojevi), ili srpski nazivi `rataBr`/`rataUkupno`.
 Ako polja nema, mobilni samo ne prikaže ratu (nije blokirajuće). Prikazuje se i na ekranu i u PDF-u ispod naziva stavke.
