@@ -637,6 +637,17 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-07-25 - Zamrznut (neaktivan) nalog — blok-ekran (`DONE`, JS-only → OTA)
+
+Backend uveo `User.subscription` (aktivan/neaktivan „seat"). Mobilni povezao:
+- `MobileAuthUser` dobio `active?: boolean`; login vraća `data.user.active`.
+- **AuthProvider:** novo `inactive` stanje. Ako je `active === false` (login/biometrija/hydrate) → gejting vodi na blok-ekran `/inactive` i NE pušta u `(driver)`.
+- **`api.ts`:** detektuje `AccountInactive` sa bilo koje zaštićene rute (`ApiError.isInactive`) i preko `setAccountInactiveHandler` obaveštava AuthProvider → isti blok-ekran (a ne „sesija istekla").
+- **Ekran `app/inactive.tsx`:** poruka „Nalog je neaktivan — obratite se administratoru firme", + **Osveži** (`recheckActivation` = `GET /api/mobile/profile`; ako je aktiviran → ulazi u app) i **Odjavi se**.
+- Postojeći nalozi bez `active` polja se tretiraju kao aktivni (backward-compat). Samostalna aktivacija (~5 €) — čeka backend endpoint.
+
+
+
 ### 2026-07-03 - Mape Faza 2 (Leaflet u WebView-u) + moduli u biraču
 
 Status: `DONE` (JS-only — ide preko OTA; `react-native-webview` je u build-u od početka)

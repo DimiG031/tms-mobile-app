@@ -7,6 +7,7 @@ export type MobileAuthUser = {
   role: AppRole;
   companyId: string;
   driverId: string | null;
+  active?: boolean; // false = zamrznut nalog (neaktivan „seat")
 };
 
 export type MobileLoginResponse = {

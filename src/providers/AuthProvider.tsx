@@ -10,6 +10,7 @@ import {
 import { usePathname, useRouter } from "expo-router";
 import { hasStoredSession, mobileLogin, mobileLogout, unlockWithBiometrics as biometricUnlock } from "@/services/auth";
 import { readSession } from "@/lib/secure-store";
+import { api, setAccountInactiveHandler } from "@/lib/api";
 import type { AuthSession } from "@/lib/types";
 import { stopGpsTracking } from "@/services/gpsTracking";
 import {
@@ -24,9 +25,11 @@ type AuthContextValue = {
   isHydrating: boolean;
   isAuthenticated: boolean;
   hasBiometricSession: boolean;
+  inactive: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   unlockWithBiometrics: () => Promise<boolean>;
+  recheckActivation: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -35,8 +38,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const [hasBiometricSession, setHasBiometricSession] = useState(false);
+  const [inactive, setInactive] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  // Kad bilo koja zaštićena ruta vrati "AccountInactive" → prikaži blok-ekran.
+  useEffect(() => {
+    setAccountInactiveHandler(() => setInactive(true));
+    return () => setAccountInactiveHandler(null);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -45,6 +55,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const canBiometricUnlock = await hasStoredSession();
         setSession(existing);
         setHasBiometricSession(canBiometricUnlock);
+        setInactive(existing?.user.active === false);
       } catch {
         // Prevent permanent blank screen when secure storage is unavailable.
         setSession(null);
@@ -59,6 +70,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const next = await mobileLogin(email, password);
     setSession(next);
     setHasBiometricSession(true);
+    setInactive(next.user.active === false);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -77,6 +89,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await mobileLogout();
     setSession(null);
     setHasBiometricSession(false);
+    setInactive(false);
     router.replace("/login");
   }, [router]);
 
@@ -84,7 +97,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const next = await biometricUnlock();
     if (!next) return false;
     setSession(next);
+    setInactive(next.user.active === false);
     return true;
+  }, []);
+
+  // „Osveži" na blok-ekranu: proveri da li je admin aktivirao nalog.
+  const recheckActivation = useCallback(async () => {
+    try {
+      await api.get("/api/mobile/profile");
+      setInactive(false);
+    } catch {
+      // I dalje neaktivan (AccountInactive) ili mrežna greška — ostajemo na blok-ekranu.
+    }
   }, []);
 
   useEffect(() => {
@@ -94,16 +118,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
       pathname.startsWith("/(auth)") ||
       pathname.startsWith("/login") ||
       pathname.startsWith("/forgot-password");
+    const onInactive = pathname.startsWith("/inactive");
 
-    if (!session && !isInAuth) {
-      router.replace("/login");
+    if (!session) {
+      if (!isInAuth) router.replace("/login");
       return;
     }
 
-    if (session && isInAuth) {
+    if (inactive) {
+      if (!onInactive) router.replace("/inactive");
+      return;
+    }
+
+    if (isInAuth || onInactive) {
       router.replace("/(driver)");
     }
-  }, [isHydrating, pathname, router, session, signOut]);
+  }, [isHydrating, pathname, router, session, inactive]);
 
   useEffect(() => {
     if (!session?.user.id) return;
@@ -139,11 +169,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isHydrating,
       isAuthenticated: Boolean(session),
       hasBiometricSession,
+      inactive,
       signIn,
       signOut,
-      unlockWithBiometrics
+      unlockWithBiometrics,
+      recheckActivation
     }),
-    [hasBiometricSession, isHydrating, session, signIn, signOut, unlockWithBiometrics]
+    [hasBiometricSession, inactive, isHydrating, recheckActivation, session, signIn, signOut, unlockWithBiometrics]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

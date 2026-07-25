@@ -18,12 +18,21 @@ type QueuedResult<T> = { queued: false; data: T } | { queued: true; data: null }
 export class ApiError extends Error {
   status: number;
   isNetwork: boolean;
-  constructor(message: string, status: number, isNetwork = false) {
+  isInactive: boolean;
+  constructor(message: string, status: number, isNetwork = false, isInactive = false) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.isNetwork = isNetwork;
+    this.isInactive = isInactive;
   }
+}
+
+// Zamrznut nalog: kad backend vrati "AccountInactive", app treba da prikaže
+// blok-ekran. AuthProvider registruje handler koji postavlja „inactive" stanje.
+let accountInactiveHandler: (() => void) | null = null;
+export function setAccountInactiveHandler(handler: (() => void) | null): void {
+  accountInactiveHandler = handler;
 }
 
 // Generičke (najčešće engleske) backend poruke koje zamenjujemo srpskim tekstom.
@@ -126,6 +135,11 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
       else if (typeof parsed.message === "string") backendMessage = parsed.message;
     } catch {
       // Body nije JSON — koristimo srpsku poruku po statusu.
+    }
+
+    if (backendMessage && /account\s*inactive/i.test(backendMessage)) {
+      accountInactiveHandler?.();
+      throw new ApiError("Vaš nalog je neaktivan. Obratite se administratoru firme.", response.status, false, true);
     }
 
     const message = isMeaningfulBackendMessage(backendMessage)
