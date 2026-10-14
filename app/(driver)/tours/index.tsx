@@ -51,9 +51,6 @@ export default function ToursListScreen() {
       }
     >
       <View className="px-4 pb-3 pt-5">
-        <Text className="text-4xl font-extrabold" style={{ color: theme.text.primary }}>
-          Moje ture
-        </Text>
         <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
           {data?.length ?? 0} ukupno
         </Text>

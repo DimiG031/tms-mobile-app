@@ -69,7 +69,6 @@ export default function ChatListScreen() {
         ListHeaderComponent={
           <>
             <View style={styles.headerRow}>
-              <Text style={styles.title}>Poruke</Text>
               <Pressable style={styles.newBtn} onPress={() => router.push("/chat/new")}>
                 <Text style={styles.newBtnText}>+ Novi</Text>
               </Pressable>
@@ -140,12 +139,7 @@ function makeStyles(theme: AppTheme) {
     marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between"
-  },
-  title: {
-    color: theme.text.primary,
-    fontSize: 26,
-    fontWeight: "800"
+    justifyContent: "flex-end"
   },
   loading: {
     color: theme.text.secondary,
