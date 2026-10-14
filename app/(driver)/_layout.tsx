@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import { useMemo, useState } from "react";
-import { PanResponder, Pressable, Text, View } from "react-native";
+import { Modal, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMobileProfile } from "@/queries/useMobileProfile";
@@ -98,7 +98,7 @@ function ModuleWheel({
         marginHorizontal: 14,
         marginBottom: 8,
         borderRadius: 22,
-        backgroundColor: theme.surface.app,
+        backgroundColor: "transparent",
         overflow: "hidden",
         height: 154
       }}
@@ -114,7 +114,7 @@ function ModuleWheel({
           borderRadius: 142.5,
           borderWidth: 1,
           borderColor: theme.surface.border,
-          backgroundColor: "transparent"
+          backgroundColor: theme.surface.subtle
         }}
       >
         <View
@@ -175,6 +175,7 @@ function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: 
   const isSliceMode = sliceModules.length > 0 && visibleTabs.some((module) => module.key === "more");
   const [wheelOpen, setWheelOpen] = useState(false);
   const [activeWheelIndex, setActiveWheelIndex] = useState(0);
+  const [tabBarHeight, setTabBarHeight] = useState(0);
 
   const currentRouteName = state.routes[state.index]?.name;
   const tabs = useMemo(
@@ -200,16 +201,29 @@ function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: 
 
   return (
     <View style={{ backgroundColor: theme.surface.app }}>
-      {isSliceMode && wheelOpen ? (
-        <ModuleWheel
-          modules={sliceModules}
-          activeIndex={activeWheelIndex}
-          onRotate={(direction) => setActiveWheelIndex((current) => wrapIndex(current + direction, sliceModules.length))}
-          onSelect={selectWheelModule}
-        />
-      ) : null}
+      <Modal
+        visible={isSliceMode && wheelOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setWheelOpen(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          {/* providna podloga: dodir van tocka ga zatvara */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setWheelOpen(false)} />
+          <View style={{ paddingBottom: tabBarHeight }}>
+            <ModuleWheel
+              modules={sliceModules}
+              activeIndex={activeWheelIndex}
+              onRotate={(direction) => setActiveWheelIndex((current) => wrapIndex(current + direction, sliceModules.length))}
+              onSelect={selectWheelModule}
+            />
+          </View>
+        </View>
+      </Modal>
 
       <View
+        onLayout={(event) => setTabBarHeight(event.nativeEvent.layout.height)}
         style={{
           flexDirection: "row",
           alignItems: "center",
