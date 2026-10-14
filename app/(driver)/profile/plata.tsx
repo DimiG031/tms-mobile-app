@@ -55,7 +55,6 @@ export default function PlataScreen() {
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Plata" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Plata</Text>
       <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Platni listić po mesecu — stavke i PDF.</Text>
 
       {/* Godina */}

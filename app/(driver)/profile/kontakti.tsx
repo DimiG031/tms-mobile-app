@@ -131,7 +131,6 @@ export default function ProfileKontaktiScreen() {
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Kontakti" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Kontakti</Text>
       <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Pozovi, pošalji poruku, Viber ili mejl jednim dodirom.</Text>
 
       <TextInput

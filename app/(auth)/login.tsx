@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -18,6 +19,7 @@ type LoginValues = z.infer<typeof schema>;
 
 export default function LoginScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { signIn, isHydrating, hasBiometricSession, unlockWithBiometrics } = useAuth();
   const defaultValues = useMemo<LoginValues>(() => ({ email: "", password: "" }), []);
 
@@ -63,7 +65,7 @@ export default function LoginScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.surface.app }}>
-      <View className="rounded-b-3xl px-6 pb-7 pt-11" style={{ backgroundColor: theme.accent.primary }}>
+      <View className="rounded-b-3xl px-6 pb-7" style={{ backgroundColor: theme.accent.primary, paddingTop: insets.top + 24 }}>
         <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.82)" }}>
           TMS DRIVER
         </Text>

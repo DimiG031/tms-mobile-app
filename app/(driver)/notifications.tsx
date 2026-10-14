@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, RefreshControl } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Pressable, Text, View } from "@/components/ui";
@@ -21,6 +22,7 @@ function severityClass(severity: AppNotification["severity"]): string {
 
 export default function NotificationsScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
   const notificationsQuery = useNotificationsInfinite(20);
@@ -93,7 +95,7 @@ export default function NotificationsScreen() {
   const unread = items.filter((item) => !item.isRead).length;
 
   return (
-    <View className="flex-1 px-4 py-5" style={{ backgroundColor: theme.surface.app }}>
+    <View className="flex-1 px-4 pb-5" style={{ backgroundColor: theme.surface.app, paddingTop: insets.top + 20 }}>
       <View className="mb-3 flex-row items-center justify-between">
         <View>
           <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>

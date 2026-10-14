@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { PanResponder, ScrollView, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "@/components/ui";
 import { useMobileProfile } from "@/queries/useMobileProfile";
@@ -14,6 +15,7 @@ function wrapIndex(index: number, length: number): number {
 
 export default function MoreScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const mobileProfileQuery = useMobileProfile();
@@ -53,7 +55,7 @@ export default function MoreScreen() {
     <ScrollView
       className="flex-1"
       style={{ backgroundColor: theme.surface.app }}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 32 }}
     >
       <View className="px-4 pb-2 pt-5">
         <Text className="text-4xl font-extrabold" style={{ color: theme.text.primary }}>

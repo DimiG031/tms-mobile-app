@@ -113,13 +113,18 @@ export async function fetchNearbyCandidates(
   return raw.filter((item): item is NearbyCandidate => Boolean(item) && typeof item === "object");
 }
 
-function buildBody(input: Partial<PlaceInput>): Record<string, unknown> {
+// Backend prihvata string (optional), ne null — slanje null-a je vracalo
+// "Expected string, received null". Na create prazno polje izostavljamo,
+// na update saljemo prazan string da bi brisanje vrednosti i dalje radilo.
+function buildBody(input: Partial<PlaceInput>, mode: "create" | "update"): Record<string, unknown> {
   const body: Record<string, unknown> = {};
+  const text = (value: string | null | undefined) => value?.trim() || "";
+
   if (input.type !== undefined) body.type = input.type;
   if (input.latitude !== undefined) body.latitude = input.latitude;
   if (input.longitude !== undefined) body.longitude = input.longitude;
-  if (input.name !== undefined) body.name = input.name?.trim() || null;
-  if (input.note !== undefined) body.note = input.note?.trim() || null;
+  if (input.name !== undefined && (mode === "update" || text(input.name))) body.name = text(input.name);
+  if (input.note !== undefined && (mode === "update" || text(input.note))) body.note = text(input.note);
   if (input.visibility !== undefined) body.visibility = input.visibility;
   if (input.amenities !== undefined) body.amenities = input.amenities;
   if (input.rating !== undefined && input.rating != null) body.rating = input.rating;
@@ -129,7 +134,7 @@ function buildBody(input: Partial<PlaceInput>): Record<string, unknown> {
 export function useCreatePlace() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: PlaceInput) => api.post<{ data: Place }>("/api/mobile/places", buildBody(input)),
+    mutationFn: async (input: PlaceInput) => api.post<{ data: Place }>("/api/mobile/places", buildBody(input, "create")),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["driver-places"] });
     }
@@ -140,7 +145,7 @@ export function useUpdatePlace() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (params: { id: string; data: Partial<PlaceInput> }) =>
-      api.patch<{ data: Place }>(`/api/mobile/places/${params.id}`, buildBody(params.data)),
+      api.patch<{ data: Place }>(`/api/mobile/places/${params.id}`, buildBody(params.data, "update")),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["driver-places"] });
     }

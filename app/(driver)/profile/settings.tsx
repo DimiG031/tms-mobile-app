@@ -392,7 +392,6 @@ export default function ProfileSettingsScreen() {
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Podešavanja" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Podešavanja</Text>
       <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
         Navigacija, nalog i korisnička podešavanja.
       </Text>

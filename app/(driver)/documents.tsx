@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Linking, RefreshControl, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState } from "react";
 import { Pressable, Text, View } from "@/components/ui";
 import { useDocuments } from "@/queries/useDocuments";
@@ -13,6 +14,7 @@ function formatFileType(value?: string | null): string {
 
 export default function DocumentsScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const documentsQuery = useDocuments();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -38,7 +40,7 @@ export default function DocumentsScreen() {
     <ScrollView
       className="flex-1"
       style={{ backgroundColor: theme.surface.app }}
-      contentContainerStyle={{ paddingBottom: 28 }}
+      contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 28 }}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}

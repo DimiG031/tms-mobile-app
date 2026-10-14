@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Stack, useRouter } from "expo-router";
 import { ActivityIndicator, RefreshControl, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useToursSummary, type ToursSummaryBucket } from "@/queries/useToursSummary";
 import { useToursHistory } from "@/queries/useToursHistory";
@@ -56,6 +57,7 @@ function DashboardCard({ bucket, periodLabel }: Readonly<{ bucket?: ToursSummary
 
 export default function IstorijaScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const summaryQuery = useToursSummary();
   const [period, setPeriod] = useState<PeriodKey>("month");
@@ -84,7 +86,7 @@ export default function IstorijaScreen() {
     <ScrollView
       className="flex-1"
       style={{ backgroundColor: theme.surface.app }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: 40 }}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}

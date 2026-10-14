@@ -488,7 +488,6 @@ export default function TourExpenseScreen() {
   if (!sheet) {
     return (
       <View className="flex-1 bg-white dark:bg-slate-800 px-4 py-5">
-        <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">Troškovnik</Text>
         <Text className="mt-1 text-slate-600 dark:text-slate-300">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
         <Text className="mt-5 text-slate-600 dark:text-slate-300">Troškovnik još nije kreiran za ovu turu.</Text>
 
@@ -555,7 +554,6 @@ export default function TourExpenseScreen() {
 
   return (
     <ScrollView className="flex-1 bg-white dark:bg-slate-800" contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
-      <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">Troškovnik</Text>
       <Text className="mt-1 text-slate-600 dark:text-slate-300">Tura: {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Nepoznata relacija"}</Text>
 
       <View className="mt-3 flex-row items-center justify-between">

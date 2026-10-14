@@ -52,7 +52,6 @@ export default function ProfileStatsScreen() {
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Moja statistika" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Moja statistika</Text>
       <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Tvoj radni pregled, odmor i ugovor.</Text>
 
       {isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}

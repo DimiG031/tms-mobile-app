@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import { ActivityIndicator, RefreshControl, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { Pressable, Text, View } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
@@ -91,6 +92,7 @@ function HubCard({
 
 export default function ProfileScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
   const mobileProfileQuery = useMobileProfile();
   const driverId = mobileProfileQuery.data?.user.driverId ?? session?.user.driverId ?? null;
@@ -143,7 +145,7 @@ export default function ProfileScreen() {
         />
       }
     >
-      <View className="rounded-b-3xl px-4 pb-8 pt-10" style={{ backgroundColor: theme.accent.primary }}>
+      <View className="rounded-b-3xl px-4 pb-8" style={{ backgroundColor: theme.accent.primary, paddingTop: insets.top + 24 }}>
         <View className="mx-auto mb-3 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
           <Text className="text-2xl font-bold" style={{ color: "#fff" }}>{initials(displayName)}</Text>
         </View>

@@ -419,7 +419,6 @@ export default function TourMoreDetailsScreen() {
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Detaljnije" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Detaljnije</Text>
       <Text className="mb-4 mt-1 text-sm" style={{ color: theme.text.secondary }}>
         {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Kompletne informacije o turi"}
       </Text>

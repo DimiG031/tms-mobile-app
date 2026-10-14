@@ -115,7 +115,6 @@ export default function ProfileRokoviScreen() {
       }
     >
       <Stack.Screen options={{ title: "Rokovi i dokumenta" }} />
-      <Text className="text-3xl font-extrabold" style={{ color: theme.text.primary }}>Rokovi i dokumenta</Text>
       <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>Rokovi isteka i podaci tvojih dokumenata.</Text>
 
       {isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
