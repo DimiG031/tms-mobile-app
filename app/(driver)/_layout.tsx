@@ -97,10 +97,8 @@ function ModuleWheel({
       style={{
         marginHorizontal: 14,
         marginBottom: 8,
-        borderWidth: 1,
-        borderColor: theme.surface.border,
         borderRadius: 22,
-        backgroundColor: theme.surface.card,
+        backgroundColor: theme.surface.app,
         overflow: "hidden",
         height: 154
       }}
@@ -116,7 +114,7 @@ function ModuleWheel({
           borderRadius: 142.5,
           borderWidth: 1,
           borderColor: theme.surface.border,
-          backgroundColor: theme.surface.subtle
+          backgroundColor: "transparent"
         }}
       >
         <View
@@ -201,7 +199,7 @@ function DriverTabBar({ state, navigation, profile }: TabBarProps & { profile?: 
   }
 
   return (
-    <View style={{ backgroundColor: "transparent" }}>
+    <View style={{ backgroundColor: theme.surface.app }}>
       {isSliceMode && wheelOpen ? (
         <ModuleWheel
           modules={sliceModules}
