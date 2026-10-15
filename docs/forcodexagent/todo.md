@@ -637,6 +637,35 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-16 - Putni list, HANDOVER, istorija zadataka, izmena uz dozvolu (`DONE`, JS-only → OTA)
+
+Povezane sve otvorene stavke iz backend todo-a (4, 5, 6 + istorija zadataka).
+
+**HANDOVER (stavka 4):** nov tip događaja „Primopredaja" u `TravelEventType` i u čipovima na kartici naloga. Pošto se mesto predaje šalje kao slobodan tekst, polje „Mesto" je prikazano i za ovaj tip (ranije samo `FUEL`/`REST`).
+
+**Putni list — obrazac SERIJA B (stavka 5):** `app/(driver)/putni-list/[id].tsx` + `src/queries/useTravelOrderLines.ts`. Otvara se dugmetom sa kartice naloga. Redovi su sklopive mini-forme sa svih 15 polja iz `TravelOrderLine`, uz dodavanje/brisanje reda, zbir pređenih km i čuvanje celog niza jednim `PUT`-om.
+
+**Izmena uz dozvolu vozača (stavka 6):** banner „Dispečer traži izmenu putnog lista" sa „Prihvati"/„Odbij" (`POST /line-edit-request`) kad je `lineEditStatus = REQUESTED`. Dok je `APPROVED`, ekran je zaključan (ne šaljemo `PUT`, backend ga ionako odbija sa `409`). Kad postoji `linesOriginal`, prebacivač „Original (moj)" / „Izmena (dispečer)" prikazuje obe verzije, obe bez mogućnosti izmene.
+
+**Istorija zadataka:** `useWorkTasksHistory` (`view=history` + `limit`/`cursor`), tabovi „Aktivni" / „Istorija" na ekranu Zadaci. U istoriji nema dugmadi za status, stoji datum i značka Gotovo/Otkazano, plus „Učitaj još" za sledeću stranu. Aktivni tab sada eksplicitno traži `view=active`.
+
+Provereno na emulatoru protiv produkcije: badge svrhe vožnje, čip Primopredaja, `GET`/`PUT` putnog lista sa vraćanjem posle reload-a (test red obrisan), i tab Istorija sa stvarnim završenim zadatkom.
+
+### 2026-10-16 - NAPOMENE BACKENDU (nije blokada)
+
+**1. `title` u `POST /api/chat/threads` ne trpi `null`.** Biranje sagovornika u „Novi razgovor" je padalo sa porukom **„Naslov je obavezno polje"**. Šema je `title: z.string().max(100).optional()` — `.optional()` bez `.nullable()`, pa `title: null` pada na validaciji. Mobilni je popravljen (prazan naslov se izostavlja), ali:
+- poruka je **pogrešna i vodi na krivi trag** — naslov nije obavezan, problem je bio `null`. Vredi je popraviti u `zodMessage` ili dodati `.nullable()`.
+- **isto se već desilo** sa `name`/`note` na `POST /api/mobile/places`. Ako igde šaljete opciona polja, `.nullable().optional()` je sigurnije od samo `.optional()` — ostalih šest mesta koja mobilni šalje sa `null` (`expense-sheet`, `documents`, `route-stops/actions`) već su tako napisana i rade.
+
+**2. `completedAt` i dalje nije u `work-tasks` item shape-u.** Istorija radi, ali prikazuje `date` (planirani dan zadatka), a vozač je tražio **kada je nešto odradio**. `completedAt` server već upisuje pri `DONE`. Ako ga dodate u odgovor, mobilni ga prikazuje odmah — nije hitno.
+
+**3. Obrazac SERIJA B ima više kolona nego `TravelOrderLine`.** Vlasnik je poslao sliku: tabela kretanja ima **24 numerisane kolone**, model ima 15 polja. Razlike:
+- „Превезено терета у кг" zauzima kolone 12–19 (posebno teretno i priklono vozilo, svako sa više podkolona) — model ima `cargoKgVehicle` i `cargoKgTrailer`, po jedan broj
+- „Извршено т/км" zauzima 20–22 — model ima jedan `tkm`
+- „Пређени км" ima dve kolone (10–11) — model ima jedan `kmDone`
+
+Ekran je napravljen po **postojećem modelu**, da ne šaljemo polja koja API odbija. Ako dispečeru na štampi trebaju te podkolone popunjene, treba proširiti `TravelOrderLine` — javite pa povezujem.
+
 ### 2026-10-15 - Zadaci (WorkTask) + svrha vožnje na putnom nalogu (`DONE`, JS-only → OTA)
 
 Povezano po backend zahtevu od 2026-10-15:
@@ -644,7 +673,7 @@ Povezano po backend zahtevu od 2026-10-15:
 - **Putni nalog:** `purpose` se prikazuje kao badge, i to samo kad nije `CARGO` (podrazumevano), da ne zatrpava listu.
 - **Login:** placeholder „vaš email" + helper tekst ispod polja (treća stavka iz istog zahteva).
 
-### 2026-10-15 - ZAHTEV BACKENDU: istorija zadataka (`NEEDS_BACKEND`)
+### 2026-10-15 - ZAHTEV BACKENDU: istorija zadataka (`DONE` — isporučeno 2026-10-16, povezano)
 
 Vozač traži da vidi **šta je i kada radio**, a to sada nije moguće:
 - `GET /api/mobile/work-tasks` vraća samo `OPEN`/`IN_PROGRESS` — završen zadatak nestaje iz odgovora i mobilni nema odakle da ga pročita.
