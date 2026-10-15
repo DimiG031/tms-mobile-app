@@ -70,7 +70,7 @@ export default function LoginScreen() {
           TMS DRIVER
         </Text>
         <Text className="mt-2 text-4xl font-extrabold" style={{ color: theme.text.inverse }}>
-          Dobrodošli nazad
+          Dobrodošli
         </Text>
         <Text className="mt-1 text-base" style={{ color: "rgba(255,255,255,0.86)" }}>
           Prijavite se nalogom vaše kompanije
