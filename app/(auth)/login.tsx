@@ -84,13 +84,16 @@ export default function LoginScreen() {
         <TextInput
           autoCapitalize="none"
           keyboardType="email-address"
-          placeholder="vozač@kompanija.rs"
+          placeholder="vaš email"
           value={email}
           onChangeText={(v: string) => setValue("email", v, { shouldDirty: true })}
           placeholderTextColor={theme.text.muted}
           className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         {errors.email ? <Text className="mt-1 text-xs text-red-600">{errors.email.message}</Text> : null}
+        <Text className="mt-1.5 text-xs" style={{ color: theme.text.secondary }}>
+          Koristite email iz podataka za prijavu koje ste dobili (važi i za demo vozače).
+        </Text>
 
         <Text className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
           Lozinka
