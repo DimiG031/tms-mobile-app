@@ -303,6 +303,7 @@ export default function DriverLayout() {
         );
       })}
       <Tabs.Screen name="istorija" options={{ href: null }} />
+      <Tabs.Screen name="putni-list" options={{ href: null }} />
     </Tabs>
   );
 }

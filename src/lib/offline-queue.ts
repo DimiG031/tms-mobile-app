@@ -4,7 +4,7 @@ const OFFLINE_QUEUE_KEY = "tms_offline_write_queue_v1";
 const GPS_LOG_PATH = "/api/gps-logs";
 const GPS_BATCH_SIZE = 50;
 
-export type OfflineWriteMethod = "POST" | "PATCH" | "DELETE";
+export type OfflineWriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type OfflineWriteItem = {
   id: string;

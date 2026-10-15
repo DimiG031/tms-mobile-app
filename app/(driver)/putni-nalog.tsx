@@ -1,4 +1,5 @@
 import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import { useRouter } from "expo-router";
 import { ActivityIndicator, Alert, Modal, Platform, ScrollView } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,7 +30,8 @@ const EVENT_TYPES: { value: TravelEventType; label: string; icon: IconName }[] =
   { value: "FUEL", label: "Gorivo", icon: "water-outline" },
   { value: "ODOMETER", label: "Kilometraža", icon: "speedometer-outline" },
   { value: "REST", label: "Pauza", icon: "bed-outline" },
-  { value: "NOTE", label: "Beleška", icon: "create-outline" }
+  { value: "NOTE", label: "Beleška", icon: "create-outline" },
+  { value: "HANDOVER", label: "Primopredaja", icon: "swap-horizontal-outline" }
 ];
 
 const CURRENCIES = ["EUR", "RSD", "USD", "CHF"];
@@ -116,6 +118,7 @@ type PickerMode = "countryFrom" | "countryTo" | "location";
 export default function PutniNalogScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { data: orders = [], isLoading, isError, error, refetch } = useTravelOrders();
   const countriesQuery = useCountries();
   const locationsQuery = useCompanyLocations();
@@ -298,6 +301,7 @@ export default function PutniNalogScreen() {
             onToggle={() => setExpandedId((id) => (id === order.id ? null : order.id))}
             onEvent={(type) => openEvent(order.id, type)}
             onReturn={() => openReturn(order.id)}
+            onOpenLines={() => router.push(`/putni-list/${order.id}`)}
             returning={returnOrder.isPending}
           />
         ))}
@@ -435,7 +439,7 @@ export default function PutniNalogScreen() {
               </>
             ) : null}
 
-            {draft.type === "FUEL" || draft.type === "REST" ? (
+            {draft.type === "FUEL" || draft.type === "REST" || draft.type === "HANDOVER" ? (
               <>
                 <FieldLabel theme={theme}>Mesto (opciono)</FieldLabel>
                 <TextInput
@@ -453,7 +457,7 @@ export default function PutniNalogScreen() {
             <TextInput
               value={draft.note}
               onChangeText={(note) => setDraft((d) => ({ ...d, note }))}
-              placeholder="Detalji"
+              placeholder={draft.type === "HANDOVER" ? "npr. preuzima Petar Petrović" : "Detalji"}
               placeholderTextColor={theme.text.muted}
               multiline
               className="mt-1 rounded-xl border px-4 py-3"
@@ -592,6 +596,7 @@ function OrderCard({
   onToggle,
   onEvent,
   onReturn,
+  onOpenLines,
   returning
 }: {
   order: TravelOrder;
@@ -600,6 +605,7 @@ function OrderCard({
   onToggle: () => void;
   onEvent: (type: TravelEventType) => void;
   onReturn: () => void;
+  onOpenLines: () => void;
   returning: boolean;
 }) {
   const status = statusMeta(theme, order.status);
@@ -640,6 +646,15 @@ function OrderCard({
 
       {expanded ? (
         <View className="px-4 pb-4">
+          <Pressable
+            onPress={onOpenLines}
+            className="mb-3 flex-row items-center justify-center gap-2 rounded-xl border px-4 py-2.5"
+            style={{ borderColor: theme.surface.border }}
+          >
+            <Ionicons name="grid-outline" size={16} color={theme.text.secondary} />
+            <Text className="text-sm font-semibold" style={{ color: theme.text.secondary }}>Putni list (tabela kretanja)</Text>
+          </Pressable>
+
           {/* Quick add buttons */}
           {canEdit ? (
             <View className="flex-row flex-wrap gap-2">

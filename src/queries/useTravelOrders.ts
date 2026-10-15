@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 
 export type TravelOrderStatus = "OPEN" | "ON_ROAD" | "RETURNED" | "CLOSED" | string;
 
-export type TravelEventType = "BORDER" | "LOAD" | "UNLOAD" | "FUEL" | "ODOMETER" | "REST" | "NOTE";
+export type TravelEventType = "BORDER" | "LOAD" | "UNLOAD" | "FUEL" | "ODOMETER" | "REST" | "NOTE" | "HANDOVER";
 
 export type TravelOrderEvent = {
   id: string;

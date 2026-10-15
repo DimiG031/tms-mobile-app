@@ -12,7 +12,7 @@ import {
 let refreshInFlight: Promise<string | null> | null = null;
 let queueFlushInFlight: Promise<void> | null = null;
 
-type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type QueuedResult<T> = { queued: false; data: T } | { queued: true; data: null };
 
 export class ApiError extends Error {
@@ -196,6 +196,7 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
+  put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   delete: <T>(path: string) => request<T>("DELETE", path),
   postQueued: <T>(path: string, body?: unknown) => writeQueued<T>("POST", path, body),
