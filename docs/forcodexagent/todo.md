@@ -637,6 +637,35 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-15 - Zadaci (WorkTask) + svrha vožnje na putnom nalogu (`DONE`, JS-only → OTA)
+
+Povezano po backend zahtevu od 2026-10-15:
+- **Zadaci:** nov modul `zadaci` (`app/(driver)/zadaci.tsx`, `src/queries/useWorkTasks.ts`). Lista aktivnih zadataka, kartica sa vrstom/naslovom/napomenom/vremenom/lokacijom/vozilom, dugmad „Započni" (`IN_PROGRESS`) i „Gotovo" (`DONE`). Modul je pinovan u „Više" krug preko `CLIENT_ONLY_SLICE_MODULES`, pa radi i pre nego što uđe u `availableMobileModules`.
+- **Putni nalog:** `purpose` se prikazuje kao badge, i to samo kad nije `CARGO` (podrazumevano), da ne zatrpava listu.
+- **Login:** placeholder „vaš email" + helper tekst ispod polja (treća stavka iz istog zahteva).
+
+### 2026-10-15 - ZAHTEV BACKENDU: istorija zadataka (`NEEDS_BACKEND`)
+
+Vozač traži da vidi **šta je i kada radio**, a to sada nije moguće:
+- `GET /api/mobile/work-tasks` vraća samo `OPEN`/`IN_PROGRESS` — završen zadatak nestaje iz odgovora i mobilni nema odakle da ga pročita.
+- `completedAt` se postavlja na serveru pri `DONE`, ali se **ne vraća** u response shape-u, pa ni „kada" ne bismo mogli da prikažemo.
+
+**Predlog (menjati slobodno, samo javiti konačan oblik):**
+
+```text
+GET /api/mobile/work-tasks?scope=history&from=<ISO>&to=<ISO>&limit=50&cursor=<id>
+```
+- `scope`: `active` (podrazumevano, sadašnje ponašanje — ne menjati) | `history` (`DONE` + `CANCELED`) | `all`
+- sort: `completedAt` opadajuće (najnovije prvo); `from`/`to` opcioni, filtriraju po `completedAt`
+- paginacija kurzorom jer istorija raste neograničeno
+
+**Uz to, dodati u postojeći item shape** (potrebno i za aktivne i za istoriju):
+```json
+{ "completedAt": "2026-10-14T16:20:00.000Z" }
+```
+
+Kad ovo stigne, mobilni dodaje tab „Aktivni / Istorija" na ekranu Zadaci — grupisanje po danu, bez dugmadi za izmenu statusa.
+
 ### 2026-07-25 - Zamrznut (neaktivan) nalog — blok-ekran (`DONE`, JS-only → OTA)
 
 Backend uveo `User.subscription` (aktivan/neaktivan „seat"). Mobilni povezao:
