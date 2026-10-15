@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 export type WorkTaskType = "LOAD" | "UNLOAD" | "TRANSFER" | "SERVICE" | "PREP" | "OTHER" | string;
@@ -61,11 +61,39 @@ function unwrapItems<T>(payload: unknown): T[] {
   return raw.filter((item): item is T => Boolean(item) && typeof item === "object");
 }
 
+export type WorkTasksPage = { items: WorkTask[]; nextCursor: string | null };
+
+function unwrapPage(payload: unknown): WorkTasksPage {
+  const data = payload && typeof payload === "object" ? (payload as { data?: unknown }).data : null;
+  const nextCursor =
+    data && typeof data === "object" && typeof (data as { nextCursor?: unknown }).nextCursor === "string"
+      ? (data as { nextCursor: string }).nextCursor
+      : null;
+  return { items: unwrapItems<WorkTask>(payload), nextCursor };
+}
+
+// Istorija: view=history vraca DONE + CANCELED, sortirano po date opadajuce,
+// sa paginacijom kurzorom (backend, 2026-10-16).
+export function useWorkTasksHistory(pageSize = 30) {
+  return useInfiniteQuery({
+    queryKey: ["work-tasks", "history", pageSize],
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }: { pageParam: string | null }) => {
+      const params = new URLSearchParams({ view: "history", limit: String(pageSize) });
+      if (pageParam) params.set("cursor", pageParam);
+      const result = await api.get<unknown>(`/api/mobile/work-tasks?${params.toString()}`);
+      return unwrapPage(result);
+    },
+    getNextPageParam: (last: WorkTasksPage) => last.nextCursor,
+    staleTime: 60_000
+  });
+}
+
 export function useWorkTasks() {
   return useQuery({
     queryKey: ["work-tasks"],
     queryFn: async () => {
-      const result = await api.get<unknown>("/api/mobile/work-tasks");
+      const result = await api.get<unknown>("/api/mobile/work-tasks?view=active");
       return unwrapItems<WorkTask>(result);
     },
     staleTime: 30_000

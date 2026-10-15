@@ -120,10 +120,13 @@ export function useCreateChatThread() {
 
   return useMutation({
     mutationFn: async (params: { participantIds: string[]; title?: string | null }) => {
-      const result = await api.post<{ ok: true; data: ChatThread }>("/api/chat/threads", {
-        participantIds: params.participantIds,
-        title: params.title ?? null
-      });
+      // Backend sema je title: z.string().optional() — NE nullable. Slanje
+      // null-a je vracalo "Naslov je obavezno polje", pa prazan naslov
+      // jednostavno izostavljamo (1-na-1 razgovor ga i nema).
+      const body: Record<string, unknown> = { participantIds: params.participantIds };
+      const title = params.title?.trim();
+      if (title) body.title = title;
+      const result = await api.post<{ ok: true; data: ChatThread }>("/api/chat/threads", body);
       return result.data;
     },
     onSuccess: async () => {

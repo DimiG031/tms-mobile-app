@@ -17,6 +17,7 @@ import {
   type TravelOrder,
   type TravelOrderEvent
 } from "@/queries/useTravelOrders";
+import { useRespondLineEditRequest } from "@/queries/useTravelOrderLines";
 import { formatDateTime } from "@/lib/formatters";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { AppTheme } from "@/providers/ThemeProvider";
@@ -119,6 +120,7 @@ export default function PutniNalogScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const respondEdit = useRespondLineEditRequest();
   const { data: orders = [], isLoading, isError, error, refetch } = useTravelOrders();
   const countriesQuery = useCountries();
   const locationsQuery = useCompanyLocations();
@@ -153,6 +155,22 @@ export default function PutniNalogScreen() {
 
   function needsOdometer(type: TravelEventType) {
     return type !== "REST" && type !== "NOTE";
+  }
+
+  function respondToEditRequest(orderId: string, action: "ACCEPT" | "DECLINE") {
+    respondEdit.mutate(
+      { orderId, action },
+      {
+        onSuccess: () =>
+          Alert.alert(
+            "Putni list",
+            action === "ACCEPT"
+              ? "Prihvatio si izmenu. Tvoj original je sačuvan, dispečer sada uređuje list."
+              : "Odbio si izmenu. Putni list ostaje tvoj."
+          ),
+        onError: (err) => Alert.alert("Putni list", err instanceof Error ? err.message : "Slanje odgovora nije uspelo.")
+      }
+    );
   }
 
   function onSaveEvent() {
@@ -302,6 +320,8 @@ export default function PutniNalogScreen() {
             onEvent={(type) => openEvent(order.id, type)}
             onReturn={() => openReturn(order.id)}
             onOpenLines={() => router.push(`/putni-list/${order.id}`)}
+            onRespondEdit={(action) => respondToEditRequest(order.id, action)}
+            respondingEdit={respondEdit.isPending}
             returning={returnOrder.isPending}
           />
         ))}
@@ -597,6 +617,8 @@ function OrderCard({
   onEvent,
   onReturn,
   onOpenLines,
+  onRespondEdit,
+  respondingEdit,
   returning
 }: {
   order: TravelOrder;
@@ -606,6 +628,8 @@ function OrderCard({
   onEvent: (type: TravelEventType) => void;
   onReturn: () => void;
   onOpenLines: () => void;
+  onRespondEdit: (action: "ACCEPT" | "DECLINE") => void;
+  respondingEdit: boolean;
   returning: boolean;
 }) {
   const status = statusMeta(theme, order.status);
@@ -646,6 +670,35 @@ function OrderCard({
 
       {expanded ? (
         <View className="px-4 pb-4">
+          {order.lineEditStatus === "REQUESTED" ? (
+            <View className="mb-3 rounded-xl border p-3" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
+              <Text className="text-sm font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
+                Dispečer traži izmenu putnog lista
+              </Text>
+              <Text className="mt-1 text-xs" style={{ color: theme.status.IN_TRANSIT.text }}>
+                Ako prihvatiš, tvoj original ostaje sačuvan i videćeš obe verzije.
+              </Text>
+              <View className="mt-2.5 flex-row gap-2">
+                <Pressable
+                  onPress={() => onRespondEdit("DECLINE")}
+                  disabled={respondingEdit}
+                  className="flex-1 rounded-xl border px-3 py-2 disabled:opacity-60"
+                  style={{ borderColor: theme.status.IN_TRANSIT.text }}
+                >
+                  <Text className="text-center text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>Odbij</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => onRespondEdit("ACCEPT")}
+                  disabled={respondingEdit}
+                  className="flex-1 rounded-xl px-3 py-2 disabled:opacity-60"
+                  style={{ backgroundColor: theme.accent.primary }}
+                >
+                  <Text className="text-center text-xs font-semibold text-white">Prihvati</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
           <Pressable
             onPress={onOpenLines}
             className="mb-3 flex-row items-center justify-center gap-2 rounded-xl border px-4 py-2.5"

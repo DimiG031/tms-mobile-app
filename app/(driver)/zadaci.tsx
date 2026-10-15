@@ -6,13 +6,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import {
   useUpdateWorkTask,
+  useWorkTasksHistory,
   useWorkTasks,
   workTaskStatusLabel,
   workTaskTypeLabel,
   type WorkTask,
   type WorkTaskStatusInput
 } from "@/queries/useWorkTasks";
-import { formatDateTime } from "@/lib/formatters";
+import { formatDate, formatDateTime } from "@/lib/formatters";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { AppTheme } from "@/providers/ThemeProvider";
 
@@ -31,13 +32,23 @@ export default function ZadaciScreen() {
   const updateTask = useUpdateWorkTask();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"active" | "history">("active");
 
+  const history = useWorkTasksHistory();
   const tasks = data ?? [];
+  const historyTasks = history.data?.pages.flatMap((page) => page.items) ?? [];
+  const isHistory = tab === "history";
+
+  const loading = isHistory ? history.isLoading : isLoading;
+  const failed = isHistory ? history.isError : isError;
+  const failure = isHistory ? history.error : error;
+  const retry = isHistory ? history.refetch : refetch;
+  const visible = isHistory ? historyTasks : tasks;
 
   async function onRefresh() {
     setIsRefreshing(true);
     try {
-      await refetch();
+      await (isHistory ? history.refetch() : refetch());
     } finally {
       setIsRefreshing(false);
     }
@@ -76,40 +87,75 @@ export default function ZadaciScreen() {
         </Text>
       </View>
 
-      {isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
+      <View className="mt-4 flex-row gap-2">
+        {([["active", "Aktivni"], ["history", "Istorija"]] as const).map(([key, label]) => {
+          const on = tab === key;
+          return (
+            <Pressable
+              key={key}
+              onPress={() => setTab(key)}
+              className="rounded-full border px-4 py-2"
+              style={{
+                borderColor: on ? theme.accent.primary : theme.surface.border,
+                backgroundColor: on ? theme.accent.primary : "transparent"
+              }}
+            >
+              <Text className="text-sm font-semibold" style={{ color: on ? "#fff" : theme.text.secondary }}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
-      {isError ? (
+      {loading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
+
+      {failed ? (
         <View className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
           <Text className="font-semibold text-red-700 dark:text-red-300">Greška pri učitavanju zadataka</Text>
           <Text className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {error instanceof Error ? error.message : "Nepoznata greška."}
+            {failure instanceof Error ? failure.message : "Nepoznata greška."}
           </Text>
-          <Pressable onPress={() => refetch()} className="mt-2 self-start rounded-lg border px-3 py-1.5" style={{ borderColor: theme.surface.border }}>
+          <Pressable onPress={() => retry()} className="mt-2 self-start rounded-lg border px-3 py-1.5" style={{ borderColor: theme.surface.border }}>
             <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>Pokušaj ponovo</Text>
           </Pressable>
         </View>
       ) : null}
 
-      {!isLoading && !isError && !tasks.length ? (
+      {!loading && !failed && !visible.length ? (
         <View className="mt-4 rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
           <Text className="text-sm" style={{ color: theme.text.secondary }}>
-            Nemaš aktivnih zadataka. Dispečer ti ih dodeljuje na webu.
+            {isHistory
+              ? "Još nema završenih zadataka."
+              : "Nemaš aktivnih zadataka. Dispečer ti ih dodeljuje na webu."}
           </Text>
         </View>
       ) : null}
 
       <View className="mt-4 gap-3">
-        {tasks.map((task) => (
+        {visible.map((task) => (
           <TaskCard
             key={task.id}
             task={task}
             theme={theme}
             busy={pendingId === task.id}
+            readOnly={isHistory}
             onStart={() => setStatus(task, "IN_PROGRESS")}
             onDone={() => setStatus(task, "DONE")}
           />
         ))}
       </View>
+
+      {isHistory && history.hasNextPage ? (
+        <Pressable
+          onPress={() => history.fetchNextPage()}
+          disabled={history.isFetchingNextPage}
+          className="mt-3 rounded-xl border px-4 py-3 disabled:opacity-60"
+          style={{ borderColor: theme.surface.border }}
+        >
+          <Text className="text-center text-sm font-semibold" style={{ color: theme.text.secondary }}>
+            {history.isFetchingNextPage ? "Učitavanje..." : "Učitaj još"}
+          </Text>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
@@ -118,12 +164,14 @@ function TaskCard({
   task,
   theme,
   busy,
+  readOnly,
   onStart,
   onDone
 }: {
   task: WorkTask;
   theme: AppTheme;
   busy: boolean;
+  readOnly: boolean;
   onStart: () => void;
   onDone: () => void;
 }) {
@@ -154,7 +202,9 @@ function TaskCard({
         {task.date ? (
           <View className="flex-row items-center gap-1.5">
             <Ionicons name="time-outline" size={14} color={theme.text.muted} />
-            <Text className="text-xs" style={{ color: theme.text.muted }}>{formatDateTime(task.date)}</Text>
+            <Text className="text-xs" style={{ color: theme.text.muted }}>
+              {readOnly ? formatDate(task.date) : formatDateTime(task.date)}
+            </Text>
           </View>
         ) : null}
         {task.locationName ? (
@@ -171,6 +221,7 @@ function TaskCard({
         ) : null}
       </View>
 
+      {readOnly ? null : (
       <View className="mt-3.5 flex-row gap-2">
         {task.status === "OPEN" ? (
           <Pressable
@@ -191,6 +242,7 @@ function TaskCard({
           <Text className="text-center text-sm font-semibold text-white">{busy ? "Čuvanje..." : "Gotovo"}</Text>
         </Pressable>
       </View>
+      )}
     </View>
   );
 }

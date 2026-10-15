@@ -74,15 +74,24 @@ export default function PutniListScreen() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  const lineEditStatus = linesQuery.data?.lineEditStatus ?? "NONE";
+  // Niz-provere: React Query persist moze da vrati kesiran odgovor iz starije
+  // verzije aplikacije, kad je ovaj endpoint vracao goli niz redova.
+  const original = Array.isArray(linesQuery.data?.linesOriginal) ? linesQuery.data.linesOriginal : [];
+  // Dok je zahtev odobren, dispecer uredjuje i backend odbija nas PUT (409).
+  const locked = lineEditStatus === "APPROVED";
+  const viewing = showOriginal ? original : Array.isArray(lines) ? lines : [];
 
   // Server je izvor istine dok vozač ne počne da menja.
   useEffect(() => {
-    if (linesQuery.data && !dirty) setLines(linesQuery.data);
+    if (linesQuery.data && !dirty) setLines(Array.isArray(linesQuery.data.lines) ? linesQuery.data.lines : []);
   }, [linesQuery.data, dirty]);
 
   const totalKm = useMemo(
-    () => lines.reduce((sum, line) => sum + (line.kmDone ?? 0), 0),
-    [lines]
+    () => viewing.reduce((sum, line) => sum + (line.kmDone ?? 0), 0),
+    [viewing]
   );
 
   function patchLine(index: number, patch: Partial<TravelOrderLine>) {
@@ -151,6 +160,35 @@ export default function PutniListScreen() {
           Tabela kretanja (obrazac SERIJA B). Dispečer je štampa uz nalog.
         </Text>
 
+        {locked ? (
+          <View className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
+            <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
+              Dispečer trenutno uređuje ovaj putni list — tvoj unos je zaključan.
+            </Text>
+          </View>
+        ) : null}
+
+        {original.length ? (
+          <View className="mt-3 flex-row gap-2">
+            {([[false, "Original (moj)"], [true, "Izmena (dispečer)"]] as const).map(([key, label]) => {
+              const on = showOriginal === key;
+              return (
+                <Pressable
+                  key={label}
+                  onPress={() => setShowOriginal(key)}
+                  className="rounded-full border px-3 py-1.5"
+                  style={{
+                    borderColor: on ? theme.accent.primary : theme.surface.border,
+                    backgroundColor: on ? theme.accent.primary : "transparent"
+                  }}
+                >
+                  <Text className="text-xs font-semibold" style={{ color: on ? "#fff" : theme.text.secondary }}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         {linesQuery.isLoading ? <ActivityIndicator color={theme.accent.primary} style={{ marginVertical: 24 }} /> : null}
 
         {linesQuery.isError ? (
@@ -169,7 +207,7 @@ export default function PutniListScreen() {
           </View>
         ) : null}
 
-        {!linesQuery.isLoading && !linesQuery.isError && !lines.length ? (
+        {!linesQuery.isLoading && !linesQuery.isError && !viewing.length ? (
           <View className="mt-4 rounded-2xl border border-dashed p-4" style={{ borderColor: theme.surface.border }}>
             <Text className="text-sm" style={{ color: theme.text.secondary }}>
               Putni list je prazan. Dodaj prvi red kretanja.
@@ -178,12 +216,13 @@ export default function PutniListScreen() {
         ) : null}
 
         <View className="mt-4 gap-3">
-          {lines.map((line, index) => (
+          {viewing.map((line, index) => (
             <LineCard
               key={index}
               line={line}
               index={index}
               theme={theme}
+              readOnly={showOriginal || locked}
               expanded={expanded === index}
               onToggle={() => setExpanded((current) => (current === index ? null : index))}
               onPatch={(patch) => patchLine(index, patch)}
@@ -193,6 +232,7 @@ export default function PutniListScreen() {
           ))}
         </View>
 
+        {showOriginal || locked ? null : (
         <Pressable
           onPress={addLine}
           className="mt-3 flex-row items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3"
@@ -201,8 +241,9 @@ export default function PutniListScreen() {
           <Ionicons name="add" size={18} color={theme.accent.primary} />
           <Text className="font-semibold" style={{ color: theme.accent.primary }}>Dodaj red</Text>
         </Pressable>
+        )}
 
-        {lines.length ? (
+        {viewing.length ? (
           <View className="mt-4 flex-row justify-between rounded-xl border px-4 py-3" style={{ borderColor: theme.surface.border }}>
             <Text className="text-sm" style={{ color: theme.text.secondary }}>Ukupno pređeno</Text>
             <Text className="text-sm font-bold" style={{ color: theme.text.primary }}>{totalKm} km</Text>
@@ -216,12 +257,18 @@ export default function PutniListScreen() {
       >
         <Pressable
           onPress={onSave}
-          disabled={saveLines.isPending || !dirty}
+          disabled={saveLines.isPending || !dirty || locked || showOriginal}
           className="rounded-xl px-4 py-3 disabled:opacity-50"
           style={{ backgroundColor: theme.accent.primary }}
         >
           <Text className="text-center font-semibold text-white">
-            {saveLines.isPending ? "Čuvanje..." : dirty ? "Sačuvaj putni list" : "Sačuvano"}
+            {locked
+              ? "Zaključano"
+              : saveLines.isPending
+              ? "Čuvanje..."
+              : dirty
+              ? "Sačuvaj putni list"
+              : "Sačuvano"}
           </Text>
         </Pressable>
       </View>
@@ -276,6 +323,7 @@ function LineCard({
   line,
   index,
   theme,
+  readOnly,
   expanded,
   onToggle,
   onPatch,
@@ -285,6 +333,7 @@ function LineCard({
   line: TravelOrderLine;
   index: number;
   theme: AppTheme;
+  readOnly: boolean;
   expanded: boolean;
   onToggle: () => void;
   onPatch: (patch: Partial<TravelOrderLine>) => void;
@@ -309,6 +358,7 @@ function LineCard({
         onChangeText={onChangeText}
         placeholder={extra?.placeholder}
         placeholderTextColor={theme.text.muted}
+        editable={!readOnly}
         keyboardType={extra?.numeric ? "numeric" : "default"}
         className={inputClass}
         style={inputStyle}
@@ -319,7 +369,7 @@ function LineCard({
   function timeButton(label: string, field: TimeField) {
     return (
       <Field label={label} theme={theme}>
-        <Pressable onPress={() => onPick(field)} className={inputClass} style={inputStyle}>
+        <Pressable onPress={() => onPick(field)} disabled={readOnly} className={inputClass} style={inputStyle}>
           <Text style={{ color: line[field] ? theme.text.primary : theme.text.muted }}>{hhmm(line[field])}</Text>
         </Pressable>
       </Field>
@@ -346,7 +396,7 @@ function LineCard({
         <View className="gap-3 border-t px-4 pb-4 pt-3" style={{ borderTopColor: theme.surface.border }}>
           <View className="flex-row gap-3">
             <Field label="Dan u mesecu" theme={theme}>
-              <Pressable onPress={() => onPick("date")} className={inputClass} style={inputStyle}>
+              <Pressable onPress={() => onPick("date")} disabled={readOnly} className={inputClass} style={inputStyle}>
                 <Text style={{ color: line.date ? theme.text.primary : theme.text.muted }}>{dateLabel(line.date)}</Text>
               </Pressable>
             </Field>
@@ -409,10 +459,12 @@ function LineCard({
             {textInput(line.note ?? "", (v) => onPatch({ note: v || null }), { placeholder: "kvar, zastoj na putu i sl." })}
           </Field>
 
-          <Pressable onPress={onRemove} className="flex-row items-center justify-center gap-1.5 py-1">
-            <Ionicons name="trash-outline" size={16} color="#dc2626" />
-            <Text className="text-sm font-semibold" style={{ color: "#dc2626" }}>Obriši red {index + 1}</Text>
-          </Pressable>
+          {readOnly ? null : (
+            <Pressable onPress={onRemove} className="flex-row items-center justify-center gap-1.5 py-1">
+              <Ionicons name="trash-outline" size={16} color="#dc2626" />
+              <Text className="text-sm font-semibold" style={{ color: "#dc2626" }}>Obriši red {index + 1}</Text>
+            </Pressable>
+          )}
         </View>
       ) : null}
     </View>

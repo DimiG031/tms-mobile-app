@@ -41,6 +41,8 @@ export type TravelOrder = {
   number: string | null;
   status: TravelOrderStatus;
   purpose: TravelOrderPurpose | null;
+  // NONE | REQUESTED | APPROVED | DECLINED — dispecerov zahtev za izmenu putnog lista
+  lineEditStatus?: string | null;
   origin: string | null;
   vehicleId: string | null;
   driverId: string | null;
