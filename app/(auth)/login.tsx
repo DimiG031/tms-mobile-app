@@ -66,8 +66,8 @@ export default function LoginScreen() {
   return (
     <View className="flex-1" style={{ backgroundColor: theme.surface.app }}>
       <View className="rounded-b-3xl px-6 pb-7" style={{ backgroundColor: theme.accent.primary, paddingTop: insets.top + 24 }}>
-        <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.82)" }}>
-          TMS DRIVER
+        <Text className="text-xs font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.82)" }}>
+          TMS SofTechRS
         </Text>
         <Text className="mt-2 text-4xl font-extrabold" style={{ color: theme.text.inverse }}>
           Dobrodošli
