@@ -19,10 +19,28 @@ export type TravelOrderEvent = {
   note: string | null;
 };
 
+export type TravelOrderPurpose = "CARGO" | "SERVICE" | "INSPECTION" | "TIRES" | "PRIVATE" | "OTHER" | string;
+
+const PURPOSE_LABELS: Record<string, string> = {
+  CARGO: "Teret",
+  SERVICE: "Servis",
+  INSPECTION: "Tehnički pregled",
+  TIRES: "Zamena guma",
+  PRIVATE: "Privatno",
+  OTHER: "Ostalo"
+};
+
+// Prikazujemo samo kad nije CARGO (podrazumevano) da ne zatrpava listu.
+export function travelOrderPurposeLabel(purpose?: string | null): string | null {
+  if (!purpose || purpose === "CARGO") return null;
+  return PURPOSE_LABELS[purpose] ?? "Ostalo";
+}
+
 export type TravelOrder = {
   id: string;
   number: string | null;
   status: TravelOrderStatus;
+  purpose: TravelOrderPurpose | null;
   origin: string | null;
   vehicleId: string | null;
   driverId: string | null;

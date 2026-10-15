@@ -6,6 +6,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import {
+  travelOrderPurposeLabel,
   useAddTravelEvent,
   useCompanyLocations,
   useCountries,
@@ -602,6 +603,7 @@ function OrderCard({
   returning: boolean;
 }) {
   const status = statusMeta(theme, order.status);
+  const purposeLabel = travelOrderPurposeLabel(order.purpose);
   const canEdit = order.status === "OPEN" || order.status === "ON_ROAD";
   const events = order.events ?? [];
 
@@ -615,6 +617,11 @@ function OrderCard({
             </Text>
             {order.route ? (
               <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }} numberOfLines={1}>{order.route}</Text>
+            ) : null}
+            {purposeLabel ? (
+              <View className="mt-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
+                <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>{purposeLabel}</Text>
+              </View>
             ) : null}
           </View>
           <View className="items-end gap-1">

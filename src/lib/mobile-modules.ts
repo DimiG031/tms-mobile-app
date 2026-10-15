@@ -63,6 +63,13 @@ export const MOBILE_MODULES: MobileModuleDefinition[] = [
     icon: "clipboard-outline"
   },
   {
+    key: "zadaci",
+    label: "Zadaci",
+    description: "Utovar, istovar i drugi zadaci koje dodeljuje dispečer.",
+    routeName: "zadaci",
+    icon: "checkbox-outline"
+  },
+  {
     key: "mapa-mesta",
     label: "Mapa mesta",
     description: "Parkinzi, pumpe i mesta za pauzu sa terena.",
@@ -93,7 +100,7 @@ const FALLBACK_ORDER: MobileModuleKey[] = ["home", "tours", "chat", "notificatio
 // i u biraču modula i mogu se slati kroz preferences), ali ih ovde i dalje
 // „pinujemo" u „Više" da budu dostupni i kad ih vozač ne izabere kao karticu,
 // i kao rezerva dok se profil ne deploy-uje.
-const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik", "putni-nalog", "mapa-mesta"];
+const CLIENT_ONLY_SLICE_MODULES: MobileModuleKey[] = ["rokovnik", "putni-nalog", "mapa-mesta", "zadaci"];
 
 export function getModuleDefinition(key: MobileModuleKey): MobileModuleDefinition {
   return MOBILE_MODULES.find((module) => module.key === key) ?? {
