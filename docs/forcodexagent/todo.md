@@ -651,6 +651,8 @@ Povezana odluka od 2026-10-16 (Putni list vs Događaji) i zatvorene sve tri vaš
 
 API nije menjan. Provereno na emulatoru.
 
+**OBJAVLJENO 2026-10-20** — OTA na grani `preview` (Android), commit `5bb8f9a`, runtime `53cba69a…`, update group `3854b694-dea8-478a-826d-97f96708e6a7`. Vozači ovo već dobijaju; nije samo commit-ovano.
+
 ### 2026-10-20 - NAPOMENA: `node_modules` i OneDrive (nije backend)
 
 Za svaki slučaj, ako se javi na drugoj mašini: OneDrive je uključio Known Folder Move i premestio `Documents`, pa je `node_modules` ostao **nepotpun** — `@react-native-community/netinfo` je izgubio ceo `lib/typescript/`, što je rušilo `tsc` greškama koje nemaju veze sa kodom. Popravljeno sa `npm ci`. Projekat je vraćen van OneDrive-a.
