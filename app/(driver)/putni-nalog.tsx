@@ -17,7 +17,7 @@ import {
   type TravelOrder,
   type TravelOrderEvent
 } from "@/queries/useTravelOrders";
-import { useRespondLineEditRequest } from "@/queries/useTravelOrderLines";
+import { useRespondLineEditRequest, useTravelOrderLines } from "@/queries/useTravelOrderLines";
 import { formatDateTime } from "@/lib/formatters";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { AppTheme } from "@/providers/ThemeProvider";
@@ -34,6 +34,21 @@ const EVENT_TYPES: { value: TravelEventType; label: string; icon: IconName }[] =
   { value: "NOTE", label: "Beleška", icon: "create-outline" },
   { value: "HANDOVER", label: "Primopredaja", icon: "swap-horizontal-outline" }
 ];
+
+// Odluka vlasnika 2026-10-16: utovar/istovar/pauza/kilometraza se unose kao red
+// putnog lista, ne kao dogadjaj. Dugmad nude samo ono sto red ne hvata.
+// EVENT_TYPES namerno ostaje pun — stari zapisi moraju da imaju labelu i ikonu.
+const QUICK_EVENT_VALUES: TravelEventType[] = ["BORDER", "FUEL", "HANDOVER", "NOTE"];
+const QUICK_EVENT_TYPES = EVENT_TYPES.filter((et) => QUICK_EVENT_VALUES.includes(et.value));
+
+function rowCountLabel(count: number): string {
+  if (!count) return "prazan";
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${count} red`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} reda`;
+  return `${count} redova`;
+}
 
 const CURRENCIES = ["EUR", "RSD", "USD", "CHF"];
 
@@ -634,6 +649,8 @@ function OrderCard({
 }) {
   const status = statusMeta(theme, order.status);
   const purposeLabel = travelOrderPurposeLabel(order.purpose);
+  const linesQuery = useTravelOrderLines(expanded ? order.id : null);
+  const lineCount = Array.isArray(linesQuery.data?.lines) ? linesQuery.data.lines.length : 0;
   const canEdit = order.status === "OPEN" || order.status === "ON_ROAD";
   const events = order.events ?? [];
 
@@ -664,7 +681,9 @@ function OrderCard({
         <View className="mt-2 flex-row flex-wrap gap-x-4 gap-y-1">
           <Text className="text-xs" style={{ color: theme.text.muted }}>Polazak: {formatDateTime(order.dateFrom)}</Text>
           <Text className="text-xs" style={{ color: theme.text.muted }}>Početna km: {formatKm(order.odoStart)}</Text>
-          <Text className="text-xs" style={{ color: theme.text.muted }}>Događaja: {events.length}</Text>
+          {events.length ? (
+            <Text className="text-xs" style={{ color: theme.text.muted }}>Događaja: {events.length}</Text>
+          ) : null}
         </View>
       </Pressable>
 
@@ -699,19 +718,10 @@ function OrderCard({
             </View>
           ) : null}
 
-          <Pressable
-            onPress={onOpenLines}
-            className="mb-3 flex-row items-center justify-center gap-2 rounded-xl border px-4 py-2.5"
-            style={{ borderColor: theme.surface.border }}
-          >
-            <Ionicons name="grid-outline" size={16} color={theme.text.secondary} />
-            <Text className="text-sm font-semibold" style={{ color: theme.text.secondary }}>Putni list (tabela kretanja)</Text>
-          </Pressable>
-
           {/* Quick add buttons */}
           {canEdit ? (
             <View className="flex-row flex-wrap gap-2">
-              {EVENT_TYPES.map((et) => (
+              {QUICK_EVENT_TYPES.map((et) => (
                 <Pressable
                   key={et.value}
                   onPress={() => onEvent(et.value)}
@@ -729,8 +739,24 @@ function OrderCard({
             </Text>
           )}
 
-          {/* Event timeline */}
-          <Text className="mt-4 mb-1 text-[11px] font-bold uppercase" style={{ color: theme.text.muted }}>Dnevnik puta</Text>
+          {/* Kretanje: redovi putnog lista, pa hronoloski dogadjaji */}
+          <Text className="mt-4 mb-1 text-[11px] font-bold uppercase" style={{ color: theme.text.muted }}>Kretanje</Text>
+
+          <Pressable
+            onPress={onOpenLines}
+            className="mb-2 flex-row items-center justify-between gap-2 rounded-xl border px-4 py-2.5"
+            style={{ borderColor: theme.surface.border }}
+          >
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="grid-outline" size={16} color={theme.text.secondary} />
+              <Text className="text-sm font-semibold" style={{ color: theme.text.secondary }}>Putni list</Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <Text className="text-xs" style={{ color: theme.text.muted }}>{rowCountLabel(lineCount)}</Text>
+              <Ionicons name="chevron-forward" size={14} color={theme.text.muted} />
+            </View>
+          </Pressable>
+
           {events.length ? (
             <View className="gap-2">
               {events.map((ev) => {
@@ -752,8 +778,8 @@ function OrderCard({
                 );
               })}
             </View>
-          ) : (
-            <Text className="text-sm" style={{ color: theme.text.muted }}>Još nema događaja.</Text>
+          ) : lineCount ? null : (
+            <Text className="text-sm" style={{ color: theme.text.muted }}>Još nije popunjeno.</Text>
           )}
 
           {/* Return */}

@@ -22,6 +22,8 @@ export type WorkTask = {
   locationName: string | null;
   tourId: string | null;
   freightOrderId: string | null;
+  // Server upisuje pri prelasku u DONE; u istoriji je to "kada je odradjeno".
+  completedAt?: string | null;
 };
 
 const TYPE_LABELS: Record<string, string> = {

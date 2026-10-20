@@ -203,7 +203,11 @@ function TaskCard({
           <View className="flex-row items-center gap-1.5">
             <Ionicons name="time-outline" size={14} color={theme.text.muted} />
             <Text className="text-xs" style={{ color: theme.text.muted }}>
-              {readOnly ? formatDate(task.date) : formatDateTime(task.date)}
+              {readOnly
+                ? task.completedAt
+                  ? `Završeno ${formatDateTime(task.completedAt)}`
+                  : formatDate(task.date)
+                : formatDateTime(task.date)}
             </Text>
           </View>
         ) : null}
