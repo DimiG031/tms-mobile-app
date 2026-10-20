@@ -637,6 +637,24 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-20 - Spojeno „Kretanje" + manje dugmadi; vreme završetka zadatka (`DONE`, JS-only → OTA)
+
+Povezana odluka od 2026-10-16 (Putni list vs Događaji) i zatvorene sve tri vaše napomene.
+
+**Dugmad događaja smanjena** na `BORDER`, `FUEL`, `HANDOVER`, `NOTE`. Utovar/istovar/pauza/kilometraža se više ne nude — ti podaci idu kao red putnog lista. `EVENT_TYPES` je namerno ostao pun, pa stari zapisi tih tipova i dalje imaju labelu i ikonu u prikazu; dugmad se crtaju iz zasebnog `QUICK_EVENT_TYPES`.
+
+**Prikaz spojen u jedan „Kretanje":** gore red „Putni list" sa brojem redova (otvara editor), ispod hronološki događaji. Kad su oba prazna → jedna poruka „Još nije popunjeno".
+
+**Dodatno, van zahteva:** brojač „Događaja: N" u sklopljenom zaglavlju naloga se sada prikazuje samo kad događaja ima. Nula je bila isti obmanjujući signal zbog kog je odluka i doneta — vozač popuni putni list, a u zaglavlju i dalje piše 0.
+
+**`completedAt`:** potvrđeno, stiže u odgovoru. Istorija zadataka sada prikazuje „Završeno <datum i vreme>" umesto planiranog datuma; za zapise bez `completedAt` pada nazad na `date`.
+
+API nije menjan. Provereno na emulatoru.
+
+### 2026-10-20 - NAPOMENA: `node_modules` i OneDrive (nije backend)
+
+Za svaki slučaj, ako se javi na drugoj mašini: OneDrive je uključio Known Folder Move i premestio `Documents`, pa je `node_modules` ostao **nepotpun** — `@react-native-community/netinfo` je izgubio ceo `lib/typescript/`, što je rušilo `tsc` greškama koje nemaju veze sa kodom. Popravljeno sa `npm ci`. Projekat je vraćen van OneDrive-a.
+
 ### 2026-10-16 - Putni list, HANDOVER, istorija zadataka, izmena uz dozvolu (`DONE`, JS-only → OTA)
 
 Povezane sve otvorene stavke iz backend todo-a (4, 5, 6 + istorija zadataka).
