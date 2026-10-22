@@ -29,6 +29,34 @@ export function useTourStops(tourId?: string) {
   });
 }
 
+// Vozac sa lica mesta (rampa, ulaz u firmu) snima tacne koordinate stanice.
+// Backend odmah upisuje koordinate na stanicu; sa katalogom firme postupa
+// opreznije — ako lokacija vec ima pin, salje ga dispeceru kao predlog.
+export type StopCoordsResult = { location: "none" | "accepted" | "proposed" | string };
+
+// "queued" = nismo bili na mrezi, zahtev ceka u offline redu, pa odgovor (a
+// time ni to da li je lokacija prihvacena ili predlozena) jos ne znamo.
+export type StopCoordsOutcome = "none" | "accepted" | "proposed" | "queued";
+
+export function useSaveStopCoords(tourId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { stopId: string; latitude: number; longitude: number }) => {
+      const res = await api.postQueued<{ ok: boolean; data?: StopCoordsResult }>(
+        `/api/mobile/route-stops/${encodeURIComponent(params.stopId)}/coords`,
+        { latitude: params.latitude, longitude: params.longitude }
+      );
+      if (res.queued) return "queued" as StopCoordsOutcome;
+      return (res.data?.data?.location ?? "none") as StopCoordsOutcome;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tour-stops", tourId] });
+      await queryClient.invalidateQueries({ queryKey: ["tour-details", tourId] });
+    }
+  });
+}
+
 export function useRouteStopAction(tourId?: string) {
   const queryClient = useQueryClient();
 

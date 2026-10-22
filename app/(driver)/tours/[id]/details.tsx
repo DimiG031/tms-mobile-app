@@ -10,7 +10,8 @@ import { useTourDetails } from "@/queries/useTourDetails";
 import { crewBadgeLabel } from "@/lib/crew";
 import { useTourAccess } from "@/queries/useCrew";
 import { useTourDocuments } from "@/queries/useTourDocuments";
-import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
+import * as Location from "expo-location";
+import { useRouteStopAction, useSaveStopCoords, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
 import { useCustomsAmenities } from "@/queries/useCustomsAmenities";
 import { openMapsNavigation, stopMapsQuery } from "@/lib/maps";
 
@@ -147,12 +148,16 @@ function StopCard({
   index,
   isPending,
   readOnlyCrew,
+  savingCoords,
+  onSaveCoords,
   onAction
 }: Readonly<{
   stop: TourStop;
   index: number;
   isPending: boolean;
   readOnlyCrew: boolean;
+  savingCoords: boolean;
+  onSaveCoords: (stop: TourStop) => void;
   onAction: (stop: TourStop, action: RouteStopAction) => void;
 }>) {
   const theme = useTheme();
@@ -228,6 +233,20 @@ function StopCard({
               onPress={() => onAction(stop, "DEPARTED")}
             />
           </View>
+          )}
+
+          {readOnlyCrew ? null : (
+            <Pressable
+              onPress={() => onSaveCoords(stop)}
+              disabled={!stop.id || savingCoords}
+              className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border px-4 py-2.5 disabled:opacity-60"
+              style={{ borderColor: theme.surface.border }}
+            >
+              <Ionicons name="locate-outline" size={16} color={theme.text.secondary} />
+              <Text className="text-sm font-semibold" style={{ color: theme.text.secondary }}>
+                {savingCoords ? "Hvatam GPS..." : "Sačuvaj tačnu lokaciju (GPS)"}
+              </Text>
+            </Pressable>
           )}
           {!stop.id ? (
             <Text className="mt-2 text-xs" style={{ color: theme.text.secondary }}>
@@ -333,6 +352,8 @@ export default function TourMoreDetailsScreen() {
   const tourId = params.id;
   const { data: tour, isLoading, isError } = useTourDetails(tourId);
   const access = useTourAccess(tour);
+  const saveCoords = useSaveStopCoords(tourId);
+  const [coordsStopId, setCoordsStopId] = useState<string | null>(null);
   // Dozvole prate aktivnog vozaca (2026-10-22), ne formalnog nosioca.
   const readOnlyCrew = !access.canWrite;
   const { data: endpointDocuments = [] } = useTourDocuments(tourId);
@@ -343,6 +364,40 @@ export default function TourMoreDetailsScreen() {
 
   const documents = useMemo(() => mergeDocuments(tour?.documents ?? [], endpointDocuments), [endpointDocuments, tour?.documents]);
   const stops = endpointStops.length ? endpointStops : (tour?.stops ?? []);
+
+  async function onSaveStopCoords(stop: TourStop) {
+    if (!stop.id) {
+      Alert.alert("Stanice", "Nedostaje ID stanice.");
+      return;
+    }
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (perm.status !== "granted") {
+      Alert.alert("Stanice", "Potrebna je dozvola za lokaciju.");
+      return;
+    }
+    setCoordsStopId(stop.id);
+    try {
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+      const outcome = await saveCoords.mutateAsync({
+        stopId: stop.id,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude
+      });
+      const poruka =
+        outcome === "accepted"
+          ? "Sačuvano."
+          : outcome === "proposed"
+          ? "Poslato dispečeru na potvrdu."
+          : outcome === "queued"
+          ? "Sačuvano — poslaće se čim budeš na mreži."
+          : "Sačuvano za ovu turu.";
+      Alert.alert("Tačna lokacija", poruka);
+    } catch (err) {
+      Alert.alert("Tačna lokacija", err instanceof Error ? err.message : "Čuvanje lokacije nije uspelo.");
+    } finally {
+      setCoordsStopId(null);
+    }
+  }
 
   function onStopAction(stop: TourStop, action: RouteStopAction) {
     if (!stop.id) {
@@ -411,6 +466,8 @@ export default function TourMoreDetailsScreen() {
                 index={index}
                 isPending={pendingStopId === stop.id && routeStopAction.isPending}
                 readOnlyCrew={readOnlyCrew}
+                savingCoords={coordsStopId === stop.id}
+                onSaveCoords={onSaveStopCoords}
                 onAction={onStopAction}
               />
             ))

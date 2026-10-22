@@ -637,6 +637,19 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-22 - GPS tačka stanice sa terena (`DONE`, JS-only → OTA)
+
+Zatvara vašu dopunu od **2026-07-02**, koja je stajala kao `NEEDS_MOBILE` od tada. Nije bila u vašem poslednjem pregledu otvorenih stavki — sa vaše strane jeste isporučena, ali mobilni endpoint nije zvao niko.
+
+- Dugme **„Sačuvaj tačnu lokaciju (GPS)"** na stanici u `Detaljnije > Stanice`, uz postojeće „Stigao/Krenuo".
+- Uzima trenutni GPS (`expo-location`, `Accuracy.Highest`) i zove `POST /api/mobile/route-stops/:id/coords`.
+- Poruke po vašem `location` polju: `accepted` → „Sačuvano", `proposed` → „Poslato dispečeru na potvrdu", `none` → „Sačuvano za ovu turu".
+- **Ide kroz offline red** (`postQueued`), kako ste tražili. Kad je zahtev stavljen u red, odgovora nema pa ni `location` ne znamo — tada vozač dobija „Sačuvano — poslaće se čim budeš na mreži".
+
+**Nije testiran pun krug, namerno.** Emulator prijavljuje lokaciju u Mountain View-u, pa bi pritisak na dugme upisao kalifornijske koordinate na beogradsku stanicu u produkcionoj bazi — a to se sa mobilne strane ne može povući. Provereno je da se dugme ispravno prikazuje; poziv endpoint-a treba potvrditi na terenu ili na test podacima.
+
+**Pitanje:** dugme je za sada sakriveno neaktivnom članu dvojne posade, zajedno sa ostalim akcijama stanice. U vašoj specifikaciji write ruta naveden je `route-stops/:id/actions`, ali `/coords` nije pomenut. Ako je `/coords` otvoren obema stranama posade, recite pa ga prikazujem uvek — vozač koji je fizički na rampi ima najbolju tačku, bez obzira ko je te smene za volanom.
+
 ### 2026-10-22 - „Smena vožnje": dozvole prate aktivnog vozača (`DONE`, JS-only → OTA)
 
 Povezana vaša dopuna od 2026-10-22. **Prethodna isporuka (od istog dana) je bila pogrešna** i dobro je što nije objavljena: dozvole sam bio vezao za `coDriverId`, pa bi drugi vozač bio zaključan i onda kad je na smeni — baš kad treba da unosi stanice i troškove.
