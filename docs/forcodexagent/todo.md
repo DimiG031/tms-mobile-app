@@ -637,6 +637,38 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-22 - Dvojna posada: značka + read-only za drugog vozača (`DONE`, JS-only → OTA)
+
+Povezane sekcije 2026-10-18, dopuna 2026-10-20 i dopuna 2026-10-21.
+
+**Uloga se računa na jednom mestu** (`src/lib/crew.ts`, `src/queries/useCrew.ts`) — poređenjem mog `driverId` iz profila sa `driverId`/`coDriverId` ture. Poštujemo vaše pravilo: `coDriverId` postavljen a `coDriverRole` prazan → **drugi vozač**, ne suvozač.
+
+**Značka** „Dvojna posada · drugi vozač" / „· suvozač" u listi tura, u istoriji i na aktivnoj turi na početnoj. Tura se i dalje normalno broji u učinak — ništa se ne sakriva niti izbacuje iz brojača, kako ste tražili.
+
+**Read-only** je postavljen samo tamo gde backend **danas** odbija pisanje, da vozač ne pritisne pa dobije grešku sa servera: akcije na stanici (početna i detalji), promena statusa ture, „Prijavi problem", troškovnik (jedan čuvar na ulazu u svih 9 handlera) i checklist. Putni list koristi `readOnly`/`viewerIsCoDriver` iz `/lines`.
+
+**SOS je namerno ostao aktivan svima** — hitan poziv ne treba vezivati za ulogu. Ako se ne slažete, recite pa zaključavam i njega (pitanje 1 ispod).
+
+### 2026-10-22 - PITANJA ZA VLASNIKA (`NEEDS_BACKEND`) — dvojna posada
+
+Vlasnik je objasnio kako dvojna posada stvarno radi: **drugi vozač je vozač**, prvi ima prioritet zbog iskustva (kao vođa smene). Voze naizmenično, npr. 4,5 sata pa smena. Vaš `coDriverRole: DRIVER` to i priznaje. Ali model dozvola je i dalje „read-only posmatrač", pa ostaju rupe u evidenciji:
+
+**1. SOS.** Da li drugi vozač sme da ga pritisne? Mi smo ga ostavili aktivnim. `POST /api/mobile/sos` — da li ruta odbija `coDriver`? Ako odbija, treba je otvoriti; hitan poziv ne bi smeo da zavisi od toga ko je te smene za volanom.
+
+**2. Ko evidentira stanicu tokom smene drugog vozača?** On vozi 4,5 sata, stiže na utovar, i ne može da pritisne „Stigao/Krenuo". Jedine opcije danas su da budi glavnog vozača koji spava, ili da se stanica evidentira sa zakašnjenjem i od pogrešne osobe. Vreme dolaska je podatak od koga zavise dnevnice i zadržavanja.
+
+**3. Gde ide trošak koji plati drugi vozač?** Šema izričito kaže „troškovnik ostaje kod glavnog `driverId`". Ako on tokom svoje smene plati gorivo ili putarinu, trenutno nema gde to da unese.
+
+**4. Prijava kvara tokom njegove smene.** Uputili smo ga na Poruke, po vašoj odluci. To znači da kvar primećen u njegovoj smeni **ne ulazi u evidenciju ture** nego u prepisku. Je li to namerno?
+
+**5. Koji model putnog naloga važi?** Dve vaše odluke se ne slažu:
+- sekcija `HANDOVER` (2026-10-15): *„dispečer na webu pravi **zaseban putni nalog po vozaču** i veže ga za istu turu"* — tu je svaki vozač glavni na svom nalogu
+- dopuna (2026-10-20): **jedan** nalog sa `coDriverId`, drugi vozač read-only
+
+U šemi postoje oba (`TravelOrder.coDriverId`, komentar „dvojna posada (kasnije)"). Ako važi prvi model, read-only na putnom listu je suvišan — svaki vozač ima svoj. Ako važi drugi, onda drugi vozač nema gde da vodi svoju deonicu.
+
+**Napomena o Fazi B.** Naveli ste „smena vožnje" event i dnevnice za drugog vozača kao kasnije. Dok to ne stigne, period dok drugi vozač vozi **nije pokriven evidencijom** — ni stanice, ni troškovi, ni sati. To nije kozmetika nego rupa u podacima od kojih zavise dnevnice.
+
 ### 2026-10-20 - Spojeno „Kretanje" + manje dugmadi; vreme završetka zadatka (`DONE`, JS-only → OTA)
 
 Povezana odluka od 2026-10-16 (Putni list vs Događaji) i zatvorene sve tri vaše napomene.
