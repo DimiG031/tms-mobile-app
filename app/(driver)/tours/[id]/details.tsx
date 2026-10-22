@@ -7,8 +7,8 @@ import { useTheme } from "@/providers/ThemeProvider";
 import type { AppDocument, TourForwarderInfo, TourNotes, TourStop } from "@/lib/types";
 import { formatDateTime, formatRouteLabel, translateTourStatus } from "@/lib/formatters";
 import { useTourDetails } from "@/queries/useTourDetails";
-import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
-import { useTourCrewRole } from "@/queries/useCrew";
+import { crewBadgeLabel } from "@/lib/crew";
+import { useTourAccess } from "@/queries/useCrew";
 import { useTourDocuments } from "@/queries/useTourDocuments";
 import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
 import { useCustomsAmenities } from "@/queries/useCustomsAmenities";
@@ -332,8 +332,9 @@ export default function TourMoreDetailsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const tourId = params.id;
   const { data: tour, isLoading, isError } = useTourDetails(tourId);
-  const crew = useTourCrewRole(tour);
-  const readOnlyCrew = isCoDriver(crew);
+  const access = useTourAccess(tour);
+  // Dozvole prate aktivnog vozaca (2026-10-22), ne formalnog nosioca.
+  const readOnlyCrew = !access.canWrite;
   const { data: endpointDocuments = [] } = useTourDocuments(tourId);
   const { data: endpointStops = [] } = useTourStops(tourId);
   const routeStopAction = useRouteStopAction(tourId);
@@ -430,7 +431,10 @@ export default function TourMoreDetailsScreen() {
       <Stack.Screen options={{ title: "Detaljnije" }} />
       {readOnlyCrew ? (
         <View className="mt-2 rounded-xl border px-3 py-2" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
-          <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>{crewBadgeLabel(crew)} — pregled</Text>
+          <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
+            {crewBadgeLabel(access.role) ?? "Dvojna posada"}
+            {access.activeDriverName ? ` — trenutno vozi ${access.activeDriverName}` : " — pregled"}
+          </Text>
         </View>
       ) : null}
       <Text className="mb-4 mt-1 text-sm" style={{ color: theme.text.secondary }}>

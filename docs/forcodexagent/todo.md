@@ -637,6 +637,22 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-22 - „Smena vožnje": dozvole prate aktivnog vozača (`DONE`, JS-only → OTA)
+
+Povezana vaša dopuna od 2026-10-22. **Prethodna isporuka (od istog dana) je bila pogrešna** i dobro je što nije objavljena: dozvole sam bio vezao za `coDriverId`, pa bi drugi vozač bio zaključan i onda kad je na smeni — baš kad treba da unosi stanice i troškove.
+
+**Sada dozvole prate aktivnog vozača:** `(activeDriverId ?? driverId) === mojDriverId`. Logika je na jednom mestu (`src/lib/crew.ts`, `src/queries/useCrew.ts`).
+
+- **Dugme „Smena vožnje"** na aktivnoj turi (početna) i na detaljima ture. Vidi se samo kad postoji `coDriverId` i `coDriverRole !== ASSISTANT`. Gađa `POST /api/mobile/tours/:id/switch-driver` i osvežava ture, detalje, početnu, naloge i linije.
+- **Read-only za neaktivnog** člana: akcije na stanici, promena statusa, „Prijavi problem", troškovnik (čuvar na svih 9 handlera), checklist, putni list. Poruke sada upućuju na „Smenu vožnje", ne na glavnog vozača.
+- **Značka** „Dvojna posada · drugi vozač / suvozač", uz „— trenutno vozi ‹ime›" kad znamo ime iz `coDriverName`.
+- **Suvozač (`ASSISTANT`)** ostaje čist read-only, bez dugmeta za smenu.
+- **SOS ostaje otvoren obojici**, po vašem odgovoru na pitanje 1.
+
+**Osigurač koji vredi da znate:** kad `activeDriverId` i `driverId` ne stignu u odgovoru (stariji zapis ili keširan odgovor — koristimo React Query persist), **namerno NE zaključavamo** ništa. Bolje pustiti pa da backend odbije, nego vozaču zaključati njegovu sopstvenu turu zbog polja koje nije stiglo.
+
+**Provereno na emulatoru:** put glavnog vozača je netaknut — „Stigao/Krenuo" vidljivi, bez značke i bez dugmeta za smenu na turi bez posade. **Nije provereno uživo** ponašanje sa stvarnom dvojnom posadom (nemamo turu sa `coDriverId`); za to treba da dispečer dodeli drugog vozača na turi.
+
 ### 2026-10-22 - Dvojna posada: značka + read-only za drugog vozača (`DONE`, JS-only → OTA)
 
 Povezane sekcije 2026-10-18, dopuna 2026-10-20 i dopuna 2026-10-21.
@@ -649,7 +665,7 @@ Povezane sekcije 2026-10-18, dopuna 2026-10-20 i dopuna 2026-10-21.
 
 **SOS je namerno ostao aktivan svima** — hitan poziv ne treba vezivati za ulogu. Ako se ne slažete, recite pa zaključavam i njega (pitanje 1 ispod).
 
-### 2026-10-22 - PITANJA ZA VLASNIKA (`NEEDS_BACKEND`) — dvojna posada
+### 2026-10-22 - PITANJA ZA VLASNIKA (`DONE` — odgovoreno, vidi sekciju ODGOVORI VLASNIKA) — dvojna posada
 
 Vlasnik je objasnio kako dvojna posada stvarno radi: **drugi vozač je vozač**, prvi ima prioritet zbog iskustva (kao vođa smene). Voze naizmenično, npr. 4,5 sata pa smena. Vaš `coDriverRole: DRIVER` to i priznaje. Ali model dozvola je i dalje „read-only posmatrač", pa ostaju rupe u evidenciji:
 
@@ -985,3 +1001,33 @@ Svi zadaci sa ove liste su završeni 2026-06-11 (backend je isporučio, mobile p
 9. Ovaj dokument ažuriran statusom mobilne strane. ✓
 
 Nema otvorenih stavki prema backendu. Izbor stanice u prijavi problema i puna tamna tema su takođe završeni.
+
+### 2026-10-22 - ODGOVORI VLASNIKA + BACKEND: „Smena vožnje" (swap aktivnog vozača) — `NEEDS_MOBILE`
+
+Vlasnik je odlučio: **ne „read-only posmatrač", nego smena.** Na „Smenu vožnje" se **swap-uju uloge i dozvole** — ko je te smene za volanom postaje aktivan i ima PUNE dozvole, drugi je read-only. Time se zatvaraju sve rupe (stanice, troškovi, kvarovi) iz vaših pitanja 1–5.
+
+**Formalnost ostaje fiksna:** `Tour.driverId` (vođa smene / nosilac) se NE menja — tura se u izveštajima i dalje broji jednom, po njemu. Swap-uje se samo KO JE AKTIVAN za unos.
+
+**Backend isporučeno (commit `cef7bc8`, migracija `20261022120000_active_driver`):**
+- Nova polja: **`Tour.activeDriverId`** i **`TravelOrder.activeDriverId`** (`null` → aktivan je glavni `driverId`). Vraćaju se u `GET /api/tours` i `GET /api/tours/[id]` (+ na putnom nalogu).
+- **Endpoint smene:** `POST /api/mobile/tours/:id/switch-driver` → swap `activeDriverId` između `driverId` i `coDriverId` (+ sinhronizuje otvorene putne naloge te ture). Sme ga pozvati bilo koji član posade. Odbija ako nema dvojne posade ili je `coDriverRole = ASSISTANT` (suvozač ne vozi). Odgovor: `{ ok, data: { activeDriverId, isMeActive } }`.
+- **Dozvole (write) prate aktivnog** (`activeDriverId ?? driverId`). Otvoreno aktivnom vozaču, odbijeno drugom (403/404):
+  - stanice: `POST /api/mobile/route-stops/:id/actions`
+  - prijava problema: `POST /api/mobile/tours/:id/issues`
+  - troškovnik: `.../expense-sheet` (+ `:sheetId`, `items`, `items/:itemId`, `confirm`)
+  - checklist: `PATCH .../checklist/:itemId`
+  - putni list: `PUT /api/mobile/travel-orders/:id/lines`
+- **Read za oba člana posade** (nezavisno od toga ko je aktivan): `GET /api/tours`, `GET /api/tours/:id`, `GET /api/route-stops`, `GET /api/documents`, `GET .../lines` (vraća `readOnly`/`viewerIsCoDriver`), `GET /api/mobile/me/stats` i `tours/summary` (dvojne ture se drugom vozaču NORMALNO broje).
+- **SOS je otvoren OBOJICI** (`POST /api/mobile/sos`) — hitan poziv ne zavisi od smene. (odgovor na pitanje 1)
+
+**Odgovori na vaših 5 pitanja:**
+1. **SOS** — da, oba člana posade (otvoreno na backendu). ✅
+2. **Ko evidentira stanicu u smeni drugog vozača** — on, čim je aktivan (posle „Smene vožnje"). Više nema rupe. ✅
+3. **Trošak koji plati drugi vozač** — unosi ga dok je aktivan (troškovnik prati aktivnog). ✅
+4. **Kvar u njegovoj smeni** — „Prijavi problem" mu je otvoren dok je aktivan (ulazi u evidenciju ture, ne samo chat). ✅
+5. **Model putnog naloga** — DVA RAZLIČITA scenarija, nisu u konfliktu: **predaja na deonici** (Marko do granice, Petar dalje) = zaseban nalog po vozaču (deonice); **dvojna posada** (oba na istoj turi, naizmenično) = jedan nalog + `coDriverId`, dozvole prate aktivnog. Dispečer bira. ✅
+
+**Šta mobilni treba da uradi (`NEEDS_MOBILE`):**
+- Dugme **„Smena vožnje"** na aktivnoj turi (vidljivo samo kad `coDriverId` postoji i `coDriverRole !== ASSISTANT`). Poziva `POST .../switch-driver`, pa osvežava turu/detalje.
+- **Dozvole prate `activeDriverId`:** aktivan vozač (`activeDriverId ?? driverId === mojDriverId`) → pune akcije (stanice/troškovnik/checklist/putni list/prijava); neaktivan → read-only (kao što već radite), uz badge „Dvojna posada — trenutno vozi <ime>".
+- Suvozač (`coDriverRole = ASSISTANT`) → ostaje čist read-only (nema smene, nema dugmeta).

@@ -5,8 +5,8 @@ import { Pressable, Text, View } from "@/components/ui";
 import { useTourDetails, useUpdateTourStatus } from "@/queries/useTourDetails";
 import { useExpenseSheet } from "@/queries/useExpenseSheet";
 import { useTheme } from "@/providers/ThemeProvider";
-import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
-import { useTourCrewRole } from "@/queries/useCrew";
+import { crewBadgeLabel } from "@/lib/crew";
+import { useSwitchDriver, useTourAccess } from "@/queries/useCrew";
 import { formatRouteLabel, formatTourDateRange, translateTourStatus } from "@/lib/formatters";
 
 function statusStep(status?: string) {
@@ -59,10 +59,25 @@ export default function TourDetailsScreen() {
   const nextStatus = getNextStatusLabel(data?.status);
   const blockComplete = data?.status?.toUpperCase() === "IN_TRANSIT" && sheet?.status === "OPEN";
 
-  const crew = useTourCrewRole(data);
-  // Backend write rute (status, akcije na stanici, prijava problema) i dalje
-  // prihvataju samo glavnog vozaca — sakrivamo ih da vozac ne dobije gresku.
-  const readOnlyCrew = isCoDriver(crew);
+  const access = useTourAccess(data);
+  const switchDriver = useSwitchDriver();
+  // Dozvole prate AKTIVNOG vozaca (odluka 2026-10-22), ne formalnog nosioca.
+  const readOnlyCrew = !access.canWrite;
+
+  function onSwitchDriver() {
+    if (!tourId) return;
+    switchDriver.mutate(tourId, {
+      onSuccess: (res) =>
+        Alert.alert(
+          "Smena vožnje",
+          res.data?.isMeActive
+            ? "Sada si ti za volanom — unos je otvoren."
+            : "Smena je preneta na drugog vozača."
+        ),
+      onError: (err) =>
+        Alert.alert("Smena vožnje", err instanceof Error ? err.message : "Smena nije uspela.")
+    });
+  }
 
   function onUpdateStatus() {
     if (!nextStatus || !data) return;
@@ -87,12 +102,27 @@ export default function TourDetailsScreen() {
       {readOnlyCrew ? (
         <View className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
           <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
-            {crewBadgeLabel(crew)} — pregled
+            {crewBadgeLabel(access.role) ?? "Dvojna posada"} — pregled
           </Text>
           <Text className="mt-1 text-xs" style={{ color: theme.status.IN_TRANSIT.text }}>
-            Turu vodi glavni vozač. Ako nešto nije u redu, javi preko Poruka.
+            {access.activeDriverName
+              ? `Trenutno vozi ${access.activeDriverName}. Unos je kod njega dok traje njegova smena.`
+              : "Unos vodi vozač koji je trenutno na smeni."}
           </Text>
         </View>
+      ) : null}
+
+      {access.canSwitch ? (
+        <Pressable
+          onPress={onSwitchDriver}
+          disabled={switchDriver.isPending}
+          className="mt-3 flex-row items-center justify-center gap-2 rounded-xl border px-4 py-3 disabled:opacity-60"
+          style={{ borderColor: theme.accent.primary }}
+        >
+          <Text className="font-semibold" style={{ color: theme.accent.primary }}>
+            {switchDriver.isPending ? "Menjam..." : "Smena vožnje"}
+          </Text>
+        </Pressable>
       ) : null}
 
       <View className="mt-4 rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>

@@ -4,8 +4,7 @@ import { Alert, Image, Modal, Platform, ScrollView } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useTourDetails } from "@/queries/useTourDetails";
-import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
-import { useTourCrewRole } from "@/queries/useCrew";
+import { useTourAccess } from "@/queries/useCrew";
 import {
   useConfirmExpenseSheet,
   useCreateExpenseItem,
@@ -119,9 +118,8 @@ export default function TourExpenseScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const tourId = params.id;
   const { data: tour } = useTourDetails(tourId);
-  const crew = useTourCrewRole(tour);
-  // Troskovnik po semi ostaje kod glavnog vozaca (Tour.coDriverId komentar).
-  const readOnlyCrew = isCoDriver(crew);
+  // Troskovnik prati aktivnog vozaca — drugi vozac ga vodi dok je on na smeni.
+  const readOnlyCrew = !useTourAccess(tour).canWrite;
 
   const { data: sheet, isLoading, isError } = useExpenseSheet(tourId);
   const createSheet = useCreateExpenseSheet(tourId);
@@ -221,7 +219,7 @@ export default function TourExpenseScreen() {
   // zaustavljamo ovde da umesto greske dobije jasnu poruku.
   function blockedForCrew(): boolean {
     if (!readOnlyCrew) return false;
-    Alert.alert("Troškovnik", "Troškovnik vodi glavni vozač. Ako nešto treba ispraviti, javi preko Poruka.");
+    Alert.alert("Troškovnik", "Troškovnik vodi vozač koji je trenutno na smeni. Uradi „Smenu vožnje“ pa pokušaj ponovo.");
     return true;
   }
 

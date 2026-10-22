@@ -115,6 +115,8 @@ export type Tour = {
   coDriverId?: string | null;
   coDriverRole?: CoDriverRole | null;
   coDriverName?: string | null;
+  // Ko trenutno vozi; prazno → aktivan je glavni vozac. Menja se "Smenom voznje".
+  activeDriverId?: string | null;
 };
 
 export type TourStop = {

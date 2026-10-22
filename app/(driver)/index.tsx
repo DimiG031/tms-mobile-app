@@ -9,8 +9,8 @@ import { Pressable, Text, View } from "@/components/ui";
 import { formatRouteLabel, formatTourDateShort, splitRouteLabel, translateExpenseStatus, translateTourStatus } from "@/lib/formatters";
 import type { AppTheme } from "@/providers/ThemeProvider";
 import { useTheme } from "@/providers/ThemeProvider";
-import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
-import { useTourCrewRole } from "@/queries/useCrew";
+import { crewBadgeLabel } from "@/lib/crew";
+import { useSwitchDriver, useTourAccess } from "@/queries/useCrew";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatThreads } from "@/queries/useChat";
 import { useDashboardData } from "@/queries/useDashboardData";
@@ -150,8 +150,9 @@ export default function DriverHomeScreen() {
   const checklistQuery = useTourChecklist(activeId);
   const expenseQuery = useExpenseSheet(activeId);
   const routeStopAction = useRouteStopAction(activeId);
-  const crew = useTourCrewRole(active);
-  const readOnlyCrew = isCoDriver(crew);
+  const access = useTourAccess(active);
+  const switchDriver = useSwitchDriver();
+  const readOnlyCrew = !access.canWrite;
   const [pendingAction, setPendingAction] = useState<RouteStopAction | null>(null);
   const [isRefreshing, setRefreshing] = useState(false);
 
@@ -267,9 +268,28 @@ export default function DriverHomeScreen() {
           {readOnlyCrew ? (
             <View className="mt-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
               <Text className="text-[11px] font-semibold" style={{ color: theme.text.secondary }}>
-                {crewBadgeLabel(crew)} — turu vodi glavni vozač
+                {crewBadgeLabel(access.role) ?? "Dvojna posada"}
+                {access.activeDriverName ? ` — trenutno vozi ${access.activeDriverName}` : " — nisi na smeni"}
               </Text>
             </View>
+          ) : null}
+
+          {active && access.canSwitch ? (
+            <Pressable
+              onPress={() =>
+                switchDriver.mutate(active.id, {
+                  onError: (err) =>
+                    Alert.alert("Smena vožnje", err instanceof Error ? err.message : "Smena nije uspela.")
+                })
+              }
+              disabled={switchDriver.isPending}
+              className="mt-2.5 rounded-xl border px-4 py-2.5 disabled:opacity-60"
+              style={{ borderColor: theme.accent.primary }}
+            >
+              <Text className="text-center text-sm font-semibold" style={{ color: theme.accent.primary }}>
+                {switchDriver.isPending ? "Menjam..." : "Smena vožnje"}
+              </Text>
+            </Pressable>
           ) : null}
           <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>
             {active ? formatTourDateShort(active.dateLabel) : "Trenutno nema ture u toku."}

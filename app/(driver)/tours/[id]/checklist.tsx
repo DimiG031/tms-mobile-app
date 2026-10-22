@@ -4,8 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTourChecklist, useToggleChecklistItem } from "@/queries/useTourChecklist";
 import { useTourDetails } from "@/queries/useTourDetails";
-import { isCoDriver } from "@/lib/crew";
-import { useTourCrewRole } from "@/queries/useCrew";
+import { useTourAccess } from "@/queries/useCrew";
 import type { TourChecklistItem } from "@/lib/types";
 import { useTheme } from "@/providers/ThemeProvider";
 
@@ -17,11 +16,11 @@ export default function TourChecklistScreen() {
   const toggleItem = useToggleChecklistItem(tourId);
   // useTourDetails je vec kesiran sa ekrana ture, pa ovo nije dodatni poziv.
   const { data: tour } = useTourDetails(tourId);
-  const readOnlyCrew = isCoDriver(useTourCrewRole(tour));
+  const readOnlyCrew = !useTourAccess(tour).canWrite;
 
   function onToggle(item: TourChecklistItem) {
     if (readOnlyCrew) {
-      Alert.alert("Checklist", "Checklistu vodi glavni vozač. Ako nešto nije u redu, javi preko Poruka.");
+      Alert.alert("Checklist", "Checklistu vodi vozač koji je trenutno na smeni. Uradi „Smenu vožnje“ pa pokušaj ponovo.");
       return;
     }
     toggleItem.mutate(

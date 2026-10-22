@@ -166,7 +166,7 @@ export default function PutniListScreen() {
           <View className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
             <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
               {viewerIsCoDriver
-                ? "Dvojna posada — pregled. Putni list vodi glavni vozač; ako nešto nije u redu, javi preko Poruka."
+                ? "Dvojna posada — pregled. Putni list vodi vozač koji je trenutno na smeni."
                 : "Dispečer trenutno uređuje ovaj putni list — tvoj unos je zaključan."}
             </Text>
           </View>
