@@ -341,7 +341,14 @@ export function normalizeTourSummary(value: unknown): Tour | null {
       "totalDistanceKm",
       "plannedDistanceKm",
       "mileageKm"
-    ])
+    ]),
+    // Posada: bez ovih polja mobilni ne zna ko je nosilac, ko drugi vozac i ko
+    // trenutno vozi — od toga zavise dozvole i "Smena voznje".
+    driverId: pickString(obj, ["driverId"]),
+    coDriverId: pickString(obj, ["coDriverId"]),
+    coDriverRole: pickString(obj, ["coDriverRole"]),
+    coDriverName: pickString(obj, ["coDriverName"]),
+    activeDriverId: pickString(obj, ["activeDriverId"])
   };
 }
 
