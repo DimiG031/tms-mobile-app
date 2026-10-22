@@ -4,6 +4,10 @@ import { RefreshControl, ScrollView } from "react-native";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTours } from "@/queries/useTours";
 import { useTheme } from "@/providers/ThemeProvider";
+import type { AppTheme } from "@/providers/ThemeProvider";
+import type { Tour } from "@/lib/types";
+import { crewBadgeLabel, crewRole } from "@/lib/crew";
+import { useMyDriverId } from "@/queries/useCrew";
 import { formatRouteLabel, formatTourDateRange, translateTourStatus } from "@/lib/formatters";
 
 const FILTERS = ["Sve", "Aktivne", "Planirane", "Završene"] as const;
@@ -19,6 +23,7 @@ function matchFilter(filter: FilterType, status: string): boolean {
 
 export default function ToursListScreen() {
   const theme = useTheme();
+  const myDriverId = useMyDriverId();
   const { data, isLoading, isError, refetch } = useTours();
   const [filter, setFilter] = useState<FilterType>("Sve");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -90,6 +95,7 @@ export default function ToursListScreen() {
                 <View className="flex-1">
                   <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatRouteLabel(tour.routeLabel)}</Text>
                   <Text className="mt-1 text-sm text-slate-600 dark:text-slate-400">{formatTourDateRange(tour.dateLabel)}</Text>
+                  <CrewBadge tour={tour} myDriverId={myDriverId} theme={theme} />
                 </View>
                 <View
                   className="rounded-full px-3 py-1"
@@ -112,5 +118,25 @@ export default function ToursListScreen() {
         ) : null}
       </View>
     </ScrollView>
+  );
+}
+
+// Tura na kojoj je vozač drugi vozač ili suvozač. Tura se i dalje broji u
+// učinak (odluka backenda 2026-10-21) — značka je tu samo da se vidi šta je šta.
+function CrewBadge({
+  tour,
+  myDriverId,
+  theme
+}: {
+  tour: Tour;
+  myDriverId: string | null;
+  theme: AppTheme;
+}) {
+  const label = crewBadgeLabel(crewRole(tour, myDriverId));
+  if (!label) return null;
+  return (
+    <View className="mt-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
+      <Text className="text-[11px] font-semibold" style={{ color: theme.text.secondary }}>{label}</Text>
+    </View>
   );
 }

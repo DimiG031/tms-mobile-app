@@ -80,8 +80,10 @@ export default function PutniListScreen() {
   // Niz-provere: React Query persist moze da vrati kesiran odgovor iz starije
   // verzije aplikacije, kad je ovaj endpoint vracao goli niz redova.
   const original = Array.isArray(linesQuery.data?.linesOriginal) ? linesQuery.data.linesOriginal : [];
-  // Dok je zahtev odobren, dispecer uredjuje i backend odbija nas PUT (409).
-  const locked = lineEditStatus === "APPROVED";
+  // Dva razloga za zakljucavanje: dispecer uredjuje (409 na PUT), ili ovo
+  // gleda drugi vozac iz dvojne posade (PUT ostaje glavnom vozacu).
+  const viewerIsCoDriver = linesQuery.data?.viewerIsCoDriver === true;
+  const locked = lineEditStatus === "APPROVED" || linesQuery.data?.readOnly === true;
   const viewing = showOriginal ? original : Array.isArray(lines) ? lines : [];
 
   // Server je izvor istine dok vozač ne počne da menja.
@@ -163,7 +165,9 @@ export default function PutniListScreen() {
         {locked ? (
           <View className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
             <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
-              Dispečer trenutno uređuje ovaj putni list — tvoj unos je zaključan.
+              {viewerIsCoDriver
+                ? "Dvojna posada — pregled. Putni list vodi glavni vozač; ako nešto nije u redu, javi preko Poruka."
+                : "Dispečer trenutno uređuje ovaj putni list — tvoj unos je zaključan."}
             </Text>
           </View>
         ) : null}

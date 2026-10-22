@@ -4,6 +4,8 @@ import { Alert, Image, Modal, Platform, ScrollView } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useTourDetails } from "@/queries/useTourDetails";
+import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
+import { useTourCrewRole } from "@/queries/useCrew";
 import {
   useConfirmExpenseSheet,
   useCreateExpenseItem,
@@ -117,6 +119,9 @@ export default function TourExpenseScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const tourId = params.id;
   const { data: tour } = useTourDetails(tourId);
+  const crew = useTourCrewRole(tour);
+  // Troskovnik po semi ostaje kod glavnog vozaca (Tour.coDriverId komentar).
+  const readOnlyCrew = isCoDriver(crew);
 
   const { data: sheet, isLoading, isError } = useExpenseSheet(tourId);
   const createSheet = useCreateExpenseSheet(tourId);
@@ -212,6 +217,14 @@ export default function TourExpenseScreen() {
       ? Number(sheet?.advance)
       : 0;
 
+  // Jedan cuvar na ulazu u svaku izmenu: backend odbija drugog vozaca, pa ga
+  // zaustavljamo ovde da umesto greske dobije jasnu poruku.
+  function blockedForCrew(): boolean {
+    if (!readOnlyCrew) return false;
+    Alert.alert("Troškovnik", "Troškovnik vodi glavni vozač. Ako nešto treba ispraviti, javi preko Poruka.");
+    return true;
+  }
+
   function resetItemDraft() {
     setEditingItemId(null);
     setItemDraft(createDefaultDraft());
@@ -219,12 +232,14 @@ export default function TourExpenseScreen() {
   }
 
   function onOpenCreateItem() {
+    if (blockedForCrew()) return;
     if (isReadOnly) return;
     resetItemDraft();
     setItemModalVisible(true);
   }
 
   function onCreateSheet() {
+    if (blockedForCrew()) return;
     const parsedAdvance = parseAmount(advance);
     createSheet.mutate(
       {
@@ -245,6 +260,7 @@ export default function TourExpenseScreen() {
   }
 
   function onSaveAdvance() {
+    if (blockedForCrew()) return;
     if (!sheet || isReadOnly) return;
     const parsedAdvance = parseAmount(advance);
     updateSheet.mutate(
@@ -266,6 +282,7 @@ export default function TourExpenseScreen() {
   }
 
   function onEditItem(item: ExpenseItem) {
+    if (blockedForCrew()) return;
     if (isReadOnly) return;
     setEditingItemId(item.id);
     setItemDraft({
@@ -282,6 +299,7 @@ export default function TourExpenseScreen() {
   }
 
   function onDeleteItem(itemId: string) {
+    if (blockedForCrew()) return;
     if (isReadOnly) return;
     Alert.alert("Brisanje stavke", "Da li ste sigurni da želite da obrišete stavku?", [
       { text: "Odustani", style: "cancel" },
@@ -301,6 +319,7 @@ export default function TourExpenseScreen() {
   }
 
   function onSaveItem() {
+    if (blockedForCrew()) return;
     if (!sheet || isReadOnly) return;
     const amount = parseAmount(itemDraft.amount);
     if (!amount || amount <= 0) {
@@ -352,6 +371,7 @@ export default function TourExpenseScreen() {
   }
 
   function onSubmitSheet() {
+    if (blockedForCrew()) return;
     if (!sheet || isReadOnly) return;
     Alert.alert("Predaja troškovnika", "Nakon predaje troškovnik postaje samo za čitanje. Nastaviti?", [
       { text: "Odustani", style: "cancel" },
@@ -373,6 +393,7 @@ export default function TourExpenseScreen() {
   }
 
   function onConfirmRevision() {
+    if (blockedForCrew()) return;
     if (!sheet || sheet.status !== "REVISED") return;
     Alert.alert("Potvrda izmene", "Potvrđuješ izmene koje je dispečer uneo u troškovnik?", [
       { text: "Odustani", style: "cancel" },
@@ -394,6 +415,7 @@ export default function TourExpenseScreen() {
   }
 
   function onRejectRevision() {
+    if (blockedForCrew()) return;
     if (!sheet || sheet.status !== "REVISED") return;
     Alert.alert(
       "Vraćanje na doradu",
@@ -494,6 +516,7 @@ export default function TourExpenseScreen() {
         <Pressable
           className="mt-4 rounded-xl bg-brand-600 px-4 py-3"
           onPress={() => setCreateSheetModalVisible(true)}
+          disabled={readOnlyCrew}
         >
           <Text className="text-center font-semibold text-white">Kreiraj troškovnik</Text>
         </Pressable>

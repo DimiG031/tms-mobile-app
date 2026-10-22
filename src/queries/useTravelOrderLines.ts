@@ -51,6 +51,9 @@ export type TravelOrderLines = {
   // Vozacev original, snapshot u trenutku odobrenja izmene (ili prazno).
   linesOriginal: TravelOrderLine[];
   lineEditStatus: LineEditStatus;
+  // Backend salje readOnly kad gleda drugi vozac (dvojna posada, 2026-10-20).
+  readOnly: boolean;
+  viewerIsCoDriver: boolean;
 };
 
 function asLines(value: unknown): TravelOrderLine[] {
@@ -64,7 +67,9 @@ function unwrapLines(payload: unknown): TravelOrderLines {
   return {
     lines: asLines(root.lines),
     linesOriginal: asLines(root.linesOriginal),
-    lineEditStatus: typeof root.lineEditStatus === "string" ? root.lineEditStatus : "NONE"
+    lineEditStatus: typeof root.lineEditStatus === "string" ? root.lineEditStatus : "NONE",
+    readOnly: root.readOnly === true,
+    viewerIsCoDriver: root.viewerIsCoDriver === true
   };
 }
 

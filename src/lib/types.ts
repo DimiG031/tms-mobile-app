@@ -99,6 +99,10 @@ export type MobileProfile = {
   } | null;
 };
 
+// Dvojna posada: DRIVER = drugi vozac (vozi, svoji sati), ASSISTANT = suvozac
+// (ne vozi). coDriverId postavljen a role null → tretira se kao DRIVER.
+export type CoDriverRole = "DRIVER" | "ASSISTANT" | string;
+
 export type Tour = {
   id: string;
   status: "PLANNED" | "CONFIRMED" | "IN_TRANSIT" | "COMPLETED" | string;
@@ -107,6 +111,10 @@ export type Tour = {
   startDate?: string | null;
   endDate?: string | null;
   distanceKm?: number | null;
+  driverId?: string | null;
+  coDriverId?: string | null;
+  coDriverRole?: CoDriverRole | null;
+  coDriverName?: string | null;
 };
 
 export type TourStop = {

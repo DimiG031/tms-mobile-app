@@ -7,6 +7,8 @@ import { useTheme } from "@/providers/ThemeProvider";
 import type { AppDocument, TourForwarderInfo, TourNotes, TourStop } from "@/lib/types";
 import { formatDateTime, formatRouteLabel, translateTourStatus } from "@/lib/formatters";
 import { useTourDetails } from "@/queries/useTourDetails";
+import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
+import { useTourCrewRole } from "@/queries/useCrew";
 import { useTourDocuments } from "@/queries/useTourDocuments";
 import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
 import { useCustomsAmenities } from "@/queries/useCustomsAmenities";
@@ -144,11 +146,13 @@ function StopCard({
   stop,
   index,
   isPending,
+  readOnlyCrew,
   onAction
 }: Readonly<{
   stop: TourStop;
   index: number;
   isPending: boolean;
+  readOnlyCrew: boolean;
   onAction: (stop: TourStop, action: RouteStopAction) => void;
 }>) {
   const theme = useTheme();
@@ -210,6 +214,7 @@ function StopCard({
           {stop.customsOfficeId ? <CustomsAmenities customsOfficeId={stop.customsOfficeId} /> : null}
           <NoteBlock label="Napomena za vozača" value={stop.driverNote} />
 
+          {readOnlyCrew ? null : (
           <View className="mt-3 flex-row gap-2">
             <StopActionButton
               label={isPending ? "Slanje..." : "Stigao"}
@@ -223,6 +228,7 @@ function StopCard({
               onPress={() => onAction(stop, "DEPARTED")}
             />
           </View>
+          )}
           {!stop.id ? (
             <Text className="mt-2 text-xs" style={{ color: theme.text.secondary }}>
               Akcije nisu dostupne jer backend nije poslao ID stanice.
@@ -326,6 +332,8 @@ export default function TourMoreDetailsScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const tourId = params.id;
   const { data: tour, isLoading, isError } = useTourDetails(tourId);
+  const crew = useTourCrewRole(tour);
+  const readOnlyCrew = isCoDriver(crew);
   const { data: endpointDocuments = [] } = useTourDocuments(tourId);
   const { data: endpointStops = [] } = useTourStops(tourId);
   const routeStopAction = useRouteStopAction(tourId);
@@ -401,6 +409,7 @@ export default function TourMoreDetailsScreen() {
                 stop={stop}
                 index={index}
                 isPending={pendingStopId === stop.id && routeStopAction.isPending}
+                readOnlyCrew={readOnlyCrew}
                 onAction={onStopAction}
               />
             ))
@@ -419,6 +428,11 @@ export default function TourMoreDetailsScreen() {
   return (
     <ScrollView className="flex-1" style={{ backgroundColor: theme.surface.app }} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Stack.Screen options={{ title: "Detaljnije" }} />
+      {readOnlyCrew ? (
+        <View className="mt-2 rounded-xl border px-3 py-2" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
+          <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>{crewBadgeLabel(crew)} — pregled</Text>
+        </View>
+      ) : null}
       <Text className="mb-4 mt-1 text-sm" style={{ color: theme.text.secondary }}>
         {tour?.routeLabel ? formatRouteLabel(tour.routeLabel) : "Kompletne informacije o turi"}
       </Text>

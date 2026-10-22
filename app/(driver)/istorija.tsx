@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useToursSummary, type ToursSummaryBucket } from "@/queries/useToursSummary";
 import { useToursHistory } from "@/queries/useToursHistory";
+import { crewBadgeLabel, crewRole } from "@/lib/crew";
+import { useMyDriverId } from "@/queries/useCrew";
 import { formatRouteLabel, translateTourStatus, tourStatusClass } from "@/lib/formatters";
 import { useTheme } from "@/providers/ThemeProvider";
 
@@ -58,6 +60,7 @@ function DashboardCard({ bucket, periodLabel }: Readonly<{ bucket?: ToursSummary
 export default function IstorijaScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const myDriverId = useMyDriverId();
   const router = useRouter();
   const summaryQuery = useToursSummary();
   const [period, setPeriod] = useState<PeriodKey>("month");
@@ -186,6 +189,13 @@ export default function IstorijaScreen() {
               {tour.dateLabel}
               {tour.distanceKm ? ` · ${formatKm(tour.distanceKm)} km` : ""}
             </Text>
+            {crewBadgeLabel(crewRole(tour, myDriverId)) ? (
+              <View className="mt-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
+                <Text className="text-[11px] font-semibold" style={{ color: theme.text.secondary }}>
+                  {crewBadgeLabel(crewRole(tour, myDriverId))}
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         ))}
       </View>

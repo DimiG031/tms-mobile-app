@@ -5,6 +5,8 @@ import { Pressable, Text, View } from "@/components/ui";
 import { useTourDetails, useUpdateTourStatus } from "@/queries/useTourDetails";
 import { useExpenseSheet } from "@/queries/useExpenseSheet";
 import { useTheme } from "@/providers/ThemeProvider";
+import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
+import { useTourCrewRole } from "@/queries/useCrew";
 import { formatRouteLabel, formatTourDateRange, translateTourStatus } from "@/lib/formatters";
 
 function statusStep(status?: string) {
@@ -57,6 +59,11 @@ export default function TourDetailsScreen() {
   const nextStatus = getNextStatusLabel(data?.status);
   const blockComplete = data?.status?.toUpperCase() === "IN_TRANSIT" && sheet?.status === "OPEN";
 
+  const crew = useTourCrewRole(data);
+  // Backend write rute (status, akcije na stanici, prijava problema) i dalje
+  // prihvataju samo glavnog vozaca — sakrivamo ih da vozac ne dobije gresku.
+  const readOnlyCrew = isCoDriver(crew);
+
   function onUpdateStatus() {
     if (!nextStatus || !data) return;
     updateStatus.mutate(
@@ -77,6 +84,17 @@ export default function TourDetailsScreen() {
         {data?.routeLabel ? formatRouteLabel(data.routeLabel) : "Detalji ture"}
       </Text>
 
+      {readOnlyCrew ? (
+        <View className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
+          <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
+            {crewBadgeLabel(crew)} — pregled
+          </Text>
+          <Text className="mt-1 text-xs" style={{ color: theme.status.IN_TRANSIT.text }}>
+            Turu vodi glavni vozač. Ako nešto nije u redu, javi preko Poruka.
+          </Text>
+        </View>
+      ) : null}
+
       <View className="mt-4 rounded-2xl border p-4" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
         <View className="flex-row items-center justify-between">
           <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status ture</Text>
@@ -93,7 +111,7 @@ export default function TourDetailsScreen() {
           ))}
         </View>
 
-        {nextStatus ? (
+        {nextStatus && !readOnlyCrew ? (
           <Pressable
             onPress={onUpdateStatus}
             disabled={updateStatus.isPending || blockComplete}
@@ -158,11 +176,13 @@ export default function TourDetailsScreen() {
               <Text className="text-center font-semibold" style={{ color: theme.text.primary }}>Checklist</Text>
             </Pressable>
           </Link>
-          <Link href={`/(driver)/tours/${tourId}/issues`} asChild>
-            <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
-              <Text className="text-center font-semibold" style={{ color: theme.text.primary }}>Prijavi problem</Text>
-            </Pressable>
-          </Link>
+          {readOnlyCrew ? null : (
+            <Link href={`/(driver)/tours/${tourId}/issues`} asChild>
+              <Pressable className="flex-1 rounded-xl border px-4 py-3" style={{ borderColor: theme.surface.border, backgroundColor: theme.surface.card }}>
+                <Text className="text-center font-semibold" style={{ color: theme.text.primary }}>Prijavi problem</Text>
+              </Pressable>
+            </Link>
+          )}
         </View>
 
         <Link href={`/(driver)/tours/${tourId}/sos`} asChild>

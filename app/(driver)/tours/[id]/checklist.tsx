@@ -3,6 +3,9 @@ import { ActivityIndicator, Alert, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTourChecklist, useToggleChecklistItem } from "@/queries/useTourChecklist";
+import { useTourDetails } from "@/queries/useTourDetails";
+import { isCoDriver } from "@/lib/crew";
+import { useTourCrewRole } from "@/queries/useCrew";
 import type { TourChecklistItem } from "@/lib/types";
 import { useTheme } from "@/providers/ThemeProvider";
 
@@ -12,8 +15,15 @@ export default function TourChecklistScreen() {
   const theme = useTheme();
   const { data: checklist, isLoading, isError } = useTourChecklist(tourId);
   const toggleItem = useToggleChecklistItem(tourId);
+  // useTourDetails je vec kesiran sa ekrana ture, pa ovo nije dodatni poziv.
+  const { data: tour } = useTourDetails(tourId);
+  const readOnlyCrew = isCoDriver(useTourCrewRole(tour));
 
   function onToggle(item: TourChecklistItem) {
+    if (readOnlyCrew) {
+      Alert.alert("Checklist", "Checklistu vodi glavni vozač. Ako nešto nije u redu, javi preko Poruka.");
+      return;
+    }
     toggleItem.mutate(
       { itemId: item.id, completed: !item.completed },
       {

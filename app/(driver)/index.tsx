@@ -9,6 +9,8 @@ import { Pressable, Text, View } from "@/components/ui";
 import { formatRouteLabel, formatTourDateShort, splitRouteLabel, translateExpenseStatus, translateTourStatus } from "@/lib/formatters";
 import type { AppTheme } from "@/providers/ThemeProvider";
 import { useTheme } from "@/providers/ThemeProvider";
+import { crewBadgeLabel, isCoDriver } from "@/lib/crew";
+import { useTourCrewRole } from "@/queries/useCrew";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatThreads } from "@/queries/useChat";
 import { useDashboardData } from "@/queries/useDashboardData";
@@ -148,6 +150,8 @@ export default function DriverHomeScreen() {
   const checklistQuery = useTourChecklist(activeId);
   const expenseQuery = useExpenseSheet(activeId);
   const routeStopAction = useRouteStopAction(activeId);
+  const crew = useTourCrewRole(active);
+  const readOnlyCrew = isCoDriver(crew);
   const [pendingAction, setPendingAction] = useState<RouteStopAction | null>(null);
   const [isRefreshing, setRefreshing] = useState(false);
 
@@ -260,6 +264,13 @@ export default function DriverHomeScreen() {
           <Text className="mt-2 text-2xl font-extrabold" style={{ color: theme.text.primary }}>
             {active ? formatRouteLabel(active.routeLabel) : "Nema aktivne ture"}
           </Text>
+          {readOnlyCrew ? (
+            <View className="mt-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
+              <Text className="text-[11px] font-semibold" style={{ color: theme.text.secondary }}>
+                {crewBadgeLabel(crew)} — turu vodi glavni vozač
+              </Text>
+            </View>
+          ) : null}
           <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>
             {active ? formatTourDateShort(active.dateLabel) : "Trenutno nema ture u toku."}
           </Text>
@@ -287,6 +298,7 @@ export default function DriverHomeScreen() {
                       {[nextStop.city, nextStop.country].filter(Boolean).join(", ")}
                     </Text>
                   ) : null}
+                  {readOnlyCrew ? null : (
                   <View className="mt-3 flex-row gap-2">
                     <Pressable
                       onPress={() => onStopAction("ARRIVED")}
@@ -309,6 +321,7 @@ export default function DriverHomeScreen() {
                       </Text>
                     </Pressable>
                   </View>
+                  )}
                   {(() => {
                     const mapsQuery = stopMapsQuery(nextStop);
                     return mapsQuery ? (
