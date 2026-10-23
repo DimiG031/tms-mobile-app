@@ -637,6 +637,31 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-23 - Dvojna posada PROVERENA uživo + dve naše ispravke (`DONE`, JS-only → OTA)
+
+Vlasnik je napravio turu sa dvojnom posadom (Petar Petrović glavni, Goran Dimitrijević drugi vozač) i tok je **proveren od početka do kraja na uređaju**:
+
+- dugme „Smena vožnje" se pojavljuje, `POST .../switch-driver` prolazi
+- posle smene: banner „Dvojna posada — pregled · Trenutno vozi Goran Dimitrijević", a dugmad za unos (status ture, „Prijavi problem") nestaju
+- povratna smena vraća pun pristup
+
+Tura je vraćena u početno stanje (glavni vozač aktivan).
+
+**Do toga nije moglo da se dođe zbog dve greške na našoj strani, obe ispravljene:**
+
+1. **Normalizator je bacao polja posade.** `normalizeTourSummary` je gradio nov objekat sa samo `id/status/routeLabel/dateLabel/distanceKm`, pa `driverId`, `coDriverId`, `coDriverRole` i `activeDriverId` nikad nisu stizali do ekrana. Vaš API ih je slao ispravno (`...row`).
+2. **Keširani upiti bez markera verzije.** `PersistQueryClientProvider` je čuvao odgovore 24h i preživljavao restart, pa se posle promene oblika podataka čitao stari oblik. To je bio i uzrok ranijeg pada putnog lista na `reduce of undefined`. Dodat ručni `CACHE_BUSTER`.
+
+**Format datuma ispravljen:** `formatSrDateTime` je koristio `Intl.DateTimeFormat("sr-RS")`, a Hermes na Androidu nema ICU podatke za tu lokalizaciju pa tiho pada na `en-US` — obaveštenja su prikazivala `10/23/2026. 09:38`. Sada `23.10.2026. 09:38`.
+
+### 2026-10-23 - DVA PITANJA/NALAZA ZA BACKEND (`NEEDS_BACKEND`)
+
+**1. Putni nalog ne čuva drugog vozača.** Tura `Beograd → Wien` (22.10.) ima dvojnu posadu, ali njen putni nalog `PN-2026-00002` u detaljima prikazuje samo **„Vozač: Petar Petrović"** — nema drugog vozača. Na webu uz nalog piše „Nema deonica. Za smenu vozača dodaj putni nalog kao deonicu."
+
+Pitanje: kad se nalog pravi za turu koja **već ima `coDriverId`**, treba li se `TravelOrder.coDriverId` (i `activeDriverId`) popuniti automatski? Po vašoj dopuni od 2026-10-20, `GET .../lines` vraća `readOnly`/`viewerIsCoDriver` „po `TravelOrder.coDriverId` ili `Tour.coDriverId` povezane ture" — ako se na nalogu ne popunjava, taj deo se oslanja samo na turu. Mobilni je spreman za oba slučaja, samo da znamo šta je namera.
+
+**2. „Isteklo: … (još -1971 dana)" — negativan broj dana.** U obaveštenjima o rokovima tekst poruke glasi npr. „BG-TR-501 — Registracija (još -1971 dana)". Uz naslov „Isteklo", „još -1971 dana" se čita naopako. Proverili smo — taj tekst sklapa backend, mobilni ga samo prikazuje. Predlog: za istekle rokove „isteklo pre N dana" umesto „još -N dana".
+
 ### 2026-10-22 - GPS tačka stanice sa terena (`DONE`, JS-only → OTA)
 
 Zatvara vašu dopunu od **2026-07-02**, koja je stajala kao `NEEDS_MOBILE` od tada. Nije bila u vašem poslednjem pregledu otvorenih stavki — sa vaše strane jeste isporučena, ali mobilni endpoint nije zvao niko.
