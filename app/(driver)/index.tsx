@@ -10,7 +10,7 @@ import { formatRouteLabel, formatTourDateShort, splitRouteLabel, translateExpens
 import type { AppTheme } from "@/providers/ThemeProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { crewBadgeLabel } from "@/lib/crew";
-import { useSwitchDriver, useTourAccess } from "@/queries/useCrew";
+import { useTourAccess } from "@/queries/useCrew";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatThreads } from "@/queries/useChat";
 import { useDashboardData } from "@/queries/useDashboardData";
@@ -151,7 +151,6 @@ export default function DriverHomeScreen() {
   const expenseQuery = useExpenseSheet(activeId);
   const routeStopAction = useRouteStopAction(activeId);
   const access = useTourAccess(active);
-  const switchDriver = useSwitchDriver();
   const readOnlyCrew = !access.canWrite;
   const [pendingAction, setPendingAction] = useState<RouteStopAction | null>(null);
   const [isRefreshing, setRefreshing] = useState(false);
@@ -274,23 +273,6 @@ export default function DriverHomeScreen() {
             </View>
           ) : null}
 
-          {active && access.canSwitch ? (
-            <Pressable
-              onPress={() =>
-                switchDriver.mutate(active.id, {
-                  onError: (err) =>
-                    Alert.alert("Smena vožnje", err instanceof Error ? err.message : "Smena nije uspela.")
-                })
-              }
-              disabled={switchDriver.isPending}
-              className="mt-2.5 rounded-xl border px-4 py-2.5 disabled:opacity-60"
-              style={{ borderColor: theme.accent.primary }}
-            >
-              <Text className="text-center text-sm font-semibold" style={{ color: theme.accent.primary }}>
-                {switchDriver.isPending ? "Menjam..." : "Smena vožnje"}
-              </Text>
-            </Pressable>
-          ) : null}
           <Text className="mt-0.5 text-sm" style={{ color: theme.text.secondary }}>
             {active ? formatTourDateShort(active.dateLabel) : "Trenutno nema ture u toku."}
           </Text>

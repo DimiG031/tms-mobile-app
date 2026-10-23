@@ -34,6 +34,8 @@ export type TourAccess = {
   canSwitch: boolean;
   /** Ime vozača koji je trenutno za volanom, kad to nisam ja. */
   activeDriverName: string | null;
+  /** Ime drugog člana posade, bez obzira ko je na smeni. */
+  coDriverName: string | null;
 };
 
 export function useTourAccess(tour?: Tour | null): TourAccess {
@@ -46,7 +48,13 @@ export function useTourAccess(tour?: Tour | null): TourAccess {
   const activeDriverName =
     !canWrite && activeId && tour?.coDriverId === activeId ? tour?.coDriverName ?? null : null;
 
-  return { role, canWrite, canSwitch: canSwitchDriver(tour), activeDriverName };
+  return {
+    role,
+    canWrite,
+    canSwitch: canSwitchDriver(tour),
+    activeDriverName,
+    coDriverName: tour?.coDriverName ?? null
+  };
 }
 
 /**
