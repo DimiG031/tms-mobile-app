@@ -637,6 +637,20 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-23 - Dvojna posada na PUTNOM NALOGU (`DONE`) + rupa: smena bez ture (`NEEDS_BACKEND`)
+
+Na ekranu putnog naloga nije bilo nikakve oznake dvojne posade ni načina da se prebaci smena — crew UI je ranije dodat samo na ture i u sam putni list. Sada kartica naloga prikazuje oznaku posade, a unos (događaji i „Vrati nalog") prati aktivnog vozača.
+
+Polja `tourId`, `coDriverId`, `coDriverRole` i `activeDriverId` su **već stizala** kroz `GET /api/mobile/travel-orders` (ruta vraća cele redove) — samo ih mobilni nije koristio. Ovde nije bilo gubitka kao kod tura.
+
+**RUPA — smena vožnje na nalogu bez ture.** Putni nalog `PN-2026-00002` ima svoju dvojnu posadu (web pokazuje „Goran Dimitrijević — drugi vozač", značka „2× posada"), ali **nema `tourId`** jer je napravljen ručno iz liste putnih naloga. Veza sa turom se popunjava samo kad se nalog otvori sa stranice ture (`/dashboard/travel-orders?new=1&tourId=…`), forma nema birač ture.
+
+Posledica: jedini endpoint za smenu je **`POST /api/mobile/tours/:id/switch-driver`**, pa na takvom nalogu nema šta da se pozove. Vozač vidi da je dvojna posada, ali **ne može da prebaci smenu** — a upravo je putni nalog mesto gde se beleži granica i gorivo tokom smene.
+
+Pitanje: da li da dobijemo **`POST /api/mobile/travel-orders/:id/switch-driver`** (swap po nalogu, kad nalog ima svoju posadu), ili je namera da nalog sa posadom uvek mora biti vezan za turu? Mobilni trenutno prikazuje dugme samo kad `tourId` postoji; čim javite, povezujem.
+
+**Uz to, zapažanje:** `GET /api/mobile/travel-orders` filtrira `where: { driverId }`, pa **drugi vozač uopšte ne vidi nalog** na kom je `coDriverId`. Ako smena treba da radi sa obe strane, i ta lista bi morala da uključi naloge gde je vozač `coDriverId` (kao što ste uradili za ture preko `getActiveDriverTourScope`).
+
 ### 2026-10-23 - Dvojna posada PROVERENA uživo + dve naše ispravke (`DONE`, JS-only → OTA)
 
 Vlasnik je napravio turu sa dvojnom posadom (Petar Petrović glavni, Goran Dimitrijević drugi vozač) i tok je **proveren od početka do kraja na uređaju**:

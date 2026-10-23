@@ -687,7 +687,10 @@ function OrderCard({
   const crewSource = order.coDriverId ? order : tour ?? order;
   const crew = crewRole(crewSource, myDriverId);
   const crewReadOnly = !canWriteAsCrew(crewSource, myDriverId);
-  const showSwitch = canSwitchDriver(crewSource) && Boolean(order.tourId);
+  const hasCrew = canSwitchDriver(crewSource);
+  // Smena ide na POST /tours/:id/switch-driver, pa bez veze sa turom nema sta
+  // da se pozove — tada se posada samo prikazuje, bez dugmeta.
+  const showSwitch = hasCrew && Boolean(order.tourId);
   const linesQuery = useTravelOrderLines(expanded ? order.id : null);
   const lineCount = Array.isArray(linesQuery.data?.lines) ? linesQuery.data.lines.length : 0;
   const canEdit = order.status === "OPEN" || order.status === "ON_ROAD";
@@ -764,6 +767,13 @@ function OrderCard({
               </Text>
               <Text className="mt-1 text-xs" style={{ color: theme.status.IN_TRANSIT.text }}>
                 Nalog vodi vozač koji je trenutno na smeni.
+              </Text>
+            </View>
+          ) : hasCrew ? (
+            <View className="mb-3 flex-row items-center gap-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
+              <Ionicons name="people-outline" size={14} color={theme.text.secondary} />
+              <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
+                Dvojna posada — ti si na smeni
               </Text>
             </View>
           ) : null}
