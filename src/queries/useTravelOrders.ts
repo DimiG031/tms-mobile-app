@@ -43,6 +43,12 @@ export type TravelOrder = {
   purpose: TravelOrderPurpose | null;
   // NONE | REQUESTED | APPROVED | DECLINED — dispecerov zahtev za izmenu putnog lista
   lineEditStatus?: string | null;
+  // Dvojna posada. Ruta vraca ceo red, pa ova polja vec stizu kroz normalizeOrder.
+  // tourId treba za "Smenu voznje" — swap je na nivou ture, ne naloga.
+  tourId?: string | null;
+  coDriverId?: string | null;
+  coDriverRole?: string | null;
+  activeDriverId?: string | null;
   origin: string | null;
   vehicleId: string | null;
   driverId: string | null;

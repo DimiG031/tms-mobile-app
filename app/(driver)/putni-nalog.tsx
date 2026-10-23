@@ -18,9 +18,13 @@ import {
   type TravelOrderEvent
 } from "@/queries/useTravelOrders";
 import { useRespondLineEditRequest, useTravelOrderLines } from "@/queries/useTravelOrderLines";
+import { canSwitchDriver, canWriteAsCrew, crewBadgeLabel, crewRole } from "@/lib/crew";
+import { useMyDriverId, useSwitchDriver } from "@/queries/useCrew";
+import { useTours } from "@/queries/useTours";
 import { formatDateTime } from "@/lib/formatters";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { AppTheme } from "@/providers/ThemeProvider";
+import type { Tour } from "@/lib/types";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -136,6 +140,9 @@ export default function PutniNalogScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const respondEdit = useRespondLineEditRequest();
+  const myDriverId = useMyDriverId();
+  const switchDriver = useSwitchDriver();
+  const toursQuery = useTours();
   const { data: orders = [], isLoading, isError, error, refetch } = useTravelOrders();
   const countriesQuery = useCountries();
   const locationsQuery = useCompanyLocations();
@@ -337,6 +344,23 @@ export default function PutniNalogScreen() {
             onOpenLines={() => router.push(`/putni-list/${order.id}`)}
             onRespondEdit={(action) => respondToEditRequest(order.id, action)}
             respondingEdit={respondEdit.isPending}
+            myDriverId={myDriverId}
+            tour={toursQuery.data?.find((t) => t.id === order.tourId) ?? null}
+            switching={switchDriver.isPending}
+            onSwitchDriver={() => {
+              if (!order.tourId) return;
+              switchDriver.mutate(order.tourId, {
+                onSuccess: (res) =>
+                  Alert.alert(
+                    "Smena vožnje",
+                    res.data?.isMeActive
+                      ? "Sada si ti za volanom — unos je otvoren."
+                      : "Smena je preneta na drugog vozača."
+                  ),
+                onError: (err) =>
+                  Alert.alert("Smena vožnje", err instanceof Error ? err.message : "Smena nije uspela.")
+              });
+            }}
             returning={returnOrder.isPending}
           />
         ))}
@@ -634,6 +658,10 @@ function OrderCard({
   onOpenLines,
   onRespondEdit,
   respondingEdit,
+  myDriverId,
+  tour,
+  switching,
+  onSwitchDriver,
   returning
 }: {
   order: TravelOrder;
@@ -645,10 +673,21 @@ function OrderCard({
   onOpenLines: () => void;
   onRespondEdit: (action: "ACCEPT" | "DECLINE") => void;
   respondingEdit: boolean;
+  myDriverId: string | null;
+  tour: Tour | null;
+  switching: boolean;
+  onSwitchDriver: () => void;
   returning: boolean;
 }) {
   const status = statusMeta(theme, order.status);
   const purposeLabel = travelOrderPurposeLabel(order.purpose);
+  // Backend jos ne popunjava TravelOrder.coDriverId kad nalog nastane za turu
+  // sa dvojnom posadom, pa padamo nazad na turu — isto kako njihov /lines
+  // racuna readOnly ("po TravelOrder.coDriverId ILI Tour.coDriverId ture").
+  const crewSource = order.coDriverId ? order : tour ?? order;
+  const crew = crewRole(crewSource, myDriverId);
+  const crewReadOnly = !canWriteAsCrew(crewSource, myDriverId);
+  const showSwitch = canSwitchDriver(crewSource) && Boolean(order.tourId);
   const linesQuery = useTravelOrderLines(expanded ? order.id : null);
   const lineCount = Array.isArray(linesQuery.data?.lines) ? linesQuery.data.lines.length : 0;
   const canEdit = order.status === "OPEN" || order.status === "ON_ROAD";
@@ -718,8 +757,32 @@ function OrderCard({
             </View>
           ) : null}
 
+          {crewReadOnly ? (
+            <View className="mb-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
+              <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
+                {crewBadgeLabel(crew) ?? "Dvojna posada"} — pregled
+              </Text>
+              <Text className="mt-1 text-xs" style={{ color: theme.status.IN_TRANSIT.text }}>
+                Nalog vodi vozač koji je trenutno na smeni.
+              </Text>
+            </View>
+          ) : null}
+
+          {showSwitch ? (
+            <Pressable
+              onPress={onSwitchDriver}
+              disabled={switching}
+              className="mb-3 rounded-xl border px-4 py-2.5 disabled:opacity-60"
+              style={{ borderColor: theme.accent.primary }}
+            >
+              <Text className="text-center text-sm font-semibold" style={{ color: theme.accent.primary }}>
+                {switching ? "Menjam..." : "Smena vožnje"}
+              </Text>
+            </Pressable>
+          ) : null}
+
           {/* Quick add buttons */}
-          {canEdit ? (
+          {canEdit && !crewReadOnly ? (
             <View className="flex-row flex-wrap gap-2">
               {QUICK_EVENT_TYPES.map((et) => (
                 <Pressable
@@ -783,7 +846,7 @@ function OrderCard({
           )}
 
           {/* Return */}
-          {canEdit ? (
+          {canEdit && !crewReadOnly ? (
             <Pressable
               onPress={onReturn}
               disabled={returning}
