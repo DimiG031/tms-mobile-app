@@ -9,6 +9,17 @@ const persister = createAsyncStoragePersister({
   key: "tms-query-cache"
 });
 
+// Kesirani odgovori prezivljavaju restart 24h. Kad se promeni OBLIK
+// normalizovanih podataka, stari kes se cita kao da je nov — tako je putni
+// list pucao na "reduce of undefined", a polja posade se nisu videla.
+//
+// PODIGNI OVU VREDNOST kad god promenis oblik necega sto se kesira
+// (normalizatori u src/lib/api-normalizers.ts, oblik odgovora u src/queries).
+// Promena odbacuje stari kes na svim uredjajima pri sledecem pokretanju.
+//
+// v2 (2026-10-23): Tour dobio polja posade; /lines vraca objekat umesto niza.
+const CACHE_BUSTER = "v2";
+
 export function QueryProvider({ children }: PropsWithChildren) {
   const [queryClient] = useState(
     () =>
@@ -28,7 +39,8 @@ export function QueryProvider({ children }: PropsWithChildren) {
       client={queryClient}
       persistOptions={{
         persister,
-        maxAge: 24 * 60 * 60 * 1000
+        maxAge: 24 * 60 * 60 * 1000,
+        buster: CACHE_BUSTER
       }}
     >
       {children}

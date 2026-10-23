@@ -285,18 +285,17 @@ export function useIOSGlassTheme(): {
 }
 
 // ─── Utility ──────────────────────────────────────────────────
+// Datum se sklapa rucno, bez Intl. Hermes na Androidu nema ICU podatke za
+// sr-RS, pa Intl.DateTimeFormat("sr-RS") tiho pada na en-US i vraca
+// "10/23/2026. 09:38" umesto "23.10.2026. 09:38".
 export function formatSrDateTime(iso?: string | null): string {
   if (!iso) return "-";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("sr-RS", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-    .format(date)
-    .replace(",", ".");
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const d = pad(date.getDate());
+  const m = pad(date.getMonth() + 1);
+  const h = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  return `${d}.${m}.${date.getFullYear()}. ${h}:${min}`;
 }
