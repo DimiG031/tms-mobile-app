@@ -637,6 +637,38 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-23 - ODLUKA: smena vožnje SAMO na putnom nalogu (`DONE` mobilni, `NEEDS_BACKEND` endpoint)
+
+Vlasnik je odlučio: **smena vozača treba samo na putnom nalogu.** Tura i nalog za utovar vode prvog vozača, a drugi se samo **vidi da postoji** — bez prebacivanja smene tamo.
+
+**Mobilni je usklađen:**
+- Uklonjeno dugme „Smena vožnje" sa početne i sa detalja ture.
+- Tura sada **uvek** prikazuje posadu kad postoji, sa imenom drugog vozača („Dvojna posada — Goran Dimitrijević"), uz red koji kaže da se smena menja na putnom nalogu. Ranije se posada videla samo kad vozač nije na smeni, pa aktivni vozač nije imao nikakav trag.
+- Dozvole i dalje prate `activeDriverId`; promenjeno je samo **odakle se smena pokreće**.
+
+**ŠTA NAM TREBA (i šta NE treba)**
+
+Proverili smo šemu pre nego što smo tražili — **migracija NIJE potrebna.** `TravelOrder` već ima sve:
+
+```prisma
+tourId         String?
+coDriverId     String?  // dvojna posada — druga osoba na nalogu
+coDriverRole   String?  // DRIVER | ASSISTANT
+activeDriverId String?  // ko je trenutno aktivan za unos
+```
+
+Migracije `20261018130000_tour_codriver`, `20261021120000_codriver_role` i `20261022120000_active_driver` su primenjene. Polja i stižu do mobilne — `GET /api/mobile/travel-orders` vraća cele redove.
+
+Nedostaju samo **dve stvari u kodu**:
+
+**1. `POST /api/mobile/travel-orders/:id/switch-driver`** — swap `activeDriverId` između `driverId` i `coDriverId` **samog naloga**, isto pravilo kao kod ture: sme ga pozvati bilo koji član posade, odbija kad nema posade ili je `coDriverRole = ASSISTANT`, odgovor `{ activeDriverId, isMeActive }`.
+
+Mobilni je spreman (`useSwitchTravelOrderDriver` napisan i gađa baš tu putanju); dugme se za sada ne prikazuje da vozač ne dobije 404. Uključuje se čim javite.
+
+**2. `GET /api/mobile/travel-orders` filtrira `where: { driverId }`** — pa drugi vozač **uopšte ne vidi nalog** na kom je `coDriverId`. Bez toga smena radi samo u jednom smeru: glavni vozač preda, a drugi nema gde da preuzme jer mu se nalog ni ne pojavljuje. Treba uključiti i naloge gde je vozač `coDriverId` (kao što ste za ture uradili preko `getActiveDriverTourScope`).
+
+**3. `coDriverName` nedostaje u listi tura.** `GET /api/tours` vraća `coDriverId`, ali **ime stiže samo u detaljima ture** (`GET /api/tours/[id]`). Zato mobilni prikazuje ime na ekranu ture, ali u **listi tura i u istoriji** može samo značku „Dvojna posada", bez imena. Ako dodate `coDriverName` u listu, prikazujemo ga odmah — to je ista izmena koja vam treba i za web listu tura, gde se ime sada vidi tek na hover.
+
 ### 2026-10-23 - ODLUKA VLASNIKA: putni nalog NE mora biti vezan za turu (`NEEDS_BACKEND`)
 
 Na naše pitanje od danas vlasnik je odgovorio jasno: **putni nalog uopšte ne treba da bude vezan za turu.** Stoji sam za sebe, sa svojom posadom.
