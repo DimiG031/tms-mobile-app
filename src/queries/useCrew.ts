@@ -49,6 +49,31 @@ export function useTourAccess(tour?: Tour | null): TourAccess {
   return { role, canWrite, canSwitch: canSwitchDriver(tour), activeDriverName };
 }
 
+/**
+ * Smena vožnje na PUTNOM NALOGU.
+ *
+ * Putni nalog ne mora da bude vezan za turu (odluka vlasnika 2026-10-23), pa
+ * swap mora da postoji i na nivou naloga. Backend ovaj endpoint JOŠ NEMA —
+ * zatraženo u docs/forcodexagent/todo.md. Dok ne stigne, dugme se na nalogu
+ * bez `tourId` ne prikazuje, da vozač ne dobije 404.
+ */
+export function useSwitchTravelOrderDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (orderId: string) =>
+      api.post<{ ok: boolean; data: { activeDriverId: string | null; isMeActive: boolean } }>(
+        `/api/mobile/travel-orders/${orderId}/switch-driver`,
+        {}
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["travel-orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["travel-order-lines"] })
+      ]);
+    }
+  });
+}
+
 /** „Smena vožnje" — swap aktivnog vozača. Sme ga pozvati bilo koji član posade. */
 export function useSwitchDriver() {
   const queryClient = useQueryClient();

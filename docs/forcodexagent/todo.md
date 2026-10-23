@@ -637,13 +637,27 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-23 - ODLUKA VLASNIKA: putni nalog NE mora biti vezan za turu (`NEEDS_BACKEND`)
+
+Na naše pitanje od danas vlasnik je odgovorio jasno: **putni nalog uopšte ne treba da bude vezan za turu.** Stoji sam za sebe, sa svojom posadom.
+
+To zatvara dilemu, ali otvara konkretan zahtev:
+
+**Treba nam `POST /api/mobile/travel-orders/:id/switch-driver`** — swap `activeDriverId` između `driverId` i `coDriverId` **samog naloga**, po istom pravilu kao tura: sme ga pozvati bilo koji član posade, odbija kad nema posade ili je `coDriverRole = ASSISTANT`, odgovor `{ activeDriverId, isMeActive }`.
+
+Zašto je blokada, a ne kozmetika: jedini postojeći swap je `POST /api/mobile/tours/:id/switch-driver`. Nalog napravljen iz liste putnih naloga **nema `tourId`** (veza se popunjava samo kad se nalog otvori sa stranice ture), pa na njemu nema šta da se pozove. Vozač vidi da je dvojna posada, ali ne može da prebaci smenu — a putni nalog je baš mesto gde se beleži granica i gorivo tokom te smene.
+
+Mobilna strana je **spremna**: `useSwitchTravelOrderDriver` je napisan i gađa gornji endpoint. Dugme se za sada ne prikazuje na nalogu bez `tourId`, da vozač ne dobije 404. Čim javite da je endpoint gore, uključujem ga — to je jedan uslov.
+
+**Uz to i dalje stoji:** `GET /api/mobile/travel-orders` filtrira `where: { driverId }`, pa drugi vozač **uopšte ne vidi nalog** na kom je `coDriverId`. Bez toga smena radi samo u jednom smeru — glavni vozač može da preda, ali drugi nema gde da preuzme. Trebalo bi uključiti i naloge gde je vozač `coDriverId`, kao što ste za ture uradili preko `getActiveDriverTourScope`.
+
 ### 2026-10-23 - Dvojna posada na PUTNOM NALOGU (`DONE`) + rupa: smena bez ture (`NEEDS_BACKEND`)
 
 Na ekranu putnog naloga nije bilo nikakve oznake dvojne posade ni načina da se prebaci smena — crew UI je ranije dodat samo na ture i u sam putni list. Sada kartica naloga prikazuje oznaku posade, a unos (događaji i „Vrati nalog") prati aktivnog vozača.
 
 Polja `tourId`, `coDriverId`, `coDriverRole` i `activeDriverId` su **već stizala** kroz `GET /api/mobile/travel-orders` (ruta vraća cele redove) — samo ih mobilni nije koristio. Ovde nije bilo gubitka kao kod tura.
 
-**RUPA — smena vožnje na nalogu bez ture.** Putni nalog `PN-2026-00002` ima svoju dvojnu posadu (web pokazuje „Goran Dimitrijević — drugi vozač", značka „2× posada"), ali **nema `tourId`** jer je napravljen ručno iz liste putnih naloga. Veza sa turom se popunjava samo kad se nalog otvori sa stranice ture (`/dashboard/travel-orders?new=1&tourId=…`), forma nema birač ture.
+**RUPA — smena vožnje na nalogu bez ture** (odgovoreno odlukom vlasnika, vidi sekciju ispod).** Putni nalog `PN-2026-00002` ima svoju dvojnu posadu (web pokazuje „Goran Dimitrijević — drugi vozač", značka „2× posada"), ali **nema `tourId`** jer je napravljen ručno iz liste putnih naloga. Veza sa turom se popunjava samo kad se nalog otvori sa stranice ture (`/dashboard/travel-orders?new=1&tourId=…`), forma nema birač ture.
 
 Posledica: jedini endpoint za smenu je **`POST /api/mobile/tours/:id/switch-driver`**, pa na takvom nalogu nema šta da se pozove. Vozač vidi da je dvojna posada, ali **ne može da prebaci smenu** — a upravo je putni nalog mesto gde se beleži granica i gorivo tokom smene.
 
