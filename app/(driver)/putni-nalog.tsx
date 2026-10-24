@@ -19,7 +19,7 @@ import {
 } from "@/queries/useTravelOrders";
 import { useRespondLineEditRequest, useTravelOrderLines } from "@/queries/useTravelOrderLines";
 import { canSwitchDriver, canWriteAsCrew, crewBadgeLabel, crewRole } from "@/lib/crew";
-import { useMyDriverId, useSwitchDriver } from "@/queries/useCrew";
+import { useMyDriverId, useSwitchTravelOrderDriver } from "@/queries/useCrew";
 import { useTours } from "@/queries/useTours";
 import { formatDateTime } from "@/lib/formatters";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -141,7 +141,7 @@ export default function PutniNalogScreen() {
   const router = useRouter();
   const respondEdit = useRespondLineEditRequest();
   const myDriverId = useMyDriverId();
-  const switchDriver = useSwitchDriver();
+  const switchDriver = useSwitchTravelOrderDriver();
   const toursQuery = useTours();
   const { data: orders = [], isLoading, isError, error, refetch } = useTravelOrders();
   const countriesQuery = useCountries();
@@ -348,8 +348,7 @@ export default function PutniNalogScreen() {
             tour={toursQuery.data?.find((t) => t.id === order.tourId) ?? null}
             switching={switchDriver.isPending}
             onSwitchDriver={() => {
-              if (!order.tourId) return;
-              switchDriver.mutate(order.tourId, {
+              switchDriver.mutate(order.id, {
                 onSuccess: (res) =>
                   Alert.alert(
                     "Smena vožnje",
@@ -688,9 +687,9 @@ function OrderCard({
   const crew = crewRole(crewSource, myDriverId);
   const crewReadOnly = !canWriteAsCrew(crewSource, myDriverId);
   const hasCrew = canSwitchDriver(crewSource);
-  // Smena ide na POST /tours/:id/switch-driver, pa bez veze sa turom nema sta
-  // da se pozove — tada se posada samo prikazuje, bez dugmeta.
-  const showSwitch = hasCrew && Boolean(order.tourId);
+  // Smena ide na POST /travel-orders/:id/switch-driver (backend 2026-10-24),
+  // pa nalog ne mora da bude vezan za turu.
+  const showSwitch = hasCrew;
   const linesQuery = useTravelOrderLines(expanded ? order.id : null);
   const lineCount = Array.isArray(linesQuery.data?.lines) ? linesQuery.data.lines.length : 0;
   const canEdit = order.status === "OPEN" || order.status === "ON_ROAD";
@@ -763,7 +762,8 @@ function OrderCard({
           {crewReadOnly ? (
             <View className="mb-3 rounded-xl border px-3 py-2.5" style={{ borderColor: theme.status.IN_TRANSIT.text, backgroundColor: theme.status.IN_TRANSIT.bg }}>
               <Text className="text-xs font-semibold" style={{ color: theme.status.IN_TRANSIT.text }}>
-                {crewBadgeLabel(crew) ?? "Dvojna posada"} — pregled
+                {crewBadgeLabel(crew) ?? "Dvojna posada"}
+                {crewSource.coDriverName ? ` · ${crewSource.coDriverName}` : ""} — pregled
               </Text>
               <Text className="mt-1 text-xs" style={{ color: theme.status.IN_TRANSIT.text }}>
                 Nalog vodi vozač koji je trenutno na smeni.
@@ -773,7 +773,7 @@ function OrderCard({
             <View className="mb-3 flex-row items-center gap-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
               <Ionicons name="people-outline" size={14} color={theme.text.secondary} />
               <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
-                Dvojna posada — ti si na smeni
+                Dvojna posada{crewSource.coDriverName ? ` · ${crewSource.coDriverName}` : ""} — ti si na smeni
               </Text>
             </View>
           ) : null}
@@ -806,7 +806,9 @@ function OrderCard({
                 </Pressable>
               ))}
             </View>
-          ) : (
+          ) : canEdit ? null : (
+            // Samo kad je nalog stvarno zatvoren. Kad je zakljucan zbog smene,
+            // banner iznad vec objasnjava zasto — ova poruka bi bila netacna.
             <Text className="text-sm" style={{ color: theme.text.secondary }}>
               Nalog je {status.label.toLowerCase()} — više se ne menja.
             </Text>

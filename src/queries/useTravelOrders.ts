@@ -48,6 +48,7 @@ export type TravelOrder = {
   tourId?: string | null;
   coDriverId?: string | null;
   coDriverRole?: string | null;
+  coDriverName?: string | null;
   activeDriverId?: string | null;
   origin: string | null;
   vehicleId: string | null;

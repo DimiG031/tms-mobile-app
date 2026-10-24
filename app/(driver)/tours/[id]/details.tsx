@@ -235,7 +235,9 @@ function StopCard({
           </View>
           )}
 
-          {readOnlyCrew ? null : (
+          {/* GPS tacku sme cela posada — onaj na rampi ima najbolju tacku
+              (backend 2026-10-23); losa ocitavanja idu kao predlog dispeceru. */}
+          {(
             <Pressable
               onPress={() => onSaveCoords(stop)}
               disabled={!stop.id || savingCoords}

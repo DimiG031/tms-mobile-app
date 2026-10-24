@@ -193,6 +193,7 @@ export default function IstorijaScreen() {
               <View className="mt-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
                 <Text className="text-[11px] font-semibold" style={{ color: theme.text.secondary }}>
                   {crewBadgeLabel(crewRole(tour, myDriverId))}
+                  {tour.coDriverName ? ` · ${tour.coDriverName}` : ""}
                 </Text>
               </View>
             ) : null}

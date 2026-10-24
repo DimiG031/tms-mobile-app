@@ -134,9 +134,11 @@ function CrewBadge({
 }) {
   const label = crewBadgeLabel(crewRole(tour, myDriverId));
   if (!label) return null;
+  // coDriverName stize i u listi od 2026-10-24.
+  const withName = tour.coDriverName ? `${label} · ${tour.coDriverName}` : label;
   return (
     <View className="mt-1.5 self-start rounded-full px-2.5 py-1" style={{ backgroundColor: theme.surface.subtle }}>
-      <Text className="text-[11px] font-semibold" style={{ color: theme.text.secondary }}>{label}</Text>
+      <Text className="text-[11px] font-semibold" style={{ color: theme.text.secondary }}>{withName}</Text>
     </View>
   );
 }
