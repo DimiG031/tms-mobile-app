@@ -4,6 +4,7 @@ import { ActivityIndicator, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { Pressable, Text, View } from "@/components/ui";
+import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMobileDriverProfile } from "@/queries/useMobileDriverProfile";
 import { useMobileProfile } from "@/queries/useMobileProfile";
@@ -146,8 +147,14 @@ export default function ProfileScreen() {
       }
     >
       <View className="rounded-b-3xl px-4 pb-8" style={{ backgroundColor: theme.accent.primary, paddingTop: insets.top + 24 }}>
-        <View className="mx-auto mb-3 h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-          <Text className="text-2xl font-bold" style={{ color: "#fff" }}>{initials(displayName)}</Text>
+        <View className="mx-auto mb-3">
+          <Avatar
+            url={mobileProfileQuery.data?.user.avatarUrl ?? session?.user.avatarUrl}
+            name={displayName}
+            size={64}
+            backgroundColor="rgba(255,255,255,0.2)"
+            textColor="#fff"
+          />
         </View>
         <Text className="text-center text-2xl font-extrabold" style={{ color: theme.text.inverse }}>{displayName}</Text>
         <Text className="mt-1 text-center text-sm" style={{ color: "rgba(255,255,255,0.80)" }}>

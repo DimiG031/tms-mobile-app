@@ -7,6 +7,8 @@ export type MobileAuthUser = {
   role: AppRole;
   companyId: string;
   driverId: string | null;
+  // Slika vozaca sa User.avatarUrl; backend je vraca u GET /api/mobile/profile.
+  avatarUrl?: string | null;
   active?: boolean; // false = zamrznut nalog (neaktivan „seat")
 };
 

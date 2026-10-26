@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, Text, View } from "@/components/ui";
+import { Avatar } from "@/components/Avatar";
 import { formatRouteLabel, formatTourDateShort, splitRouteLabel, translateExpenseStatus, translateTourStatus } from "@/lib/formatters";
 import type { AppTheme } from "@/providers/ThemeProvider";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -238,12 +239,13 @@ export default function DriverHomeScreen() {
               {companyName ? `Vozač · ${companyName}` : "Vozač"}
             </Text>
           </View>
-          <View
-            className="h-12 w-12 items-center justify-center rounded-full"
-            style={{ backgroundColor: "rgba(255,255,255,0.23)", borderColor: "rgba(255,255,255,0.35)", borderWidth: 1 }}
-          >
-            <Text className="text-base font-bold text-white">{getInitials(displayName)}</Text>
-          </View>
+          <Avatar
+            url={mobileProfile?.user.avatarUrl ?? session?.user.avatarUrl}
+            name={displayName}
+            size={48}
+            backgroundColor="rgba(255,255,255,0.23)"
+            textColor="#fff"
+          />
         </View>
       </View>
 
