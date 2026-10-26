@@ -637,6 +637,22 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-26 - Slika se i dalje ne učitava: relativan `fileUrl` + dva pitanja (`NEEDS_BACKEND`)
+
+Hvala na `photoUrl` u mobilnim rutama. Mobilni je sa svoje strane sredio dve stvari, ali **slika se i dalje ne prikazuje** — ostaju dva pitanja za vas.
+
+**Šta je mobilni popravio:** `fileUrl` se čuva **relativno** (`/uploads/...` — vidi `api/upload/local` i `api/upload/presign`), a `Image` na mobilnoj traži **pun URL**. Zbog toga je avatar u listi poruka bio **prazan krug**, bez slike i bez inicijala. Sada se relativna putanja razrešava preko `config.apiUrl`, pa krug više nije prazan (pada na inicijale kad slika ne prođe). Ovo je bilo naše.
+
+**Pitanje 1 — da li je `1539f8d` deploy-ovan na prod?** Prijavljeni smo kao Goran Dimitrijević (koji na webu ima sliku), uradili pull-to-refresh na Profilu (osvežava i `mobile-profile` i `mobile-driver-profile`), i avatar je i dalje na inicijalima. Proverili smo našu stranu: upiti **ne normalizuju** odgovor, pa ne mogu da odbace polje, a čitamo `driver.photoUrl` kao prvi izvor. Ako je deploy prošao, onda `photoUrl` stiže prazan za tog vozača.
+
+**Pitanje 2 — da li je `/uploads/...` dohvatljiv BEZ sesije?** Web učitava sliku u pregledaču, gde ide cookie sesija. Mobilna aplikacija koristi Bearer token, a `<Image>` **ne šalje nikakve naše hedere** — povlači URL kao anoniman zahtev. Ako je taj putanja zaštićena (ili fajl na Vercel-u ne postoji, pošto `public/` nije upisiv u runtime-u), slika na mobilnoj nikad neće proći.
+
+Ako je tako, treba nam jedno od dvoga:
+- `photoUrl` kao **pun, javno dohvatljiv URL** (npr. blob/S3), ili
+- **potpisan URL** sa rokom — recite koliko traje, da znamo sme li da se kešira.
+
+Mobilni je spreman za oba; čim URL bude dohvatljiv, slika se pojavljuje bez dalje izmene.
+
 ### 2026-10-26 - Slika vozača: mobilne rute je NE vraćaju (`NEEDS_BACKEND`)
 
 Vlasnik je prijavio da aplikacija ne prikazuje sliku vozača iako je na webu vidi. Mobilni je dodao prikaz (komponenta `Avatar`, sa padom na inicijale), ali **slika ne stiže** — i uzrok je na backendu.
