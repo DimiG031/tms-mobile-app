@@ -214,6 +214,9 @@ export type MobileDriverProfile = {
   driver: {
     id: string;
     name: string;
+    // Slika vozaca = najnoviji dokument tipa DRIVER_PHOTO. Web je izlaze kao
+    // photoUrl; mobilne rute je JOS NE vracaju (trazeno od backenda).
+    photoUrl?: string | null;
     jmbg: string | null;
     address: string | null;
     phone: string | null;

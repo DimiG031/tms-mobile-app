@@ -637,6 +637,24 @@ Napravljen modul **„Mapa mesta"** (`app/(driver)/mapa-mesta.tsx`, `src/queries
 
 ## Najnovije mobile izmene
 
+### 2026-10-26 - Slika vozača: mobilne rute je NE vraćaju (`NEEDS_BACKEND`)
+
+Vlasnik je prijavio da aplikacija ne prikazuje sliku vozača iako je na webu vidi. Mobilni je dodao prikaz (komponenta `Avatar`, sa padom na inicijale), ali **slika ne stiže** — i uzrok je na backendu.
+
+**Gde slika zaista živi.** Nije `User.avatarUrl`. Web je uzima kao **najnoviji dokument tipa `DRIVER_PHOTO`/`PHOTO`** vezan za vozača i izlaže je kao `photoUrl`:
+- `GET /api/drivers` → `photoUrl: photoByDriver.get(row.id) ?? null`
+- `GET /api/drivers/[id]` → `photoUrl: photoDoc?.fileUrl ?? null`
+
+`photoUrl` ne postoji kao kolona u šemi — izvodi se iz `Document`.
+
+**Problem:** nijedna mobilna ruta to ne vraća. `driverSelect` u `GET /api/mobile/profile` ima samo `id, name, phone, licenseNumber, licenseCategory, licenseValidTo, driverCardId, driverCardValid` — bez slike. `DRIVER_PHOTO` se ne pominje ni u jednoj ruti pod `/api/mobile`.
+
+**Molba:** dodati **`photoUrl`** u `driver` objekat u `GET /api/mobile/profile` (i u `GET /api/mobile/driver-profile`, ako je zgodno), istom logikom kao na webu — najnoviji `DRIVER_PHOTO` dokument.
+
+**Mobilni je spreman:** čita `driver.photoUrl` kao prvi izvor, pa pada na `user.avatarUrl`, pa na inicijale. Čim polje počne da stiže, slika se pojavljuje bez ijedne dalje izmene.
+
+Napomena: ako je URL potpisan/privremen, recite koliko traje — da znamo da li sme da se kešira.
+
 ### 2026-10-23 - ODLUKA: smena vožnje SAMO na putnom nalogu (`DONE` mobilni, `NEEDS_BACKEND` endpoint)
 
 Vlasnik je odlučio: **smena vozača treba samo na putnom nalogu.** Tura i nalog za utovar vode prvog vozača, a drugi se samo **vidi da postoji** — bez prebacivanja smene tamo.

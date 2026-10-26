@@ -240,7 +240,11 @@ export default function DriverHomeScreen() {
             </Text>
           </View>
           <Avatar
-            url={mobileProfile?.user.avatarUrl ?? session?.user.avatarUrl}
+            url={
+              mobileProfile?.driver?.photoUrl ??
+              mobileProfile?.user.avatarUrl ??
+              session?.user.avatarUrl
+            }
             name={displayName}
             size={48}
             backgroundColor="rgba(255,255,255,0.23)"

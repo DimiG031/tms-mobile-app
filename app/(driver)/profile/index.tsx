@@ -149,7 +149,12 @@ export default function ProfileScreen() {
       <View className="rounded-b-3xl px-4 pb-8" style={{ backgroundColor: theme.accent.primary, paddingTop: insets.top + 24 }}>
         <View className="mx-auto mb-3">
           <Avatar
-            url={mobileProfileQuery.data?.user.avatarUrl ?? session?.user.avatarUrl}
+            url={
+              driverProfileQuery.data?.driver.photoUrl ??
+              mobileProfileQuery.data?.driver?.photoUrl ??
+              mobileProfileQuery.data?.user.avatarUrl ??
+              session?.user.avatarUrl
+            }
             name={displayName}
             size={64}
             backgroundColor="rgba(255,255,255,0.2)"
