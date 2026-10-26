@@ -2,15 +2,10 @@ import { useMemo, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Pressable, TextInput } from "@/components/ui";
+import { Avatar } from "@/components/Avatar";
 import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useChatUsers, useCreateChatThread } from "@/queries/useChat";
-
-function initials(name: string): string {
-  const tokens = name.trim().split(/\s+/).slice(0, 2);
-  if (!tokens.length) return "?";
-  return tokens.map((token) => token[0]?.toUpperCase() ?? "").join("") || "?";
-}
 
 export default function NewChatScreen() {
   const router = useRouter();
@@ -58,9 +53,7 @@ export default function NewChatScreen() {
           <Pressable onPress={() => onCreateThread(item.id)} disabled={createThread.isPending}>
             <View style={[styles.card, styles.itemCard]}>
               <View style={styles.row}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initials(item.name)}</Text>
-                </View>
+                <Avatar url={item.avatarUrl} name={item.name} size={40} backgroundColor="#d1fae5" textColor="#065f46" />
                 <View style={styles.main}>
                   <Text style={styles.name}>{item.name}</Text>
                   <Text style={styles.mail}>{item.email}</Text>
@@ -104,18 +97,6 @@ function makeStyles(theme: AppTheme) {
   row: {
     flexDirection: "row",
     alignItems: "center"
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#d1fae5"
-  },
-  avatarText: {
-    color: "#065f46",
-    fontWeight: "700"
   },
   main: {
     marginLeft: 10,

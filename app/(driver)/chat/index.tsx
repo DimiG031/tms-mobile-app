@@ -2,16 +2,18 @@ import { useCallback, useMemo, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Pressable } from "@/components/ui";
+import { Avatar } from "@/components/Avatar";
 import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { formatDateTime } from "@/lib/formatters";
 import { useChatThreads } from "@/queries/useChat";
 import type { ChatThread } from "@/lib/types";
 
-function initials(name: string): string {
-  const tokens = name.trim().split(/\s+/).slice(0, 2);
-  if (!tokens.length) return "?";
-  return tokens.map((token) => token[0]?.toUpperCase() ?? "").join("") || "?";
+// Grupni razgovor nema jednog sagovornika, pa tamo ostaju inicijali naslova.
+function threadAvatarUrl(thread: ChatThread, currentUserId?: string): string | null {
+  if (thread.isGroup) return null;
+  const other = thread.participants.find((participant) => participant.userId !== currentUserId);
+  return other?.avatarUrl ?? null;
 }
 
 function threadTitle(thread: ChatThread, currentUserId?: string) {
@@ -94,9 +96,13 @@ export default function ChatListScreen() {
             <Pressable onPress={() => router.push(`/chat/${item.id}` as never)}>
               <View style={[styles.card, styles.itemCard]}>
                 <View style={styles.itemRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{initials(title)}</Text>
-                  </View>
+                  <Avatar
+                    url={threadAvatarUrl(item, session?.user.id)}
+                    name={title}
+                    size={40}
+                    backgroundColor="#d1fae5"
+                    textColor="#065f46"
+                  />
 
                   <View style={styles.itemContent}>
                     <View style={styles.itemTop}>
@@ -171,18 +177,6 @@ function makeStyles(theme: AppTheme) {
   itemRow: {
     flexDirection: "row",
     alignItems: "center"
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#d1fae5"
-  },
-  avatarText: {
-    color: "#065f46",
-    fontWeight: "700"
   },
   itemContent: {
     marginLeft: 10,
