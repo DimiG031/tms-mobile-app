@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Image } from "react-native";
 import { Text, View } from "@/components/ui";
+import { toAbsoluteUrlOrNull } from "@/lib/urls";
 
 function initials(name?: string | null): string {
   const tokens = (name ?? "").trim().split(/\s+/).slice(0, 2);
@@ -29,7 +30,10 @@ export function Avatar({
   textColor: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const showImage = Boolean(url) && !failed;
+  // Backend salje relativnu putanju (/uploads/...), koju Image ne ume da
+  // ucita — bez ovoga krug ostane prazan, bez slike i bez inicijala.
+  const src = toAbsoluteUrlOrNull(url);
+  const showImage = Boolean(src) && !failed;
 
   return (
     <View
@@ -38,7 +42,7 @@ export function Avatar({
     >
       {showImage ? (
         <Image
-          source={{ uri: url as string }}
+          source={{ uri: src as string }}
           style={{ height: size, width: size }}
           resizeMode="cover"
           onError={() => setFailed(true)}

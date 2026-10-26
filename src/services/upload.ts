@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { toAbsoluteUrl } from "@/lib/urls";
 import { readSession } from "@/lib/secure-store";
 
 type PresignResponse = {
@@ -10,13 +11,6 @@ type PresignResponse = {
     useLocal: boolean;
   };
 };
-
-function toAbsoluteUrl(url: string): string {
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  return `${config.apiUrl}${url.startsWith("/") ? url : `/${url}`}`;
-}
 
 export async function requestUploadTarget(params: {
   filename: string;

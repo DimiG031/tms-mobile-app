@@ -2,7 +2,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import {
+  Alert,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent
+} from "react-native";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { Pressable, TextInput } from "@/components/ui";
 import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
@@ -34,6 +46,9 @@ export default function ChatThreadScreen() {
   const { session } = useAuth();
 
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  // Ekran je u Stack-u sa headerom; bez ovog pomeraja KeyboardAvoidingView
+  // racuna od vrha prozora i polje za unos ostane ispod tastature.
+  const headerHeight = useHeaderHeight();
   const isAtBottomRef = useRef(true);
   const latestMessageIdRef = useRef<string | null>(null);
   const didInitialScrollRef = useRef(false);
@@ -70,6 +85,15 @@ export default function ChatThreadScreen() {
       listRef.current?.scrollToEnd({ animated: true });
     });
   }
+
+  // Otvaranje tastature skracuje listu — bez ovoga poslednja poruka ostane
+  // iznad vidljivog dela, pa vozac ne vidi sta je upravo napisao.
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const sub = Keyboard.addListener(showEvent, () => scrollToBottom());
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     didInitialScrollRef.current = false;
@@ -123,7 +147,11 @@ export default function ChatThreadScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={headerHeight}
+    >
       <Stack.Screen
         options={{
           headerLeft: fromNotifications || fromChatPush
@@ -193,7 +221,7 @@ export default function ChatThreadScreen() {
           <Text style={styles.sendText}>{sendMessage.isPending ? "..." : "Pošalji"}</Text>
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
