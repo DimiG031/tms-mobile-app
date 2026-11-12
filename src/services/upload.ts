@@ -1,4 +1,4 @@
-import { config } from "@/lib/config";
+import { diagnosticMobileFetch } from "@/lib/diagnostics";
 import { toAbsoluteUrl } from "@/lib/urls";
 import { readSession } from "@/lib/secure-store";
 
@@ -19,7 +19,7 @@ export async function requestUploadTarget(params: {
   folder?: string;
 }): Promise<PresignResponse["data"]> {
   const session = await readSession();
-  const response = await fetch(`${config.apiUrl}/api/upload/presign`, {
+  const response = await diagnosticMobileFetch("/api/upload/presign", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

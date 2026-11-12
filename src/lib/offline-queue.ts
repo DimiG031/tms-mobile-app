@@ -7,6 +7,8 @@ const GPS_BATCH_SIZE = 50;
 export type OfflineWriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type OfflineWriteItem = {
+  /** Correlation only; optional for items created by previous app versions. */
+  traceId?: string;
   id: string;
   method: OfflineWriteMethod;
   path: string;

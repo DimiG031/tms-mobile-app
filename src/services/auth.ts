@@ -1,5 +1,5 @@
+import { diagnosticMobileFetch } from "@/lib/diagnostics";
 import * as LocalAuthentication from "expo-local-authentication";
-import { config } from "@/lib/config";
 import { clearSession, readSession, saveSession } from "@/lib/secure-store";
 import type { AuthSession, MobileLoginResponse } from "@/lib/types";
 
@@ -13,7 +13,7 @@ function extractErrorMessage(payload: ErrorPayload | null, fallback: string): st
 }
 
 export async function mobileLogin(email: string, password: string): Promise<AuthSession> {
-  const response = await fetch(`${config.apiUrl}/api/auth/mobile-login`, {
+  const response = await diagnosticMobileFetch("/api/auth/mobile-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })

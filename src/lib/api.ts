@@ -1,3 +1,4 @@
+import { mobileDiagnostic, isTraceId, newTraceId, requestOperation, TRACE_HEADER } from "@/lib/diagnostics";
 import { config } from "@/lib/config";
 import { clearSession, readSession, saveSession } from "@/lib/secure-store";
 import type { MobileRefreshResponse } from "@/lib/types";
@@ -65,19 +66,21 @@ function serbianMessageForStatus(status: number): string {
 
 const NETWORK_ERROR_MESSAGE = "Nema veze sa serverom. Proverite internet i pokušajte ponovo.";
 
-async function refreshToken(): Promise<string | null> {
+async function refreshToken(traceId: string): Promise<string | null> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
+      mobileDiagnostic("debug", "refresh.started", { traceId, operation: "auth.refresh" });
       const current = await readSession();
       if (!current?.refreshToken) return null;
 
       const response = await fetch(`${config.apiUrl}/api/auth/mobile-refresh`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", [TRACE_HEADER]: traceId },
         body: JSON.stringify({ refreshToken: current.refreshToken })
       });
 
       if (!response.ok) {
+        mobileDiagnostic("warn", "refresh.failed", { traceId, operation: "auth.refresh", status: response.status });
         await clearSession();
         return null;
       }
@@ -85,6 +88,7 @@ async function refreshToken(): Promise<string | null> {
       const payload = (await response.json()) as MobileRefreshResponse;
       const nextToken = payload.data.token;
       await saveSession({ ...current, token: nextToken });
+      mobileDiagnostic("info", "refresh.completed", { traceId, operation: "auth.refresh", status: response.status });
       return nextToken;
     })().finally(() => {
       refreshInFlight = null;
@@ -94,12 +98,13 @@ async function refreshToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
-async function request<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
+async function requestUntraced<T>(method: HttpMethod, path: string, body: unknown, traceId: string, onStatus: (status: number) => void): Promise<T> {
   const run = async (token?: string | null) =>
     fetch(`${config.apiUrl}${path}`, {
       method,
       headers: {
         "Content-Type": "application/json",
+        [TRACE_HEADER]: traceId,
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       body: body ? JSON.stringify(body) : undefined
@@ -114,7 +119,7 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
   }
 
   if (response.status === 401 && session?.refreshToken) {
-    const nextToken = await refreshToken();
+    const nextToken = await refreshToken(traceId);
     if (!nextToken) {
       throw new ApiError("Sesija je istekla. Prijavite se ponovo.", 401);
     }
@@ -125,6 +130,7 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
     }
   }
 
+  onStatus(response.status);
   if (!response.ok) {
     const rawText = await response.text();
     let backendMessage: string | undefined;
@@ -156,13 +162,37 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
   return (await response.json()) as T;
 }
 
-async function requestNoContent(method: HttpMethod, path: string, body?: unknown): Promise<void> {
-  await request<unknown>(method, path, body);
+async function request<T>(method: HttpMethod, path: string, body?: unknown, suppliedTraceId?: string): Promise<T> {
+  const traceId = isTraceId(suppliedTraceId) ? suppliedTraceId : newTraceId();
+  const operation = requestOperation(path); const start = Date.now();
+  let status: number | undefined;
+  mobileDiagnostic("debug", "request.started", { traceId, operation, method });
+  try {
+    const result = await requestUntraced<T>(method, path, body, traceId, value => { status = value; });
+    mobileDiagnostic("info", "request.completed", { traceId, operation, method, status, durationMs: Date.now() - start });
+    return result;
+  } catch (error) {
+    mobileDiagnostic("warn", "request.failed", { traceId, operation, method, status: error instanceof ApiError ? error.status : undefined, durationMs: Date.now() - start, errorKind: error instanceof ApiError && error.isNetwork ? "network" : "unexpected" });
+    throw error;
+  }
+}
+
+async function requestNoContent(method: HttpMethod, path: string, body?: unknown, traceId?: string): Promise<void> {
+  await request<unknown>(method, path, body, traceId);
 }
 
 async function flushQueuedWritesInternal(): Promise<void> {
   await flushOfflineWriteQueue(async (item: OfflineWriteItem) => {
-    await requestNoContent(item.method, item.path, item.body);
+    const traceId = isTraceId(item.traceId) ? item.traceId : newTraceId();
+    const operation = requestOperation(item.path);
+    mobileDiagnostic("debug", "queue.sending", { traceId, operation, method: item.method, attempt: item.retries + 1 });
+    try {
+      await requestNoContent(item.method, item.path, item.body, traceId);
+      mobileDiagnostic("info", "queue.acknowledged", { traceId, operation, method: item.method });
+    } catch (error) {
+      mobileDiagnostic("warn", "queue.rejected", { traceId, operation, method: item.method, status: error instanceof ApiError ? error.status : undefined });
+      throw error;
+    }
   });
 }
 
@@ -179,8 +209,9 @@ function scheduleQueueFlush(): void {
 }
 
 async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: unknown): Promise<QueuedResult<T>> {
+  const traceId = newTraceId();
   try {
-    const data = await request<T>(method, path, body);
+    const data = await request<T>(method, path, body, traceId);
     scheduleQueueFlush();
     return { queued: false, data };
   } catch (error) {
@@ -188,7 +219,8 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
       throw error;
     }
 
-    await enqueueOfflineWrite({ method, path, body });
+    await enqueueOfflineWrite({ method, path, body, traceId });
+    mobileDiagnostic("info", "queue.stored", { traceId, operation: requestOperation(path), method });
     return { queued: true, data: null };
   }
 }
