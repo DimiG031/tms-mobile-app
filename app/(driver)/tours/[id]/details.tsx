@@ -1,5 +1,6 @@
+import { openDocument as openDocumentFile } from "@/services/openDocument";
 import { useMemo, useState, type ReactNode } from "react";
-import { Alert, Linking, ScrollView } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Link, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, Text, View } from "@/components/ui";
@@ -304,14 +305,9 @@ function DocumentsSection({ documents }: Readonly<{ documents: AppDocument[] }>)
   const theme = useTheme();
   const openDocument = async (document: AppDocument) => {
     try {
-      const canOpen = await Linking.canOpenURL(document.fileUrl);
-      if (!canOpen) {
-        Alert.alert("Dokumenta", "Dokument nije moguće otvoriti na ovom uređaju.");
-        return;
-      }
-      await Linking.openURL(document.fileUrl);
-    } catch {
-      Alert.alert("Dokumenta", "Otvaranje dokumenta nije uspelo.");
+      await openDocumentFile(document.fileUrl);
+    } catch (error) {
+      Alert.alert("Dokumenta", error instanceof Error ? error.message : "Otvaranje dokumenta nije uspelo.");
     }
   };
 
@@ -525,3 +521,4 @@ export default function TourMoreDetailsScreen() {
     </ScrollView>
   );
 }
+

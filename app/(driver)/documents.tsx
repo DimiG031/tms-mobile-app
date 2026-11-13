@@ -1,5 +1,6 @@
+import { openDocument as openDocumentFile } from "@/services/openDocument";
 import { Ionicons } from "@expo/vector-icons";
-import { Linking, RefreshControl, ScrollView } from "react-native";
+import { Alert, RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState } from "react";
 import { Pressable, Text, View } from "@/components/ui";
@@ -28,10 +29,8 @@ export default function DocumentsScreen() {
   }
 
   async function openDocument(url: string) {
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) {
-      await Linking.openURL(url);
-    }
+    try { await openDocumentFile(url); }
+    catch (error) { Alert.alert("Dokument", error instanceof Error ? error.message : "Otvaranje dokumenta nije uspelo."); }
   }
 
   const documents = documentsQuery.data ?? [];
@@ -110,3 +109,4 @@ export default function DocumentsScreen() {
     </ScrollView>
   );
 }
+

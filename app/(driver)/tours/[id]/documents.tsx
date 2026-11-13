@@ -1,8 +1,9 @@
+import { openDocument } from "@/services/openDocument";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { IOSCard } from "@/components/ios/IOSCard";
 import { IOSGlassPill } from "@/components/ios/IOSGlassPill";
 import { Pressable, TextInput } from "@/components/ui";
@@ -158,12 +159,8 @@ export default function TourDocumentsScreen() {
   }
 
   async function onOpenDocument(url: string) {
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-      Alert.alert("Dokument", "Ne mogu da otvorim ovaj URL.");
-      return;
-    }
-    await Linking.openURL(url);
+    try { await openDocument(url); }
+    catch (error) { Alert.alert("Dokument", error instanceof Error ? error.message : "Otvaranje dokumenta nije uspelo."); }
   }
 
   return (
@@ -308,3 +305,4 @@ function makeStyles(theme: AppTheme) {
     }
   });
 }
+
