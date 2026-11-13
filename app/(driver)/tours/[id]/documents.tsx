@@ -101,9 +101,9 @@ export default function TourDocumentsScreen() {
     await uploadPickedAsset(result.assets[0]);
   }
 
-  async function onPickPdf() {
+  async function onPickFile() {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf"],
+      type: ["application/pdf", "image/jpeg", "image/png"],
       copyToCacheDirectory: true,
       multiple: false
     });
@@ -113,20 +113,33 @@ export default function TourDocumentsScreen() {
 
     try {
       setIsUploading(true);
-      const generatedName = asset.name || `document_${Date.now()}.pdf`;
+      const byMime: Record<string, { mimeType: string; fileType: string; extension: string }> = {
+        "application/pdf": { mimeType: "application/pdf", fileType: "PDF", extension: "pdf" },
+        "image/jpeg": { mimeType: "image/jpeg", fileType: "JPG", extension: "jpg" },
+        "image/png": { mimeType: "image/png", fileType: "PNG", extension: "png" }
+      };
+      const mime = asset.mimeType?.trim().toLowerCase();
+      const extension = asset.name?.split(".").pop()?.toLowerCase();
+      const fallbackMime = extension === "pdf" ? "application/pdf"
+        : extension === "jpg" || extension === "jpeg" ? "image/jpeg"
+        : extension === "png" ? "image/png" : "";
+      const format = byMime[mime && mime !== "application/octet-stream" ? mime : fallbackMime];
+      if (!format) throw new Error("Izaberi PDF, JPG ili PNG fajl.");
+      const generatedName = asset.name || `document_${Date.now()}.${format.extension}`;
+      setFileUrl("");
       const upload = await uploadFromFileUri({
         uri: asset.uri,
         filename: generatedName,
-        mimeType: asset.mimeType || "application/pdf",
+        mimeType: format.mimeType,
         folder: "documents",
         tourId
       });
 
       setFileUrl(upload.fileUrl);
       setFileName(generatedName);
-      setFileType("PDF");
+      setFileType(format.fileType);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Otpremanje PDF fajla nije uspelo";
+      const message = error instanceof Error ? error.message : "Otpremanje fajla nije uspelo";
       Alert.alert("Dokumenta", message);
     } finally {
       setIsUploading(false);
@@ -186,8 +199,8 @@ export default function TourDocumentsScreen() {
               <Text className="text-center font-semibold text-brand-700">Galerija</Text>
             </Pressable>
           </View>
-          <Pressable onPress={onPickPdf} disabled={isUploading} className="rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
-            <Text className="text-center font-semibold text-brand-700">Fajl (PDF)</Text>
+          <Pressable onPress={onPickFile} disabled={isUploading} className="rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
+            <Text className="text-center font-semibold text-brand-700">Fajl (PDF / JPG / PNG)</Text>
           </Pressable>
 
           <TextInput
