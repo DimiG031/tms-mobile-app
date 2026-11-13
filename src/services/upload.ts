@@ -64,7 +64,7 @@ export async function uploadFromFileUri(params: {
       type: mimeType
     } as unknown as Blob);
 
-    const localRes = await fetch(target.uploadUrl, {
+    const localRes = await diagnosticMobileFetch("/api/upload/local", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.token}`
@@ -105,3 +105,4 @@ export async function uploadFromFileUri(params: {
     key: target.key
   };
 }
+
