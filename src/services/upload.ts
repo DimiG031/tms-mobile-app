@@ -17,6 +17,7 @@ export async function requestUploadTarget(params: {
   contentType: string;
   contentLength?: number;
   folder?: string;
+  tourId?: string;
 }): Promise<PresignResponse["data"]> {
   const session = await readSession();
   const response = await diagnosticMobileFetch("/api/upload/presign", {
@@ -29,8 +30,7 @@ export async function requestUploadTarget(params: {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Nije moguce zatraziti upload lokaciju");
+    throw new Error(await uploadErrorMessage(response, "Nije moguće zatražiti upload lokaciju."));
   }
 
   const payload = (await response.json()) as PresignResponse;
@@ -42,13 +42,15 @@ export async function uploadFromFileUri(params: {
   filename: string;
   mimeType: string;
   folder?: string;
+  tourId?: string;
 }): Promise<{ fileUrl: string; key: string }> {
-  const { uri, filename, mimeType, folder = "documents" } = params;
+  const { uri, filename, mimeType, folder = "documents", tourId } = params;
   const session = await readSession();
   const target = await requestUploadTarget({
     filename,
     contentType: mimeType,
-    folder
+    folder,
+    tourId
   });
 
   if (!session?.token) {
@@ -58,6 +60,7 @@ export async function uploadFromFileUri(params: {
   if (target.useLocal) {
     const formData = new FormData();
     formData.append("key", target.key);
+    if (tourId) formData.append("tourId", tourId);
     formData.append("file", {
       uri,
       name: filename,
@@ -73,8 +76,7 @@ export async function uploadFromFileUri(params: {
     });
 
     if (!localRes.ok) {
-      const text = await localRes.text();
-      throw new Error(text || "Lokalno otpremanje nije uspelo");
+      throw new Error(await uploadErrorMessage(localRes, "Lokalno otpremanje nije uspelo."));
     }
 
     const localPayload = (await localRes.json()) as { ok: true; data: { fileUrl: string; key: string } };
@@ -96,8 +98,7 @@ export async function uploadFromFileUri(params: {
   });
 
   if (!uploadRes.ok) {
-    const text = await uploadRes.text();
-    throw new Error(text || "Direktno otpremanje nije uspelo");
+    throw new Error(await uploadErrorMessage(uploadRes, "Direktno otpremanje nije uspelo."));
   }
 
   return {
@@ -106,3 +107,15 @@ export async function uploadFromFileUri(params: {
   };
 }
 
+
+async function uploadErrorMessage(response: Pick<Response, "text" | "status">, fallback: string): Promise<string> {
+ const messages: Record<number,string> = {401:"Sesija je istekla. Prijavite se ponovo.",403:"Nemate dozvolu za dodavanje ovog dokumenta.",413:"Fajl je prevelik.",415:"Tip fajla nije dozvoljen."};
+ try {
+  const payload: unknown = JSON.parse(await response.text());
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+   const error=(payload as Record<string,unknown>).error;
+   if (typeof error === "string" && error.trim() && error.length <= 300 && !["Forbidden","Unauthorized","Unauthenticated","AccountInactive","Server error"].includes(error)) return error;
+  }
+ } catch { /* Non-JSON storage responses and network read errors use a safe message. */ }
+ return messages[response.status] ?? fallback;
+}

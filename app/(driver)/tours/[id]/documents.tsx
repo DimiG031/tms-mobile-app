@@ -50,7 +50,8 @@ export default function TourDocumentsScreen() {
         uri: asset.uri,
         filename: fileName.trim() || generatedName,
         mimeType,
-        folder: "documents"
+        folder: "documents",
+        tourId
       });
 
       setFileUrl(upload.fileUrl);
@@ -117,7 +118,8 @@ export default function TourDocumentsScreen() {
         uri: asset.uri,
         filename: generatedName,
         mimeType: asset.mimeType || "application/pdf",
-        folder: "documents"
+        folder: "documents",
+        tourId
       });
 
       setFileUrl(upload.fileUrl);
