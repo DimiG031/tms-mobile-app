@@ -153,24 +153,28 @@ export function perDiemHtml(p: PerDiemPayout, header?: PdfHeader): string {
   </body></html>`;
 }
 
-async function loadPdfModules() {
+// Literal lazy requires are bundled with the entry bundle by Metro. A native
+// module failure must not be confused with a failed async development bundle.
+function loadPdfModules() {
+  let Print: typeof import("expo-print");
+  let Sharing: typeof import("expo-sharing");
   try {
-    const Print = await import("expo-print");
-    const Sharing = await import("expo-sharing");
-    return { Print, Sharing };
+    Print = require("expo-print");
+    Sharing = require("expo-sharing");
   } catch {
-    // Native modul nije u ovom build-u (npr. stari dev client).
-    return null;
+    throw new Error("PDF moduli nisu učitani. Ponovo pokreni aplikaciju; ako se greška ponavlja, potreban je build sa expo-print i expo-sharing modulima.");
   }
+  if (typeof Print.printToFileAsync !== "function" || typeof Sharing.shareAsync !== "function" || typeof Sharing.isAvailableAsync !== "function") {
+    throw new Error("PDF moduli u ovoj aplikaciji nisu ispravni. Potreban je novi razvojni build.");
+  }
+  return { Print, Sharing };
 }
 
 export async function sharePdfFromHtml(html: string, dialogTitle: string): Promise<void> {
-  const mods = await loadPdfModules();
-  if (!mods) {
-    throw new Error("PDF izvoz nije dostupan u ovoj verziji aplikacije. Ažuriraj na najnoviji build.");
+  const { Print, Sharing } = loadPdfModules();
+  if (!(await Sharing.isAvailableAsync())) {
+    throw new Error("Deljenje PDF dokumenta nije dostupno na ovom uređaju.");
   }
-  const { uri } = await mods.Print.printToFileAsync({ html });
-  if (await mods.Sharing.isAvailableAsync()) {
-    await mods.Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle, UTI: "com.adobe.pdf" });
-  }
+  const { uri } = await Print.printToFileAsync({ html });
+  await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle, UTI: "com.adobe.pdf" });
 }

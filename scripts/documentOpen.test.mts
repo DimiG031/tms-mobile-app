@@ -11,6 +11,10 @@ async function main(){
  for(const result of [{ok:false},null,{ok:true,data:{}},{ok:true,data:{url:"javascript:alert(1)"}}]){reset();await assert.rejects(()=>openDocumentReference("/api/files/documents/A/a.pdf",{...deps,get:async()=>result}));assert.equal(openCalls.length,0)}
  reset();await assert.rejects(()=>openDocumentReference("/dashboard/transport/freight-orders/o/cmr",{...deps,get:async()=>{throw new Error("403")}}));assert.equal(htmlCalls.length,0);
  reset();await assert.rejects(()=>openDocumentReference("https://external.example/a.pdf",{...deps,openUrl:async()=>{throw new Error("No viewer")}}));
+ for (const target of ["/uploads/documents/A/a.pdf", "https://signed.example/a.pdf"]) {
+  reset(); await openDocumentReference("/api/files/documents/A/a.pdf", {...deps,get:async()=>({ok:true,data:{url:target}})});
+  assert.deepEqual(openCalls,[new URL(target,deps.apiUrl).toString()]);
+ }
  const html=cmrPreviewHtml({notes:'<img src=x onerror="bad">',shipper:{name:"A&B"},freightPrice:"SECRET_PRICE"});assert.ok(!html.includes("<img"));assert.ok(html.includes("A&amp;B"));assert.ok(!html.includes("SECRET_PRICE"));
  console.log("documentOpen: input/error scenarios + escaped CMR/financial omission passed");
 }

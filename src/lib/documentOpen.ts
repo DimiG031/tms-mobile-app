@@ -57,7 +57,7 @@ export async function openDocumentReference(reference: string, deps: DocumentOpe
  if (privatePath) {
   const result = payload(await deps.get(`${privatePath}?resolve=1`));
   if (typeof result.url !== "string") throw new Error("Server nije vratio adresu dokumenta.");
-  await deps.openUrl(httpUrl(result.url).toString());
+  await deps.openUrl(httpUrl(result.url, base.origin).toString());
   return;
  }
  throw new Error("Ovaj prikaz dokumenta još nije podržan u aplikaciji.");
