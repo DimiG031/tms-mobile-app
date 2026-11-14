@@ -11,6 +11,7 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { api } from "@/lib/api";
+import { subscribeOfflineWritesDelivered } from "@/lib/offline-queue";
 import {
   addForegroundNotificationListener,
   addNotificationResponseListener,
@@ -149,6 +150,33 @@ function NotificationBridge() {
   return null;
 }
 
+function OfflineDocumentDeliveryNotice() {
+  const { session } = useAuth();
+  useEffect(() => {
+    if (!session?.user.id) return;
+    let pending = false;
+    const showIfActive = () => {
+      if (!pending || AppState.currentState !== "active") return;
+      pending = false;
+      Alert.alert("Dokumenta", "Dokumenti koji su čekali slanje sada su sačuvani na serveru.");
+    };
+    const unsubscribe = subscribeOfflineWritesDelivered((paths) => {
+      if (!paths.includes("/api/documents")) return;
+      pending = true;
+      showIfActive();
+    });
+    const stateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") showIfActive();
+    });
+    return () => {
+      unsubscribe();
+      stateSub.remove();
+      pending = false;
+    };
+  }, [session?.user.id, session?.user.companyId]);
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
@@ -156,6 +184,7 @@ export default function RootLayout() {
         <AuthProvider>
           <ThemeProvider>
             <SplashHider />
+            <OfflineDocumentDeliveryNotice />
             <NotificationBridge />
             <Slot />
           </ThemeProvider>

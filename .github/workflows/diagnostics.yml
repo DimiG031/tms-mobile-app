@@ -10,6 +10,8 @@ on:
       - 'scripts/diagnostics.test.mts'
       - 'scripts/offlineQueue.test.mts'
       - 'scripts/documentQueue.test.mts'
+      - 'scripts/documentDeliveryNotice.test.mts'
+      - 'app/_layout.tsx'
       - 'src/queries/useTourDocuments.ts'
       - 'app/**/documents.tsx'
       - 'package.json'
@@ -46,3 +48,4 @@ jobs:
       - run: node --experimental-strip-types --test scripts/diagnostics.test.mts
       - run: node --experimental-strip-types scripts/offlineQueue.test.mts
       - run: node --experimental-strip-types scripts/documentQueue.test.mts
+      - run: node --experimental-strip-types scripts/documentDeliveryNotice.test.mts
