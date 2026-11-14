@@ -1,16 +1,18 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { getSessionRevision, assertSessionRevision, SessionChangedError } from "@/lib/secure-store";
 import { openDocument } from "@/services/openDocument";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { IOSCard } from "@/components/ios/IOSCard";
 import { IOSGlassPill } from "@/components/ios/IOSGlassPill";
 import { Pressable, TextInput } from "@/components/ui";
 import { formatDateTime } from "@/lib/formatters";
 import { useTheme, type AppTheme } from "@/providers/ThemeProvider";
-import { useCreateTourDocument, useTourDocuments } from "@/queries/useTourDocuments";
+import { api } from "@/lib/api";
+import { useCreateTourDocument, usePendingTourDocuments, useTourDocuments } from "@/queries/useTourDocuments";
 import { uploadFromFileUri } from "@/services/upload";
 
 const DOC_TYPES = ["PDF", "JPG", "PNG"] as const;
@@ -23,6 +25,11 @@ export default function TourDocumentsScreen() {
 
   const { data, isLoading, isError, isRefetching, refetch } = useTourDocuments(tourId);
   const createDocument = useCreateTourDocument(tourId);
+  const queryClient = useQueryClient();
+  const pendingDocuments = usePendingTourDocuments(tourId);
+  const saveInFlight = useRef(false);
+  const retryInFlight = useRef(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const [fileName, setFileName] = useState("");
   const [fileUrl, setFileUrl] = useState("");
@@ -158,11 +165,14 @@ export default function TourDocumentsScreen() {
   }
 
   function onCreateDocument() {
+    if (saveInFlight.current || isUploading) return;
     if (!fileName.trim() || !fileUrl.trim()) {
       Alert.alert("Dokumenta", "Naziv fajla i URL su obavezni.");
       return;
     }
 
+    saveInFlight.current = true;
+    const revision = getSessionRevision();
     createDocument.mutate(
       {
         fileName: fileName.trim(),
@@ -171,19 +181,47 @@ export default function TourDocumentsScreen() {
       },
       {
         onSuccess: (result) => {
+          if (getSessionRevision() !== revision) return;
           setFileName("");
           setFileUrl("");
           setFileType("JPG");
           Alert.alert("Dokumenta", result.queued
-            ? "Zahtev je sačuvan na uređaju i čeka slanje serveru. Dokument još nije potvrđen u listi."
+            ? result.delivery === "blocked"
+              ? `Zahtev nije prihvaćen. ${result.message || ""} Sačuvan je među zahtevima ispod za proveru i ponovni pokušaj.`
+              : "Zahtev je sačuvan na uređaju i čeka slanje. Potvrda servera još nije stigla. Aplikacija će automatski pokušati ponovo."
             : "Dokument je uspešno sačuvan na serveru.");
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : "Kreiranje dokumenta nije uspelo";
+          if (getSessionRevision() !== revision || error instanceof SessionChangedError) return;
+          const message = error instanceof Error ? error.message : "Čuvanje nije potvrđeno. Proverite zahteve ispod.";
           Alert.alert("Dokumenta", message);
-        }
+        },
+        onSettled: () => { saveInFlight.current = false; }
       }
     );
+  }
+
+  async function onRetryDocument(id: string) {
+    if (retryInFlight.current) return;
+    retryInFlight.current = true;
+    const revision = getSessionRevision();
+    setRetryingId(id);
+    try {
+      const result = await api.retryDocument(id);
+      assertSessionRevision(revision);
+      Alert.alert("Dokumenta", result.queued
+        ? result.delivery === "blocked" ? `Zahtev nije prihvaćen. ${result.message || "Proverite podatke i dozvole."}`
+          : "Potvrda servera još nije stigla. Zahtev čeka automatski ponovni pokušaj."
+        : "Dokument je uspešno sačuvan na serveru.");
+      if (!result.queued) await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ["tour-documents", tourId] }),
+        queryClient.invalidateQueries({ queryKey: ["documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["tour-details", tourId] }),
+        queryClient.invalidateQueries({ queryKey: ["notifications"] })
+      ]);
+    } catch (error) {
+      if (getSessionRevision() === revision && !(error instanceof SessionChangedError)) Alert.alert("Dokumenta", error instanceof Error ? error.message : "Čuvanje nije potvrđeno.");
+    } finally { retryInFlight.current = false; setRetryingId(null); }
   }
 
   async function onOpenDocument(url: string) {
@@ -205,19 +243,20 @@ export default function TourDocumentsScreen() {
 
         <View style={styles.stack}>
           <View style={styles.row}>
-            <Pressable onPress={onCapturePhoto} disabled={isUploading} className="flex-1 rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
+            <Pressable onPress={onCapturePhoto} disabled={isUploading || createDocument.isPending} className="flex-1 rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
               <Text className="text-center font-semibold text-brand-700">Slikaj</Text>
             </Pressable>
-            <Pressable onPress={onPickImage} disabled={isUploading} className="flex-1 rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
+            <Pressable onPress={onPickImage} disabled={isUploading || createDocument.isPending} className="flex-1 rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
               <Text className="text-center font-semibold text-brand-700">Galerija</Text>
             </Pressable>
           </View>
-          <Pressable onPress={onPickFile} disabled={isUploading} className="rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
+          <Pressable onPress={onPickFile} disabled={isUploading || createDocument.isPending} className="rounded-xl border border-brand-500 px-4 py-3 disabled:opacity-60">
             <Text className="text-center font-semibold text-brand-700">Fajl (PDF / JPG / PNG)</Text>
           </Pressable>
 
           <TextInput
             value={fileName}
+            editable={!createDocument.isPending && !isUploading}
             onChangeText={setFileName}
             placeholder="Naziv fajla (npr. CMR-BG-Munchen.jpg)"
             placeholderTextColor={theme.text.muted}
@@ -226,6 +265,7 @@ export default function TourDocumentsScreen() {
 
           <TextInput
             value={fileUrl}
+            editable={!createDocument.isPending && !isUploading}
             onChangeText={setFileUrl}
             autoCapitalize="none"
             placeholder="URL fajla (automatski nakon upload-a)"
@@ -241,7 +281,7 @@ export default function TourDocumentsScreen() {
                 size="sm"
                 label={option}
                 variant={fileType === option ? "accent" : "default"}
-                onPress={() => setFileType(option)}
+                onPress={() => { if (!createDocument.isPending && !isUploading) setFileType(option); }}
               />
             ))}
           </View>
@@ -253,6 +293,23 @@ export default function TourDocumentsScreen() {
           </Pressable>
         </View>
       </IOSCard>
+
+      {pendingDocuments.length ? (
+        <IOSCard style={styles.section}>
+          <Text style={styles.sectionTitle}>Zahtevi koji čekaju potvrdu</Text>
+          {pendingDocuments.map(item => (
+            <View key={item.id} className="mt-3 rounded-lg border border-slate-300 p-3 dark:border-slate-600">
+              <Text className="font-medium text-slate-900 dark:text-slate-100">{item.fileName}</Text>
+              <Text className="mt-1 text-sm text-slate-700 dark:text-slate-300">{item.message}</Text>
+              {item.canRetry ? (
+                <Pressable disabled={Boolean(retryingId)} onPress={() => void onRetryDocument(item.id)} className="mt-2 rounded-lg bg-brand-600 px-3 py-2 disabled:opacity-60">
+                  <Text className="text-center font-semibold text-white">{retryingId === item.id ? "Provera..." : "Pokušaj ponovo"}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+        </IOSCard>
+      ) : null}
 
       <IOSCard style={styles.section}>
         <Text style={styles.sectionTitle}>Otpremljena dokumenta</Text>

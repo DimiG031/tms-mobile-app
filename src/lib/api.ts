@@ -5,6 +5,8 @@ import { offlineOwner } from "@/lib/offline-owner";
 import type { AuthSession, MobileRefreshResponse } from "@/lib/types";
 import {
   enqueueOfflineWrite,
+  getOfflineWriteQueue,
+  retryOfflineDocument,
   flushOfflineWriteQueue,
   type OfflineWriteItem,
   type OfflineWriteMethod,
@@ -15,7 +17,10 @@ const refreshes = new Map<string, Promise<string | null>>();
 let queueFlushInFlight: Promise<void> | null = null;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-type QueuedResult<T> = { queued: false; data: T } | { queued: true; data: null };
+type QueuedResult<T> = { queued: false; data: T } | { queued: true; data: null; delivery?: "pending" | "blocked"; message?: string };
+const documentAttempts = new Map<string, { data?: unknown; acknowledged?: boolean }>();
+const DOCUMENT_PENDING_MESSAGE = "Zahtev je sačuvan na uređaju. Potvrda servera još nije stigla. Aplikacija će automatski pokušati ponovo.";
+
 
 export class ApiError extends Error {
   status: number;
@@ -98,13 +103,14 @@ async function refreshToken(traceId: string, current: AuthSession): Promise<stri
   return pending;
 }
 
-async function requestUntraced<T>(method: HttpMethod, path: string, body: unknown, traceId: string, onStatus: (status: number) => void, expectedOwner: string | undefined, revision: number, allowOldAcknowledgement: boolean): Promise<T> {
+async function requestUntraced<T>(method: HttpMethod, path: string, body: unknown, traceId: string, onStatus: (status: number) => void, expectedOwner: string | undefined, revision: number, allowOldAcknowledgement: boolean, operationKey?: string): Promise<T> {
   const run = async (token?: string | null) =>
     fetch(`${config.apiUrl}${path}`, {
       method,
       headers: {
         "Content-Type": "application/json",
         [TRACE_HEADER]: traceId,
+        ...(operationKey ? { "Idempotency-Key": operationKey } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
       body: body ? JSON.stringify(body) : undefined
@@ -175,19 +181,24 @@ async function requestUntraced<T>(method: HttpMethod, path: string, body: unknow
     return undefined as T;
   }
 
-  const result = (await response.json()) as T;
+  let result: T;
+  try { result = (await response.json()) as T; }
+  catch (error) {
+    if (operationKey) throw new ApiError("Nismo dobili ispravnu potvrdu čuvanja.", 0, true);
+    throw error;
+  }
   if (!allowOldAcknowledgement) assertSessionRevision(revision);
   return result;
 }
 
-async function request<T>(method: HttpMethod, path: string, body?: unknown, suppliedTraceId?: string, expectedOwner?: string, allowOldAcknowledgement = false): Promise<T> {
+async function request<T>(method: HttpMethod, path: string, body?: unknown, suppliedTraceId?: string, expectedOwner?: string, allowOldAcknowledgement = false, operationKey?: string): Promise<T> {
   const revision = getSessionRevision();
   const traceId = isTraceId(suppliedTraceId) ? suppliedTraceId : newTraceId();
   const operation = requestOperation(path); const start = Date.now();
   let status: number | undefined;
   mobileDiagnostic("debug", "request.started", { traceId, operation, method });
   try {
-    const result = await requestUntraced<T>(method, path, body, traceId, value => { status = value; }, expectedOwner, revision, allowOldAcknowledgement);
+    const result = await requestUntraced<T>(method, path, body, traceId, value => { status = value; }, expectedOwner, revision, allowOldAcknowledgement, operationKey);
     mobileDiagnostic("info", "request.completed", { traceId, operation, method, status, durationMs: Date.now() - start });
     return result;
   } catch (error) {
@@ -206,8 +217,20 @@ async function flushQueuedWritesInternal(): Promise<void> {
     const operation = requestOperation(item.path);
     mobileDiagnostic("debug", "queue.sending", { traceId, operation, method: item.method, attempt: item.retries + 1 });
     try {
-      await requestNoContent(item.method, item.path, item.body, traceId, item.owner);
+      let notify = true;
+      if (item.method === "POST" && item.path === "/api/documents") {
+        if (!isTraceId(item.operationKey)) throw new ApiError("Stariji zahtev nema ključ za bezbedno ponavljanje. Proverite listu dokumenata pre novog dodavanja.", 409);
+        const result = await request<{ ok?: boolean; data?: { id?: string } }>(item.method, item.path, item.body, traceId, item.owner, true, item.operationKey);
+        if (result?.ok !== true || typeof result.data?.id !== "string" || !result.data.id) {
+          throw new ApiError("Nismo dobili ispravnu potvrdu čuvanja.", 0, true);
+        }
+        const attempt = documentAttempts.get(item.operationKey);
+        if (attempt) { attempt.data = result; attempt.acknowledged = true; notify = false; }
+      } else {
+        await requestNoContent(item.method, item.path, item.body, traceId, item.owner);
+      }
       mobileDiagnostic("info", "queue.acknowledged", { traceId, operation, method: item.method });
+      return { notify };
     } catch (error) {
       mobileDiagnostic("warn", "queue.rejected", { traceId, operation, method: item.method, status: error instanceof ApiError || error instanceof SessionChangedError ? error.status : undefined });
       throw error;
@@ -227,6 +250,52 @@ function scheduleQueueFlush(): void {
   }
 }
 
+async function sendPersistedDocument<T>(item: OfflineWriteItem, attempt: { data?: unknown; acknowledged?: boolean }): Promise<QueuedResult<T>> {
+  try {
+    await flushQueuedWritesInternal();
+  } catch {
+    // A failed acknowledgement persistence cannot erase the durable operation nonce.
+  }
+  if (attempt.acknowledged) return { queued: false, data: attempt.data as T };
+  const current = await getOfflineWriteQueue().then(items => items.find(entry => entry.id === item.id)).catch(() => undefined);
+  return { queued: true, data: null, delivery: current?.blocked ? "blocked" : "pending",
+    message: current?.blocked ? current.failureMessage || "Zahtev nije prihvaćen. Proverite podatke i pokušajte ponovo." : DOCUMENT_PENDING_MESSAGE };
+}
+
+async function writeDocument<T>(body: unknown, traceId: string, owner: string, revision: number): Promise<QueuedResult<T>> {
+  const operationKey = newTraceId();
+  const attempt = {};
+  documentAttempts.set(operationKey, attempt);
+  try {
+    let item: OfflineWriteItem;
+    try { item = await enqueueOfflineWrite({ method: "POST", path: "/api/documents", body, traceId, operationKey }, owner); }
+    catch { throw new ApiError("Zahtev nije sačuvan na uređaju i nije poslat serveru. Pokušajte ponovo.", 0); }
+    mobileDiagnostic("info", "queue.stored", { traceId, operation: "documents", method: "POST" });
+    assertSessionRevision(revision);
+    const result = await sendPersistedDocument<T>(item, attempt);
+    assertSessionRevision(revision);
+    return result;
+  } finally { documentAttempts.delete(operationKey); }
+}
+
+async function retryDocument(id: string): Promise<QueuedResult<unknown>> {
+  const revision = getSessionRevision();
+  const owner = offlineOwner(await readSession(), config.apiUrl);
+  assertSessionRevision(revision);
+  if (!owner) throw new ApiError("Za slanje zahteva potrebna je prijava.", 401);
+  const item = (await getOfflineWriteQueue()).find(entry => entry.id === id);
+  if (!item || !isTraceId(item.operationKey)) throw new ApiError("Zahtev nije dostupan za bezbedno ponavljanje. Proverite listu dokumenata.", 409);
+  const attempt = {};
+  documentAttempts.set(item.operationKey, attempt);
+  try {
+    await retryOfflineDocument(id, owner);
+    assertSessionRevision(revision);
+    const result = await sendPersistedDocument(item, attempt);
+    assertSessionRevision(revision);
+    return result;
+  } finally { documentAttempts.delete(item.operationKey); }
+}
+
 async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: unknown, requiredOwner?: string): Promise<QueuedResult<T>> {
   const revision = getSessionRevision();
   const traceId = newTraceId();
@@ -234,6 +303,7 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
   assertSessionRevision(revision);
   if (requiredOwner && owner !== requiredOwner) throw new SessionChangedError();
   if (!owner) throw new ApiError("Za slanje zahteva potrebna je prijava.", 401);
+  if (method === "POST" && path === "/api/documents") return writeDocument<T>(body, traceId, owner, revision);
   try {
     const data = await request<T>(method, path, body, traceId, owner);
     scheduleQueueFlush();
@@ -250,6 +320,7 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
 }
 
 export const api = {
+  retryDocument,
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   postForOwner: <T>(path: string, body: unknown, owner: string) => request<T>("POST", path, body, undefined, owner),

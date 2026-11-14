@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import NetInfo from "@react-native-community/netinfo";
 import { Text, View } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
-import { getUnownedOfflineWriteCount, getOfflineWriteQueueCount, subscribeOfflineQueueCount } from "@/lib/offline-queue";
+import { getUnownedOfflineWriteCount, getOfflineWriteQueue, subscribeOfflineQueueCount } from "@/lib/offline-queue";
 
 export function OfflineBanner() {
   const { session } = useAuth();
   const [hasUnowned, setHasUnowned] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const [queueCount, setQueueCount] = useState(0);
+  const [blockedCount, setBlockedCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -23,10 +24,11 @@ export function OfflineBanner() {
   useEffect(() => {
     let active = true;
     setQueueCount(0);
+    setBlockedCount(0);
     setHasUnowned(false);
     const refresh = () => {
-      void Promise.all([getOfflineWriteQueueCount(), getUnownedOfflineWriteCount()])
-        .then(([count, legacy]) => { if (active) { setQueueCount(count); setHasUnowned(legacy > 0); } })
+      void Promise.all([getOfflineWriteQueue(), getUnownedOfflineWriteCount()])
+        .then(([items, legacy]) => { if (active) { setQueueCount(items.length); setBlockedCount(items.filter(item => item.blocked).length); setHasUnowned(legacy > 0); } })
         .catch(() => undefined);
     };
     refresh();
@@ -48,7 +50,9 @@ export function OfflineBanner() {
     return (
       <View className="bg-sky-100 px-3 py-2">
         <Text className="text-center text-xs font-semibold text-sky-800">
-          Sinhronizacija... ({queueCount})
+          {blockedCount > 0
+            ? `Čeka potvrdu: ${queueCount - blockedCount}. Za proveru u Dokumentima ture: ${blockedCount}.`
+            : `Zahtevi čekaju potvrdu servera: ${queueCount}.`}
         </Text>
       </View>
     );

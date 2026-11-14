@@ -12,6 +12,11 @@ export type OfflineWriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 export type OfflineWriteItem = {
   /** Correlation only; optional for items created by previous app versions. */
   traceId?: string;
+  /** Stable document operation nonce, distinct from tracing. Persist before first send. */
+  operationKey?: string;
+  blocked?: boolean;
+  failureStatus?: number;
+  failureMessage?: string;
   /** Missing on legacy entries: never automatically adopt or replay those. */
   owner?: string;
   id: string;
@@ -70,19 +75,37 @@ async function setOfflineWriteQueue(items: OfflineWriteItem[]): Promise<void> {
   notifyCount(owner ? items.filter(item => item.owner === owner).length : 0);
 }
 
-export async function enqueueOfflineWrite(item: Omit<OfflineWriteItem, "id" | "createdAt" | "retries" | "owner">, owner?: string | null): Promise<void> {
+export async function enqueueOfflineWrite(item: Omit<OfflineWriteItem, "id" | "createdAt" | "retries" | "owner">, owner?: string | null): Promise<OfflineWriteItem> {
   const capturedOwner = owner === undefined ? await currentOwner() : owner;
   if (!capturedOwner) throw new Error("Za čuvanje zahteva potrebna je prijava.");
-  await withStorageLock(async () => {
+  return withStorageLock(async () => {
     const queue = await readQueue();
-    queue.push({
+    const record: OfflineWriteItem = {
       ...item,
       owner: capturedOwner,
       id: randomId(),
       createdAt: new Date().toISOString(),
       retries: 0
-    });
+    };
+    queue.push(record);
     await setOfflineWriteQueue(queue);
+    return record;
+  });
+}
+
+/** Manual retry preserves original owner, body and operation key. */
+export async function retryOfflineDocument(id: string, expectedOwner: string): Promise<OfflineWriteItem> {
+  if (flushInFlight) await flushInFlight;
+  return withStorageLock(async () => {
+    if (await currentOwner() !== expectedOwner) throw new Error("Nalog za slanje je promenjen.");
+    const queue = await readQueue();
+    const record = queue.find(item => item.id === id && item.owner === expectedOwner);
+    if (!record || record.method !== "POST" || record.path !== "/api/documents" || !record.operationKey) {
+      throw new Error("Zahtev nije dostupan za bezbedno ponavljanje. Proverite listu dokumenata.");
+    }
+    const next = { ...record, blocked: false, failureStatus: undefined, failureMessage: undefined };
+    await setOfflineWriteQueue(queue.map(item => item.id === id ? next : item));
+    return next;
   });
 }
 
@@ -143,7 +166,7 @@ export function isLikelyOfflineError(error: unknown): boolean {
 }
 
 async function flushSnapshot(
-  executor: (item: OfflineWriteItem) => Promise<void>
+  executor: (item: OfflineWriteItem) => Promise<void | { notify?: boolean }>
 ): Promise<{ processed: number; remaining: number }> {
   const owner = await currentOwner();
   if (!owner) return { processed: 0, remaining: 0 };
@@ -154,12 +177,13 @@ async function flushSnapshot(
 
   const nextQueue: OfflineWriteItem[] = [];
   let processed = 0;
+  const silentIds = new Set<string>();
   let hardStop = false;
 
   for (let i = 0; i < queue.length; i += 1) {
     const item = queue[i];
 
-    if (hardStop || await currentOwner() !== owner) {
+    if (item.blocked || hardStop || await currentOwner() !== owner) {
       nextQueue.push(item);
       continue;
     }
@@ -212,10 +236,17 @@ async function flushSnapshot(
     }
 
     try {
-      await executor(item);
+      const acknowledgement = await executor(item);
+      if (acknowledgement?.notify === false) silentIds.add(item.id);
       processed += 1;
     } catch (error) {
-      if (isLikelyOfflineError(error)) {
+      const status = (error as { status?: number })?.status;
+      if (item.method === "POST" && item.path === "/api/documents"
+        && typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+        nextQueue.push({ ...item, blocked: true, failureStatus: status,
+          failureMessage: error instanceof Error ? error.message : "Zahtev nije prihvaćen.",
+          retries: item.retries + 1 });
+      } else if (isLikelyOfflineError(error)) {
         hardStop = true;
         nextQueue.push(item);
       } else {
@@ -241,8 +272,8 @@ async function flushSnapshot(
   });
   if (processed && await currentOwner() === owner) {
     const pendingIds = new Set(nextQueue.map(item => item.id));
-    const paths = [...new Set(queue.filter(item => !pendingIds.has(item.id)).map(item => item.path))];
-    for (const listener of deliveryListeners) {
+    const paths = [...new Set(queue.filter(item => !pendingIds.has(item.id) && !silentIds.has(item.id)).map(item => item.path))];
+    for (const listener of paths.length ? deliveryListeners : []) {
       try { listener(paths); } catch { /* Delivery remains acknowledged. */ }
     }
   }
@@ -250,7 +281,7 @@ async function flushSnapshot(
 }
 
 export function flushOfflineWriteQueue(
-  executor: (item: OfflineWriteItem) => Promise<void>
+  executor: (item: OfflineWriteItem) => Promise<void | { notify?: boolean }>
 ): Promise<{ processed: number; remaining: number }> {
   if (!flushInFlight) {
     flushInFlight = flushSnapshot(executor).finally(() => { flushInFlight = null; });
