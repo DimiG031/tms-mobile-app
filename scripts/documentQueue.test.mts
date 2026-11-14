@@ -39,6 +39,7 @@ console.log('Document queue: queued/server UI outcomes and online cache invalida
  ctx.onCreateDocument();ctx.onCreateDocument();assert.equal(mutations,1);
  revision=1;options.onSuccess({queued:false});assert.equal(alerts.length,0);assert.equal(resets.length,0);options.onSettled();
  ctx.onCreateDocument();options.onError(new Error('Zahtev nije sačuvan na uređaju i nije poslat serveru. Pokušajte ponovo.'));assert.equal(resets.length,0);assert.equal(alerts.length,1);options.onSettled();
+ ctx.onCreateDocument();const countBefore=alerts.length;options.onSuccess({queued:false,noticeScheduled:true});assert.equal(alerts.length,countBefore);options.onSettled();
  await ctx.onRetryDocument('pending-id');assert.ok(alerts.at(-1)[1].includes('na serveru'),JSON.stringify(alerts));assert.equal(invalidation.length,4);
 }
 console.log('Document save UI: synchronous double-tap guard, stale-session silence, retained input on local failure and manual retry invalidation passed');

@@ -185,7 +185,8 @@ export default function TourDocumentsScreen() {
           setFileName("");
           setFileUrl("");
           setFileType("JPG");
-          Alert.alert("Dokumenta", result.queued
+          if (!result.queued && result.noticeScheduled) return;
+          if (result.queued || !result.noticeScheduled) Alert.alert("Dokumenta", result.queued
             ? result.delivery === "blocked"
               ? `Zahtev nije prihvaćen. ${result.message || ""} Sačuvan je među zahtevima ispod za proveru i ponovni pokušaj.`
               : "Zahtev je sačuvan na uređaju i čeka slanje. Potvrda servera još nije stigla. Aplikacija će automatski pokušati ponovo."
@@ -213,7 +214,7 @@ export default function TourDocumentsScreen() {
         ? result.delivery === "blocked" ? `Zahtev nije prihvaćen. ${result.message || "Proverite podatke i dozvole."}`
           : "Potvrda servera još nije stigla. Zahtev čeka automatski ponovni pokušaj."
         : "Dokument je uspešno sačuvan na serveru.");
-      if (!result.queued) await Promise.allSettled([
+      if (!result.queued && !result.noticeScheduled) await Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: ["tour-documents", tourId] }),
         queryClient.invalidateQueries({ queryKey: ["documents"] }),
         queryClient.invalidateQueries({ queryKey: ["tour-details", tourId] }),

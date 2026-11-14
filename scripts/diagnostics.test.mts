@@ -152,7 +152,7 @@ test('in-flight acknowledged queue success is removed without notifying another 
 const documentBody={fileName:"fixture.pdf",fileUrl:"/api/files/documents/C/test.pdf",fileType:"PDF",relatedType:"tour",relatedId:"T",tourId:"T"};
 const receipt=(id="doc-1",status=201)=>new Response(JSON.stringify({ok:true,data:{id}}),{status});
 const queueOf=(f:ReturnType<typeof fixture>)=>JSON.parse(f.storage.get("tms_offline_write_queue_v1")||"[]");
-test("document is durable before first send; success requires an explicit receipt and is not announced twice",async()=>{
+test("document is durable before first send; success requires an explicit receipt and has a central delivery notice",async()=>{
  const f=fixture();let notices=0;f.load("src/lib/offline-queue.ts").subscribeOfflineWritesDelivered(()=>notices++);
  f.setFetch(async(_url,init)=>{
    const pending=queueOf(f);assert.equal(pending.length,1);
@@ -160,7 +160,7 @@ test("document is durable before first send; success requires an explicit receip
    assert.notEqual(headers.get("Idempotency-Key"),headers.get("x-tms-trace-id"));return receipt();
  });
  const result=await f.api.postQueued("/api/documents",documentBody);assert.equal(result.queued,false);
- assert.equal(result.data.data.id,"doc-1");assert.equal(queueOf(f).length,0);assert.equal(notices,0);
+ assert.equal(result.data.data.id,"doc-1");assert.equal(queueOf(f).length,0);assert.equal(notices,1);assert.equal(result.noticeScheduled,true);
  assert.ok(!JSON.stringify(f.records).includes("fixture.pdf"));
 });
 test("lost committed response survives process restart and replays exactly the original operation",async()=>{
@@ -201,7 +201,7 @@ test("local persistence failure prevents any document send",async()=>{
 });
 test("lost acknowledgement storage update retries the same key after a valid server success",async()=>{
  const f=fixture();f.setFetch(async()=>{f.failNextWrite();return receipt()});
- assert.equal((await f.api.postQueued("/api/documents",documentBody)).queued,false);const key=queueOf(f)[0].operationKey;
+ const accepted=await f.api.postQueued("/api/documents",documentBody);assert.equal(accepted.queued,false);assert.equal(accepted.noticeScheduled,false);const key=queueOf(f)[0].operationKey;
  f.setFetch(async(_url,init)=>{assert.equal(new Headers(init?.headers).get("Idempotency-Key"),key);return receipt()});await f.api.flushOfflineWrites();assert.equal(queueOf(f).length,0);
 });
 test("two intentional saves have different operation keys",async()=>{
@@ -222,4 +222,12 @@ test("another account cannot retry or see a rejected document operation",async()
  await assert.rejects(f.api.retryDocument(item.id));await f.api.flushOfflineWrites();assert.equal(f.calls.length,before);
  assert.equal(queueOf(f)[0].operationKey,item.operationKey);
  f.setSession(a);f.setFetch(async()=>receipt());assert.equal((await f.api.retryDocument(item.id)).queued,false);
+});
+
+test("direct document acknowledgement reaches the global notice even after its initiating view is gone",async()=>{
+ const f=fixture();let viewGone=false,globalNotices=0;
+ f.load("src/lib/offline-queue.ts").subscribeOfflineWritesDelivered(()=>{assert.equal(viewGone,true);globalNotices++});
+ f.setFetch(async()=>{viewGone=true;return receipt()});
+ const result=await f.api.postQueued("/api/documents",documentBody);
+ assert.equal(result.queued,false);assert.equal(result.noticeScheduled,true);assert.equal(globalNotices,1);
 });

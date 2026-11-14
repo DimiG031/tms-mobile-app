@@ -166,7 +166,7 @@ function OfflineDocumentDeliveryNotice() {
       if (getSessionRevision() !== revision) { pending = false; return; }
       if (!pending || AppState.currentState !== "active") return;
       pending = false;
-      Alert.alert("Dokumenta", "Dokumenti koji su čekali slanje sada su sačuvani na serveru.");
+      Alert.alert("Dokumenta", "Dokumenti su uspešno sačuvani na serveru.");
     };
     const unsubscribe = subscribeOfflineWritesDelivered((paths) => {
       if (getSessionRevision() !== revision || !paths.includes("/api/documents")) return;

@@ -17,7 +17,7 @@ const refreshes = new Map<string, Promise<string | null>>();
 let queueFlushInFlight: Promise<void> | null = null;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-type QueuedResult<T> = { queued: false; data: T } | { queued: true; data: null; delivery?: "pending" | "blocked"; message?: string };
+type QueuedResult<T> = { queued: false; data: T; noticeScheduled?: boolean } | { queued: true; data: null; delivery?: "pending" | "blocked"; message?: string };
 const documentAttempts = new Map<string, { data?: unknown; acknowledged?: boolean }>();
 const DOCUMENT_PENDING_MESSAGE = "Zahtev je sačuvan na uređaju. Potvrda servera još nije stigla. Aplikacija će automatski pokušati ponovo.";
 
@@ -217,7 +217,6 @@ async function flushQueuedWritesInternal(): Promise<void> {
     const operation = requestOperation(item.path);
     mobileDiagnostic("debug", "queue.sending", { traceId, operation, method: item.method, attempt: item.retries + 1 });
     try {
-      let notify = true;
       if (item.method === "POST" && item.path === "/api/documents") {
         if (!isTraceId(item.operationKey)) throw new ApiError("Stariji zahtev nema ključ za bezbedno ponavljanje. Proverite listu dokumenata pre novog dodavanja.", 409);
         const result = await request<{ ok?: boolean; data?: { id?: string } }>(item.method, item.path, item.body, traceId, item.owner, true, item.operationKey);
@@ -225,12 +224,11 @@ async function flushQueuedWritesInternal(): Promise<void> {
           throw new ApiError("Nismo dobili ispravnu potvrdu čuvanja.", 0, true);
         }
         const attempt = documentAttempts.get(item.operationKey);
-        if (attempt) { attempt.data = result; attempt.acknowledged = true; notify = false; }
+        if (attempt) { attempt.data = result; attempt.acknowledged = true; }
       } else {
         await requestNoContent(item.method, item.path, item.body, traceId, item.owner);
       }
       mobileDiagnostic("info", "queue.acknowledged", { traceId, operation, method: item.method });
-      return { notify };
     } catch (error) {
       mobileDiagnostic("warn", "queue.rejected", { traceId, operation, method: item.method, status: error instanceof ApiError || error instanceof SessionChangedError ? error.status : undefined });
       throw error;
@@ -251,12 +249,14 @@ function scheduleQueueFlush(): void {
 }
 
 async function sendPersistedDocument<T>(item: OfflineWriteItem, attempt: { data?: unknown; acknowledged?: boolean }): Promise<QueuedResult<T>> {
+  let noticeScheduled = false;
   try {
     await flushQueuedWritesInternal();
+    noticeScheduled = Boolean(attempt.acknowledged);
   } catch {
     // A failed acknowledgement persistence cannot erase the durable operation nonce.
   }
-  if (attempt.acknowledged) return { queued: false, data: attempt.data as T };
+  if (attempt.acknowledged) return { queued: false, data: attempt.data as T, noticeScheduled };
   const current = await getOfflineWriteQueue().then(items => items.find(entry => entry.id === item.id)).catch(() => undefined);
   return { queued: true, data: null, delivery: current?.blocked ? "blocked" : "pending",
     message: current?.blocked ? current.failureMessage || "Zahtev nije prihvaćen. Proverite podatke i pokušajte ponovo." : DOCUMENT_PENDING_MESSAGE };

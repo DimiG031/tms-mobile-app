@@ -44,7 +44,7 @@ export function useCreateTourDocument(tourId?: string) {
       });
     },
     onSuccess: async (result) => {
-      if (result.queued) return;
+      if (result.queued || result.noticeScheduled) return;
       await Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: ["tour-documents", tourId] }),
         queryClient.invalidateQueries({ queryKey: ["documents"] }),

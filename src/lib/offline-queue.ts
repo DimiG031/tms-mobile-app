@@ -166,7 +166,7 @@ export function isLikelyOfflineError(error: unknown): boolean {
 }
 
 async function flushSnapshot(
-  executor: (item: OfflineWriteItem) => Promise<void | { notify?: boolean }>
+  executor: (item: OfflineWriteItem) => Promise<void>
 ): Promise<{ processed: number; remaining: number }> {
   const owner = await currentOwner();
   if (!owner) return { processed: 0, remaining: 0 };
@@ -177,7 +177,6 @@ async function flushSnapshot(
 
   const nextQueue: OfflineWriteItem[] = [];
   let processed = 0;
-  const silentIds = new Set<string>();
   let hardStop = false;
 
   for (let i = 0; i < queue.length; i += 1) {
@@ -236,8 +235,7 @@ async function flushSnapshot(
     }
 
     try {
-      const acknowledgement = await executor(item);
-      if (acknowledgement?.notify === false) silentIds.add(item.id);
+      await executor(item);
       processed += 1;
     } catch (error) {
       const status = (error as { status?: number })?.status;
@@ -272,7 +270,7 @@ async function flushSnapshot(
   });
   if (processed && await currentOwner() === owner) {
     const pendingIds = new Set(nextQueue.map(item => item.id));
-    const paths = [...new Set(queue.filter(item => !pendingIds.has(item.id) && !silentIds.has(item.id)).map(item => item.path))];
+    const paths = [...new Set(queue.filter(item => !pendingIds.has(item.id)).map(item => item.path))];
     for (const listener of paths.length ? deliveryListeners : []) {
       try { listener(paths); } catch { /* Delivery remains acknowledged. */ }
     }
@@ -281,7 +279,7 @@ async function flushSnapshot(
 }
 
 export function flushOfflineWriteQueue(
-  executor: (item: OfflineWriteItem) => Promise<void | { notify?: boolean }>
+  executor: (item: OfflineWriteItem) => Promise<void>
 ): Promise<{ processed: number; remaining: number }> {
   if (!flushInFlight) {
     flushInFlight = flushSnapshot(executor).finally(() => { flushInFlight = null; });
