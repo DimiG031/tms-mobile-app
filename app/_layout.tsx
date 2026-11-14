@@ -11,6 +11,7 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { api } from "@/lib/api";
+import { getSessionRevision } from "@/lib/secure-store";
 import { subscribeOfflineWritesDelivered } from "@/lib/offline-queue";
 import {
   addForegroundNotificationListener,
@@ -49,10 +50,11 @@ function NotificationBridge() {
 
   useEffect(() => {
     if (!session) return;
+    let active = true;
 
     const refreshChatPayload = async (data: unknown) => {
       const chatPayload = getChatMessageNotificationPayload(data);
-      if (!chatPayload) return false;
+      if (!active || !chatPayload) return false;
 
       await queryClient.invalidateQueries({ queryKey: ["chat-threads"] });
       await queryClient.invalidateQueries({ queryKey: ["chat-messages", chatPayload.threadId] });
@@ -60,6 +62,7 @@ function NotificationBridge() {
     };
 
     const handleResponse = async (response: NotificationResponse) => {
+      if (!active) return;
       const data = (response.notification.request.content.data ?? {}) as {
         actionUrl?: unknown;
         notificationId?: unknown;
@@ -89,6 +92,7 @@ function NotificationBridge() {
     };
 
     const handleForeground = (notification: Notification) => {
+      if (!active) return;
       const data = notification.request.content.data ?? {};
       const title = notification.request.content.title ?? "Novo obaveštenje";
       const body = notification.request.content.body ?? "Imate novo obaveštenje.";
@@ -105,16 +109,17 @@ function NotificationBridge() {
     const foregroundSub = addForegroundNotificationListener(handleForeground);
 
     void getLastNotificationResponseAsync().then((last) => {
-      if (last) {
+      if (active && last) {
         void handleResponse(last);
       }
     });
 
     return () => {
+      active = false;
       responseSub?.remove();
       foregroundSub?.remove();
     };
-  }, [queryClient, router, session]);
+  }, [queryClient, router, session?.user.id, session?.user.companyId, session?.user.driverId]);
 
   useEffect(() => {
     if (!session) return;
@@ -127,7 +132,7 @@ function NotificationBridge() {
     return () => {
       appStateSub.remove();
     };
-  }, [queryClient, session]);
+  }, [queryClient, session?.user.id, session?.user.companyId, session?.user.driverId]);
 
   useEffect(() => {
     if (!session) return;
@@ -145,23 +150,32 @@ function NotificationBridge() {
     return () => {
       stopGpsSyncLoop();
     };
-  }, [session]);
+  }, [session?.user.id, session?.user.companyId, session?.user.driverId]);
 
   return null;
 }
 
 function OfflineDocumentDeliveryNotice() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   useEffect(() => {
     if (!session?.user.id) return;
     let pending = false;
+    const revision = getSessionRevision();
     const showIfActive = () => {
+      if (getSessionRevision() !== revision) { pending = false; return; }
       if (!pending || AppState.currentState !== "active") return;
       pending = false;
       Alert.alert("Dokumenta", "Dokumenti koji su čekali slanje sada su sačuvani na serveru.");
     };
     const unsubscribe = subscribeOfflineWritesDelivered((paths) => {
-      if (!paths.includes("/api/documents")) return;
+      if (getSessionRevision() !== revision || !paths.includes("/api/documents")) return;
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tour-documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["tour-details"] }),
+        queryClient.invalidateQueries({ queryKey: ["notifications"] })
+      ]).catch(() => undefined);
       pending = true;
       showIfActive();
     });
@@ -173,23 +187,23 @@ function OfflineDocumentDeliveryNotice() {
       stateSub.remove();
       pending = false;
     };
-  }, [session?.user.id, session?.user.companyId]);
+  }, [queryClient, session?.user.id, session?.user.companyId, session?.user.driverId]);
   return null;
 }
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <QueryProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <QueryProvider>
           <ThemeProvider>
             <SplashHider />
             <OfflineDocumentDeliveryNotice />
             <NotificationBridge />
             <Slot />
           </ThemeProvider>
-        </AuthProvider>
-      </QueryProvider>
+        </QueryProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

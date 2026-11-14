@@ -10,3 +10,28 @@ await c.saveSession(a);assert.equal(await c.replaceSessionIfCurrent(a,{...a,toke
 await Promise.all([c.saveSession(b),c.replaceSessionIfCurrent({...a,token:'new-A'},null)]);assert.equal((await c.readSession()).token,'B');
 await c.clearSession();assert.equal(await c.replaceSessionIfCurrent(b,b),false);assert.equal(await c.readSession(),null);
 console.log('Real session store: conditional refresh cannot resurrect/logout/overwrite another login passed');
+let notices:any[]=[];const unsubscribe=c.subscribeSessionChanges((s:any,r:number)=>notices.push({token:s?.token??null,revision:r}));
+await c.saveSession(a);const rev=c.getSessionRevision();
+await c.replaceSessionIfCurrent(a,{...a,token:'rotated'});assert.equal(c.getSessionRevision(),rev);assert.equal(c.getSessionSnapshot().session.token,'rotated');
+await c.clearSession();assert.ok(c.getSessionRevision()>rev);assert.equal(c.getSessionSnapshot().session,null);assert.equal(notices.at(-1).token,null);
+const oldIntent=c.beginSessionChange(),newIntent=c.beginSessionChange();assert.equal(await c.saveSessionForIntent(a,oldIntent),false);assert.equal(await c.saveSessionForIntent(b,newIntent),true);assert.equal(c.getSessionSnapshot().session.token,'B');
+const canceled=c.beginSessionChange();await c.clearSession();assert.equal(await c.saveSessionForIntent(a,canceled),false);assert.equal(await c.readSession(),null);
+let resume!:()=>void,entered!:()=>void;
+const gate=new Promise<void>(r=>resume=r),started=new Promise<void>(r=>entered=r);
+const realSet=SecureStore.setItemAsync;let block=true;
+SecureStore.setItemAsync=async(k:string,v:string)=>{if(block){block=false;entered();await gate;}await realSet(k,v)};
+notices=[];const intent=c.beginSessionChange();const login=c.saveSessionForIntent(a,intent);await started;const logout=c.clearSession();resume();assert.equal(await login,false);await logout;assert.equal(await c.readSession(),null);assert.ok(!notices.some(n=>n.token==='A'));
+unsubscribe();
+console.log('Session notifications, stable refresh revision, login cancellation and logout during native write passed');
+// Logout during the native refresh write must remain logged out in memory too.
+SecureStore.setItemAsync=realSet;await c.saveSession(a);
+let resumeRefresh!:()=>void,startedRefresh!:()=>void;const refreshGate=new Promise<void>(r=>resumeRefresh=r),refreshStarted=new Promise<void>(r=>startedRefresh=r);let hold=true;
+SecureStore.setItemAsync=async(k:string,v:string)=>{if(hold){hold=false;startedRefresh();await refreshGate}await realSet(k,v)};
+const refreshing=c.replaceSessionIfCurrent(a,{...a,token:'late-refresh'});await refreshStarted;const signingOut=c.clearSession();assert.equal(c.getSessionSnapshot().session,null);resumeRefresh();assert.equal(await refreshing,false);await signingOut;assert.equal(c.getSessionSnapshot().session,null);assert.equal(await c.readSession(),null);
+SecureStore.setItemAsync=realSet;await c.saveSession(a);const originalDelete=SecureStore.deleteItemAsync;SecureStore.deleteItemAsync=async()=>{throw new Error('keystore failed')};await assert.rejects(c.clearSession(),/keystore failed/);assert.equal(c.getSessionSnapshot().session,null);assert.equal(await c.readSession(),null);SecureStore.deleteItemAsync=originalDelete;await c.clearSession();
+console.log('Logout during refresh and native delete failure cannot restore the active in-memory login');
+await c.saveSession(a);saved='{"token":"A","refreshToken":"RA","user":null}';assert.equal(await c.readSession(),null);assert.equal(c.getSessionSnapshot().session,null);await assert.rejects(c.saveSession({...a,token:''}),/prijavu nije ispravan/);
+console.log('Malformed persisted or login sessions fail closed without publishing partial identity');
+await c.saveSession(a);const originalGet=SecureStore.getItemAsync;const staleRead=saved;let releaseRead!:()=>void,enteredRead!:()=>void;const readGate=new Promise<void>(r=>releaseRead=r),readStarted=new Promise<void>(r=>enteredRead=r);
+SecureStore.getItemAsync=async()=>{enteredRead();await readGate;return staleRead};const reading=c.readSession();await readStarted;const clearing=c.clearSession();releaseRead();assert.equal(await reading,null);await clearing;assert.equal(c.getSessionSnapshot().session,null);SecureStore.getItemAsync=originalGet;
+console.log('A native read started before logout cannot publish the previous identity afterward');

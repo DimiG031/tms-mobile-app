@@ -2,12 +2,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo, { type NetInfoSubscription } from "@react-native-community/netinfo";
 import * as Location from "expo-location";
 import { api } from "@/lib/api";
-import { readSession } from "@/lib/secure-store";
+import { config } from "@/lib/config";
+import { offlineOwner } from "@/lib/offline-owner";
+import { readSession, getSessionRevision, assertSessionRevision } from "@/lib/secure-store";
 
 export const GPS_TASK_NAME = "tms-background-gps-task";
 const TRACKING_STATE_KEY = "gps_tracking_state_v1";
 
 type GpsTrackingState = {
+  owner?: string;
   tourId: string;
   vehicleId: string;
 };
@@ -23,7 +26,17 @@ type GpsLogPayload = {
 let gpsQueueSyncInterval: ReturnType<typeof setInterval> | null = null;
 let gpsQueueNetInfoUnsubscribe: NetInfoSubscription | null = null;
 
+let trackingTail: Promise<unknown> = Promise.resolve();
+function trackingLock<T>(work: () => Promise<T>): Promise<T> {
+  const result = trackingTail.then(work);
+  trackingTail = result.catch(() => undefined);
+  return result;
+}
 export async function startGpsTracking(params: { tourId: string; vehicleId: string }): Promise<void> {
+  const revision = getSessionRevision();
+  const owner = offlineOwner(await readSession(), config.apiUrl);
+  assertSessionRevision(revision);
+  if (!owner) throw new Error("Za GPS praćenje potrebna je prijava.");
   const fg = await Location.requestForegroundPermissionsAsync();
   if (fg.status !== "granted") {
     throw new Error("Location permission is required.");
@@ -34,32 +47,41 @@ export async function startGpsTracking(params: { tourId: string; vehicleId: stri
     throw new Error("Background location permission is required.");
   }
 
-  await AsyncStorage.setItem(TRACKING_STATE_KEY, JSON.stringify(params));
+  await trackingLock(async () => {
+    assertSessionRevision(revision);
+    await AsyncStorage.setItem(TRACKING_STATE_KEY, JSON.stringify({ ...params, owner }));
 
-  const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(GPS_TASK_NAME);
-  if (alreadyStarted) {
-    return;
-  }
-
-  await Location.startLocationUpdatesAsync(GPS_TASK_NAME, {
-    accuracy: Location.Accuracy.Balanced,
-    timeInterval: 30_000,
-    distanceInterval: 0,
-    pausesUpdatesAutomatically: false,
-    showsBackgroundLocationIndicator: true,
-    foregroundService: {
-      notificationTitle: "TMS GPS tracking active",
-      notificationBody: "Sending vehicle position while tour is in transit."
+    const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(GPS_TASK_NAME);
+    assertSessionRevision(revision);
+    if (alreadyStarted) {
+      return;
     }
+
+    await Location.startLocationUpdatesAsync(GPS_TASK_NAME, {
+      accuracy: Location.Accuracy.Balanced,
+      timeInterval: 30_000,
+      distanceInterval: 0,
+      pausesUpdatesAutomatically: false,
+      showsBackgroundLocationIndicator: true,
+      foregroundService: {
+        notificationTitle: "TMS GPS tracking active",
+        notificationBody: "Sending vehicle position while tour is in transit."
+      }
+  });
   });
 }
 
-export async function stopGpsTracking(): Promise<void> {
-  await AsyncStorage.removeItem(TRACKING_STATE_KEY);
-  const started = await Location.hasStartedLocationUpdatesAsync(GPS_TASK_NAME);
-  if (started) {
-    await Location.stopLocationUpdatesAsync(GPS_TASK_NAME);
-  }
+export async function stopGpsTracking(expectedOwner?: string): Promise<void> {
+  const owner = expectedOwner ?? offlineOwner(await readSession(), config.apiUrl);
+  await trackingLock(async () => {
+    const state = await getGpsTrackingState();
+    if (state?.owner && state.owner !== owner) return;
+    await AsyncStorage.removeItem(TRACKING_STATE_KEY);
+    const started = await Location.hasStartedLocationUpdatesAsync(GPS_TASK_NAME);
+    if (started) {
+      await Location.stopLocationUpdatesAsync(GPS_TASK_NAME);
+    }
+  });
 }
 
 export async function getGpsTrackingState(): Promise<GpsTrackingState | null> {
@@ -75,7 +97,8 @@ export async function getGpsTrackingState(): Promise<GpsTrackingState | null> {
 export async function sendGpsLog(location: Location.LocationObject): Promise<void> {
   const state = await getGpsTrackingState();
   const session = await readSession();
-  if (!state?.vehicleId || !session?.token) {
+  const owner = offlineOwner(session, config.apiUrl);
+  if (!state?.vehicleId || !session?.token || !owner || state.owner !== owner) {
     return;
   }
 
@@ -87,7 +110,7 @@ export async function sendGpsLog(location: Location.LocationObject): Promise<voi
     speedKmH: typeof location.coords.speed === "number" ? location.coords.speed * 3.6 : null
   };
 
-  await api.postQueued("/api/gps-logs", payload);
+  await api.postQueuedForOwner("/api/gps-logs", payload, owner);
 }
 
 export async function flushGpsQueue(): Promise<void> {
@@ -120,3 +143,4 @@ export function startGpsQueueSyncLoop(): () => void {
     }
   };
 }
+

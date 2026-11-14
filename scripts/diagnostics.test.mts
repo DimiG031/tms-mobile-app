@@ -15,7 +15,9 @@ function fixture() {
   let session: { token: string; refreshToken?: string; user: {id:string;companyId:string;driverId:string|null} } | null = { token: "SYNTHETIC", refreshToken: "SYNTHETIC-refresh", user:{id:"A",companyId:"C",driverId:"D"} };
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const cache = new Map<string, Record<string, any>>();
-  const secure = { readSession: async () => session, saveSession: async (value: typeof session) => { session = value; }, clearSession: async () => { session = null; }, replaceSessionIfCurrent:async(expected: typeof session,next: typeof session)=>{if(!session||session.token!==expected?.token||session.refreshToken!==expected?.refreshToken)return false;session=next;return true} };
+  let revision = 0;
+  class SessionChangedError extends Error {status=401;isNetwork=false;}
+  const secure = { getSessionRevision:()=>revision, assertSessionRevision:(expected:number)=>{if(expected!==revision)throw new SessionChangedError()},SessionChangedError, readSession: async () => session, saveSession: async (value: typeof session) => { session = value; }, clearSession: async () => { session = null; }, replaceSessionIfCurrent:async(expected: typeof session,next: typeof session)=>{if(!session||session.token!==expected?.token||session.refreshToken!==expected?.refreshToken)return false;if(!next)revision++;session=next;return true} };
   const asyncStorage = { getItem: async (k: string) => storage.get(k) ?? null, setItem: async (k: string, v: string) => { storage.set(k, v); }, removeItem: async (k: string) => { storage.delete(k); } };
   function load(file: string): Record<string, any> {
     if (cache.has(file)) return cache.get(file)!;
@@ -38,7 +40,7 @@ function fixture() {
     return exports;
   }
   const api = load("src/lib/api.ts").api;
-  return { api, records, storage, calls, load, setFetch(fn: typeof fetch) { fetcher = fn; }, setSession: (value: typeof session) => { session=value; }, getSession: () => session };
+  return { api, records, storage, calls, load, setFetch(fn: typeof fetch) { fetcher = fn; }, setSession: (value: typeof session) => { session=value;revision++; }, getSession: () => session };
 }
 test("request tracing preserves data/status and never logs URL, credentials or body", async () => {
   const f = fixture(); f.setFetch(async () => new Response('{"value":"SYNTHETIC-secret"}', { status: 201 }));
@@ -133,4 +135,15 @@ test('late inactive response from old account does not freeze the new login',asy
  const f=fixture();let inactive=false;f.load('src/lib/api.ts').setAccountInactiveHandler(()=>{inactive=true});
  f.setFetch(async()=>{f.setSession({token:'B',refreshToken:'RB',user:{id:'B',companyId:'C',driverId:'E'}});return new Response('{"error":"AccountInactive"}',{status:403})});
  await assert.rejects(f.api.get('/api/mobile/profile'));assert.equal(inactive,false);assert.equal(f.getSession()!.token,'B');
+});
+test('late successful data is rejected after a session boundary',async()=>{
+ const f=fixture();let resume!:()=>void,entered!:()=>void;const gate=new Promise<void>(r=>resume=r),started=new Promise<void>(r=>entered=r);
+ f.setFetch(async()=>{entered();await gate;return new Response('{"private":"old-A-data"}')});const read=f.api.get('/api/mobile/profile');await started;
+ f.setSession({token:'B',refreshToken:'RB',user:{id:'B',companyId:'C',driverId:'E'}});resume();await assert.rejects(read,(e:any)=>e.status===401);assert.equal(f.getSession()!.token,'B');
+});
+test('in-flight acknowledged queue success is removed without notifying another owner',async()=>{
+ const f=fixture();f.setFetch(async()=>{throw new TypeError('offline')});await f.api.postQueued('/api/documents',{tourId:'T'});
+ let notices=0;f.load('src/lib/offline-queue.ts').subscribeOfflineWritesDelivered(()=>notices++);
+ f.setFetch(async()=>{f.setSession({token:'B',refreshToken:'RB',user:{id:'B',companyId:'C',driverId:'E'}});return new Response(null,{status:204})});
+ await f.api.flushOfflineWrites();assert.equal(notices,0);assert.equal(JSON.parse(f.storage.get('tms_offline_write_queue_v1')!).length,0);
 });

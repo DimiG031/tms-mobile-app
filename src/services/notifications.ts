@@ -1,3 +1,7 @@
+import { readSession } from "@/lib/secure-store";
+import { config } from "@/lib/config";
+import { offlineOwner } from "@/lib/offline-owner";
+import { diagnosticMobileFetch } from "@/lib/diagnostics";
 import { Platform } from "react-native";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
@@ -74,7 +78,11 @@ export function configureNotificationHandler(): void {
   handlerConfigured = true;
 }
 
-export async function registerPushTokenForUser(userId: string): Promise<string | null> {
+export async function registerPushTokenForUser(userId: string, expectedOwner?: string): Promise<string | null> {
+  const session = await readSession();
+  if (session?.user.id !== userId) return null;
+  const owner = expectedOwner ?? offlineOwner(session, config.apiUrl);
+  if (!owner) return null;
   const Notifications = getNotificationsModule();
   if (!Notifications) return null;
   if (!Device.isDevice) {
@@ -114,27 +122,38 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
     return null;
   }
   const expoPushToken = tokenResult.data;
-  cachedPushToken = expoPushToken;
 
-  await api.post(`/api/users/${userId}/push-token`, {
+  await api.postForOwner(`/api/users/${userId}/push-token`, {
     expoPushToken,
     platform: Platform.OS === "ios" ? "ios" : "android"
-  });
+  }, owner);
 
+  cachedPushToken = expoPushToken;
   return expoPushToken;
 }
 
-export async function syncPushTokenForUser(userId: string, token: string): Promise<void> {
-  cachedPushToken = token;
-  await api.post(`/api/users/${userId}/push-token`, {
+export async function syncPushTokenForUser(userId: string, token: string, expectedOwner?: string): Promise<void> {
+  const session = await readSession();
+  if (session?.user.id !== userId) return;
+  const owner = expectedOwner ?? offlineOwner(session, config.apiUrl);
+  if (!owner) return;
+  await api.postForOwner(`/api/users/${userId}/push-token`, {
     expoPushToken: token,
     platform: Platform.OS === "ios" ? "ios" : "android"
-  });
+  }, owner);
+  cachedPushToken = token;
 }
 
-export async function unregisterPushTokenForUser(userId: string): Promise<void> {
-  await api.delete(`/api/users/${userId}/push-token`);
+export async function unregisterPushTokenForUser(userId: string, token?: string): Promise<void> {
   cachedPushToken = null;
+  if (token) {
+    const response = await diagnosticMobileFetch(`/api/users/${encodeURIComponent(userId)}/push-token`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error("Odjava push obaveštenja nije potvrđena.");
+    return;
+  }
+  await api.delete(`/api/users/${userId}/push-token`);
 }
 
 export function addPushTokenListener(
@@ -304,3 +323,4 @@ export function withNotificationSource(route: string, source: NotificationSource
   if (route.includes("from=notifications") || route.includes("from=chat-push")) return route;
   return `${route}${route.includes("?") ? "&" : "?"}from=${source}`;
 }
+

@@ -9,7 +9,7 @@ assert.ok(start>=0&&end>start);
 const handler=stripTypeScriptTypes(source.slice(start,end));
 async function run(asset:any, canceled=false, fail=false) {
  const calls:any[]=[],alerts:any[]=[],state:any={};let pickerOptions:any;
- const ctx=vm.createContext({
+ const ctx=vm.createContext({getSessionRevision:()=>0,assertSessionRevision:()=>{},SessionChangedError:class extends Error {},
  DocumentPicker:{getDocumentAsync:async(options:any)=>{pickerOptions=options;return {canceled,assets:asset?[asset]:[]}}},
  uploadFromFileUri:async(input:any)=>{calls.push(input);if(fail)throw new Error('Upload failed');return {fileUrl:'/api/files/documents/test/image'}},
  tourId:'own-tour',setIsUploading:(v:any)=>state.loading=v,setFileUrl:(v:any)=>state.url=v,setFileName:(v:any)=>state.name=v,setFileType:(v:any)=>state.type=v,
@@ -29,8 +29,14 @@ console.log('Document picker: PDF/JPEG/PNG, missing MIME fallback, cancel, unsup
 const imageStart=source.indexOf('async function uploadPickedAsset(');
 const imageEnd=source.indexOf('  async function onCapturePhoto()',imageStart);
 const imageState:any={url:'previous-file',loading:false};const imageAlerts:any[]=[];
-const imageContext=vm.createContext({fileName:'old.jpg',tourId:'t',setIsUploading:(v:any)=>imageState.loading=v,setFileUrl:(v:any)=>imageState.url=v,setFileName:()=>{},setFileType:()=>{},uploadFromFileUri:async()=>{throw new Error('network down')},Alert:{alert:(...args:any[])=>imageAlerts.push(args)}});
+const imageContext=vm.createContext({getSessionRevision:()=>0,assertSessionRevision:()=>{},SessionChangedError:class extends Error {},fileName:'old.jpg',tourId:'t',setIsUploading:(v:any)=>imageState.loading=v,setFileUrl:(v:any)=>imageState.url=v,setFileName:()=>{},setFileType:()=>{},uploadFromFileUri:async()=>{throw new Error('network down')},Alert:{alert:(...args:any[])=>imageAlerts.push(args)}});
 vm.runInContext(stripTypeScriptTypes(source.slice(imageStart,imageEnd)),imageContext);
 await imageContext.uploadPickedAsset({uri:'file:///new.jpg',mimeType:'image/jpeg'});
 assert.equal(imageState.url,'');assert.equal(imageState.loading,false);assert.equal(imageAlerts.length,1);
 console.log('Camera/gallery failed replacement clears the previous file URL');
+{
+ let revision=0,release!:(value:any)=>void;let uploadCalls=0;const Changed=class extends Error{};
+ const ctx=vm.createContext({getSessionRevision:()=>revision,assertSessionRevision:(r:number)=>{if(r!==revision)throw new Changed()},SessionChangedError:Changed,DocumentPicker:{getDocumentAsync:()=>new Promise(r=>release=r)},uploadFromFileUri:async()=>{uploadCalls++},setIsUploading:()=>{},Alert:{alert:()=>{throw new Error('old picker must not alert new login')}}});
+ vm.runInContext(handler,ctx);const picked=ctx.onPickFile();revision++;release({canceled:false,assets:[{name:'A.png',uri:'file:///A.png',mimeType:'image/png'}]});await picked;assert.equal(uploadCalls,0);
+}
+console.log('Native picker session boundary: previous dialog result is ignored after login change');

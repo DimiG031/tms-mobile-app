@@ -1,3 +1,4 @@
+import { SessionChangedError } from "@/lib/secure-store";
 import { useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -5,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, router } from "expo-router";
+import { Link } from "expo-router";
 import { useAuth } from "@/providers/AuthProvider";
 import { Pressable, Text, TextInput, View } from "@/components/ui";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -40,8 +41,8 @@ export default function LoginScreen() {
   const onSubmit = async (values: LoginValues) => {
     try {
       await signIn(values.email, values.password);
-      router.replace("/(driver)");
     } catch (error) {
+      if (error instanceof SessionChangedError) return;
       const message = error instanceof Error ? error.message : "Prijava nije uspela";
       Alert.alert("Prijava", message);
     }
@@ -49,11 +50,9 @@ export default function LoginScreen() {
 
   const onBiometricUnlock = async () => {
     try {
-      const ok = await unlockWithBiometrics();
-      if (ok) {
-        router.replace("/(driver)");
-      }
+      await unlockWithBiometrics();
     } catch (error) {
+      if (error instanceof SessionChangedError) return;
       const message = error instanceof Error ? error.message : "Biometrija nije uspela";
       Alert.alert("Biometrija", message);
     }
@@ -150,3 +149,4 @@ export default function LoginScreen() {
     </View>
   );
 }
+

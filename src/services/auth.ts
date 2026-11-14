@@ -1,6 +1,6 @@
 import { diagnosticMobileFetch } from "@/lib/diagnostics";
 import * as LocalAuthentication from "expo-local-authentication";
-import { clearSession, readSession, saveSession } from "@/lib/secure-store";
+import { clearSession, readSession, beginSessionChange, saveSessionForIntent, getSessionRevision, SessionChangedError } from "@/lib/secure-store";
 import type { AuthSession, MobileLoginResponse } from "@/lib/types";
 
 type ErrorPayload = {
@@ -13,6 +13,7 @@ function extractErrorMessage(payload: ErrorPayload | null, fallback: string): st
 }
 
 export async function mobileLogin(email: string, password: string): Promise<AuthSession> {
+  const intent = beginSessionChange();
   const response = await diagnosticMobileFetch("/api/auth/mobile-login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -31,7 +32,7 @@ export async function mobileLogin(email: string, password: string): Promise<Auth
     user: payload.data.user
   };
 
-  await saveSession(session);
+  if (!(await saveSessionForIntent(session, intent))) throw new SessionChangedError();
   return session;
 }
 
@@ -40,6 +41,7 @@ export async function mobileLogout(): Promise<void> {
 }
 
 export async function unlockWithBiometrics(): Promise<AuthSession | null> {
+  const revision = getSessionRevision();
   const stored = await readSession();
   if (!stored) return null;
 
@@ -51,12 +53,14 @@ export async function unlockWithBiometrics(): Promise<AuthSession | null> {
     promptMessage: "Otključajte TMS aplikaciju",
     fallbackLabel: "Koristi šifru"
   });
+  if (getSessionRevision() !== revision) throw new SessionChangedError();
   if (!auth.success) return null;
-
-  return stored;
+  const current = await readSession();
+  return current?.refreshToken === stored.refreshToken && getSessionRevision() === revision ? current : null;
 }
 
 export async function hasStoredSession(): Promise<boolean> {
   const session = await readSession();
   return Boolean(session?.token && session?.refreshToken);
 }
+

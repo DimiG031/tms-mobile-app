@@ -1,49 +1,47 @@
-import { PropsWithChildren, useState } from "react";
+import { PropsWithChildren, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { useAuth } from "@/providers/AuthProvider";
+import { config } from "@/lib/config";
+import { getSessionSnapshot } from "@/lib/secure-store";
+import { queryCacheKey, scopedQueryStorage, queryScopeOwner } from "@/lib/query-scope";
 
-const persister = createAsyncStoragePersister({
-  storage: AsyncStorage,
-  key: "tms-query-cache"
-});
+function ScopedQueryProvider({ owner, revision, children }: PropsWithChildren<{ owner: string | null; revision: number }>) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: { queries: { staleTime: 60_000, gcTime: 24 * 60 * 60 * 1000, retry: 1 } }
+  }));
+  const [persister] = useState(() => createAsyncStoragePersister({
+    key: queryCacheKey(owner ?? "public"),
+    throttleTime: 0,
+    storage: scopedQueryStorage(AsyncStorage, () => {
+      const current = getSessionSnapshot();
+      return current.revision === revision && queryScopeOwner(current.session, config.apiUrl) === owner;
+    })
+  }));
+  useEffect(() => () => {
+    void queryClient.cancelQueries();
+    queryClient.clear();
+  }, [queryClient]);
 
-// Kesirani odgovori prezivljavaju restart 24h. Kad se promeni OBLIK
-// normalizovanih podataka, stari kes se cita kao da je nov — tako je putni
-// list pucao na "reduce of undefined", a polja posade se nisu videla.
-//
-// PODIGNI OVU VREDNOST kad god promenis oblik necega sto se kesira
-// (normalizatori u src/lib/api-normalizers.ts, oblik odgovora u src/queries).
-// Promena odbacuje stari kes na svim uredjajima pri sledecem pokretanju.
-//
-// v2 (2026-10-23): Tour dobio polja posade; /lines vraca objekat umesto niza.
-const CACHE_BUSTER = "v2";
-
-export function QueryProvider({ children }: PropsWithChildren) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60_000,
-            gcTime: 24 * 60 * 60 * 1000,
-            retry: 1
-          }
-        }
-      })
-  );
-
+  if (!owner) return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister,
-        maxAge: 24 * 60 * 60 * 1000,
-        buster: CACHE_BUSTER
-      }}
-    >
+    <PersistQueryClientProvider client={queryClient} onSuccess={() => queryClient.invalidateQueries()} persistOptions={{
+      persister, maxAge: 24 * 60 * 60 * 1000, buster: "v3-owner",
+      dehydrateOptions: { shouldDehydrateMutation: () => false }
+    }}>
       {children}
     </PersistQueryClientProvider>
   );
+}
+
+export function QueryProvider({ children }: PropsWithChildren) {
+  const { session, sessionRevision } = useAuth();
+  const owner = queryScopeOwner(session, config.apiUrl);
+  useEffect(() => {
+    // The previous shared cache has no reliable owner; never hydrate it.
+    void AsyncStorage.removeItem("tms-query-cache").catch(() => undefined);
+  }, []);
+  return <ScopedQueryProvider key={`${owner ?? "public"}:${sessionRevision}`} owner={owner} revision={sessionRevision}>{children}</ScopedQueryProvider>;
 }

@@ -8,7 +8,7 @@ let local=true;
 const response=(data:unknown)=>({ok:true,json:async()=>({ok:true,data})});
 const diagnostics=async(path:string,options:any)=>{diagnosticCalls.push({path,options});return path.includes("presign")?response({uploadUrl:local?"https://untrusted.example/upload":"https://signed.example/put",fileUrl:"/api/files/documents/A/a.pdf",key:"documents/A/a.pdf",useLocal:local}):response({fileUrl:"/api/files/documents/A/a.pdf",key:"documents/A/a.pdf"})};
 class Form {data:any[]=[];append(...args:any[]){this.data.push(args)}}
-const exports=new Function("diagnosticMobileFetch","toAbsoluteUrl","readSession","fetch","FormData",stripTypeScriptTypes(source)+";return {uploadFromFileUri,uploadErrorMessage};")(diagnostics,(s:string)=>"http://api.example"+s,async()=>({token:"TEST_ONLY"}),async(path:string,options:any)=>{fetchCalls.push({path,options});return {ok:true,blob:async()=>({})}},Form);
+const exports=new Function("diagnosticMobileFetch","toAbsoluteUrl","readSession","fetch","FormData","getSessionRevision","assertSessionRevision",stripTypeScriptTypes(source)+";return {uploadFromFileUri,uploadErrorMessage};")(diagnostics,(s:string)=>"http://api.example"+s,async()=>({token:"TEST_ONLY"}),async(path:string,options:any)=>{fetchCalls.push({path,options});return {ok:true,blob:async()=>({})}},Form,()=>0,()=>{});
 await exports.uploadFromFileUri({uri:"file:///fixture.pdf",filename:"f.pdf",mimeType:"application/pdf",tourId:"t"});
 assert.deepEqual(diagnosticCalls.map(c=>c.path),["/api/upload/presign","/api/upload/local"]);assert.equal(fetchCalls.length,0);assert.equal(diagnosticCalls[1].options.headers.Authorization,"Bearer TEST_ONLY");
 local=false;diagnosticCalls=[];fetchCalls=[];
@@ -42,10 +42,18 @@ for (const stage of ['presign','local','put','read'] as const) {
   if(stage==='put'&&options?.method==='PUT')throw new TypeError('Failed to fetch signed URL');
   return {ok:true,blob:async()=>({})};
  };
- const helpers=new Function('diagnosticMobileFetch','toAbsoluteUrl','readSession','fetch','FormData',stripTypeScriptTypes(source)+';return {uploadFromFileUri};')(diagnostic,(s:string)=>s,async()=>({token:'TEST_ONLY'}),transport,Form);
+ const helpers=new Function('diagnosticMobileFetch','toAbsoluteUrl','readSession','fetch','FormData','getSessionRevision','assertSessionRevision',stripTypeScriptTypes(source)+';return {uploadFromFileUri};')(diagnostic,(s:string)=>s,async()=>({token:'TEST_ONLY'}),transport,Form,()=>0,()=>{});
  await assert.rejects(helpers.uploadFromFileUri({uri:'file:///f.pdf',filename:'f.pdf',mimeType:'application/pdf',tourId:'t'}), (error:Error)=>{
   assert.ok(error.message.includes(stage==='read'?'Izabrani fajl nije moguće pročitati':'Proveri vezu sa serverom'));
   assert.ok(!error.message.includes('sensitive'));assert.ok(!error.message.includes('signed.example'));return true;
  });
 }
 console.log('Upload network failures: presign/local/PUT translated; local file read error separate');
+{
+ let revision=0,release!:(v:any)=>void,entered!:()=>void;const started=new Promise<void>(r=>entered=r);
+ const transport=async()=>{entered();return new Promise(r=>release=r)};
+ const helpers=new Function('diagnosticMobileFetch','toAbsoluteUrl','readSession','fetch','FormData','getSessionRevision','assertSessionRevision',stripTypeScriptTypes(source)+';return {uploadFromFileUri};')(transport,(s:string)=>s,async()=>({token:'A'}),()=>{throw new Error('must not upload')},Form,()=>revision,(r:number)=>{if(r!==revision)throw new Error('SESSION_CHANGED')});
+ const upload=helpers.uploadFromFileUri({uri:'file:///private-A.pdf',filename:'a.pdf',mimeType:'application/pdf',tourId:'TA'});await started;revision++;
+ release(response({uploadUrl:'https://signed.example/put',fileUrl:'/api/files/A/a.pdf',key:'documents/A/a.pdf',useLocal:false}));await assert.rejects(upload,/SESSION_CHANGED/);
+}
+console.log('Upload session boundary: late presign cannot upload the previous selection with a new login');

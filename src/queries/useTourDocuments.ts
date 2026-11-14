@@ -1,21 +1,9 @@
-import { useEffect } from "react";
-import { subscribeOfflineWritesDelivered } from "@/lib/offline-queue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { AppDocument } from "@/lib/types";
 import { normalizePagedPayload } from "@/lib/api-normalizers";
 
 export function useTourDocuments(tourId?: string) {
-  const queryClient = useQueryClient();
-  useEffect(() => subscribeOfflineWritesDelivered((paths) => {
-    if (!paths.includes("/api/documents")) return;
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["tour-documents"] }),
-      queryClient.invalidateQueries({ queryKey: ["documents"] }),
-      queryClient.invalidateQueries({ queryKey: ["tour-details"] }),
-      queryClient.invalidateQueries({ queryKey: ["notifications"] })
-    ]).catch(() => undefined);
-  }), [queryClient]);
   return useQuery({
     queryKey: ["tour-documents", tourId],
     queryFn: async () => {

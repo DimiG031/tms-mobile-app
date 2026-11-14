@@ -1,3 +1,4 @@
+import { getSessionRevision, assertSessionRevision, SessionChangedError } from "@/lib/secure-store";
 import { openDocument } from "@/services/openDocument";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -61,6 +62,7 @@ export default function TourDocumentsScreen() {
       }
       setFileType(mimeType === "image/png" ? "PNG" : "JPG");
     } catch (error) {
+      if (error instanceof SessionChangedError) return;
       const message = error instanceof Error ? error.message : "Otpremanje nije uspelo";
       Alert.alert("Otpremanje", message);
     } finally {
@@ -69,45 +71,52 @@ export default function TourDocumentsScreen() {
   }
 
   async function onCapturePhoto() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.status !== "granted") {
-      Alert.alert("Kamera", "Potrebna je dozvola za kameru.");
-      return;
+    const revision = getSessionRevision();
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      assertSessionRevision(revision);
+      if (permission.status !== "granted") { Alert.alert("Kamera", "Potrebna je dozvola za kameru."); return; }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.75, allowsEditing: false, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+      assertSessionRevision(revision);
+      if (result.canceled || !result.assets.length) return;
+      await uploadPickedAsset(result.assets[0]);
+    } catch (error) {
+      if (error instanceof SessionChangedError) return;
+      Alert.alert("Kamera", error instanceof Error ? error.message : "Kameru nije moguće otvoriti.");
     }
-
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.75,
-      allowsEditing: false,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images
-    });
-
-    if (result.canceled || !result.assets.length) return;
-    await uploadPickedAsset(result.assets[0]);
   }
 
   async function onPickImage() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== "granted") {
-      Alert.alert("Galerija", "Potrebna je dozvola za galeriju.");
-      return;
+    const revision = getSessionRevision();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      assertSessionRevision(revision);
+      if (permission.status !== "granted") { Alert.alert("Galerija", "Potrebna je dozvola za galeriju."); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: false, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+      assertSessionRevision(revision);
+      if (result.canceled || !result.assets.length) return;
+      await uploadPickedAsset(result.assets[0]);
+    } catch (error) {
+      if (error instanceof SessionChangedError) return;
+      Alert.alert("Galerija", error instanceof Error ? error.message : "Galeriju nije moguće otvoriti.");
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      quality: 0.8,
-      allowsEditing: false,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images
-    });
-
-    if (result.canceled || !result.assets.length) return;
-    await uploadPickedAsset(result.assets[0]);
   }
 
   async function onPickFile() {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "image/jpeg", "image/png"],
-      copyToCacheDirectory: true,
-      multiple: false
-    });
+    const revision = getSessionRevision();
+    let result: Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
+    try {
+      result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/jpeg", "image/png"],
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+      assertSessionRevision(revision);
+    } catch (error) {
+      if (error instanceof SessionChangedError) return;
+      Alert.alert("Dokumenta", error instanceof Error ? error.message : "Izbor fajla nije uspeo.");
+      return;
+    }
 
     if (result.canceled || !result.assets.length) return;
     const asset = result.assets[0];
@@ -140,6 +149,7 @@ export default function TourDocumentsScreen() {
       setFileName(generatedName);
       setFileType(format.fileType);
     } catch (error) {
+      if (error instanceof SessionChangedError) return;
       const message = error instanceof Error ? error.message : "Otpremanje fajla nije uspelo";
       Alert.alert("Dokumenta", message);
     } finally {
@@ -178,7 +188,7 @@ export default function TourDocumentsScreen() {
 
   async function onOpenDocument(url: string) {
     try { await openDocument(url); }
-    catch (error) { Alert.alert("Dokument", error instanceof Error ? error.message : "Otvaranje dokumenta nije uspelo."); }
+    catch (error) { if (error instanceof SessionChangedError) return; Alert.alert("Dokument", error instanceof Error ? error.message : "Otvaranje dokumenta nije uspelo."); }
   }
 
   return (
