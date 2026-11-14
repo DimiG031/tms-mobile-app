@@ -12,10 +12,10 @@ function fixture() {
   const records: Array<Record<string, unknown>> = [];
   const storage = new Map<string, string>();
   let fetcher: typeof fetch = async () => new Response('{}');
-  let session: { token: string; refreshToken?: string } | null = { token: "SYNTHETIC", refreshToken: "SYNTHETIC-refresh" };
+  let session: { token: string; refreshToken?: string; user: {id:string;companyId:string;driverId:string|null} } | null = { token: "SYNTHETIC", refreshToken: "SYNTHETIC-refresh", user:{id:"A",companyId:"C",driverId:"D"} };
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const cache = new Map<string, Record<string, any>>();
-  const secure = { readSession: async () => session, saveSession: async (value: typeof session) => { session = value; }, clearSession: async () => { session = null; } };
+  const secure = { readSession: async () => session, saveSession: async (value: typeof session) => { session = value; }, clearSession: async () => { session = null; }, replaceSessionIfCurrent:async(expected: typeof session,next: typeof session)=>{if(!session||session.token!==expected?.token||session.refreshToken!==expected?.refreshToken)return false;session=next;return true} };
   const asyncStorage = { getItem: async (k: string) => storage.get(k) ?? null, setItem: async (k: string, v: string) => { storage.set(k, v); }, removeItem: async (k: string) => { storage.delete(k); } };
   function load(file: string): Record<string, any> {
     if (cache.has(file)) return cache.get(file)!;
@@ -38,7 +38,7 @@ function fixture() {
     return exports;
   }
   const api = load("src/lib/api.ts").api;
-  return { api, records, storage, calls, load, setFetch(fn: typeof fetch) { fetcher = fn; }, getSession: () => session };
+  return { api, records, storage, calls, load, setFetch(fn: typeof fetch) { fetcher = fn; }, setSession: (value: typeof session) => { session=value; }, getSession: () => session };
 }
 test("request tracing preserves data/status and never logs URL, credentials or body", async () => {
   const f = fixture(); f.setFetch(async () => new Response('{"value":"SYNTHETIC-secret"}', { status: 201 }));
@@ -80,13 +80,15 @@ test("HTTP rejection is not logged as queued or acknowledged", async () => {
   assert.ok(f.records.some(r => r.event === 'request.failed' && r.status === 403));
   assert.ok(!f.records.some(r => r.event === 'queue.stored' || r.event === 'queue.acknowledged'));
 });
-test("legacy queued items without traceId still replay; failures stay unacknowledged", async () => {
+test("legacy ownerless queued items are preserved without replay", async () => {
   const f = fixture();
   f.storage.set('tms_offline_write_queue_v1', JSON.stringify([{id:'old',method:'POST',path:'/api/drivers',body:{},createdAt:'2026-11-12',retries:0}]));
   f.setFetch(async () => new Response('{}', {status:409})); await f.api.flushOfflineWrites();
-  assert.ok(f.records.some(r => r.event === 'queue.rejected' && r.status === 409));
+  assert.equal(f.calls.length,0);
+  assert.equal(await f.load('src/lib/offline-queue.ts').getUnownedOfflineWriteCount(),1);
+  assert.equal(await f.load('src/lib/offline-queue.ts').getOfflineWriteQueueCount(),0);
   assert.ok(!f.records.some(r => r.event === 'queue.acknowledged'));
-  assert.equal(JSON.parse(f.storage.get('tms_offline_write_queue_v1')!)[0].retries, 1);
+  assert.equal(JSON.parse(f.storage.get('tms_offline_write_queue_v1')!)[0].retries, 0);
 });
 test("refresh rejection preserves existing API failure contract", async () => {
   const f = fixture(); f.setFetch(async () => new Response('{}', {status:401}));
@@ -109,4 +111,26 @@ test("direct login/presign transport preserves headers/body without logging cred
 test("direct transport preserves a network exception and a rejected HTTP response",async()=>{
   const f=fixture(),e=new Error('SYNTHETIC-secret');f.setFetch(async()=>{throw e});await assert.rejects(()=>f.load('src/lib/diagnostics.ts').diagnosticMobileFetch('/api/upload/presign'),error=>error===e);
   const response=new Response('{}',{status:403});f.setFetch(async()=>response);assert.equal(await f.load('src/lib/diagnostics.ts').diagnosticMobileFetch('/api/upload/presign'),response);
+});
+test('failed in-flight write keeps its original owner after another login',async()=>{
+ const f=fixture(),original=f.getSession()!;let resume!:()=>void,entered!:()=>void;
+ const gate=new Promise<void>(r=>resume=r),started=new Promise<void>(r=>entered=r);
+ f.setFetch(async()=>{entered();await gate;throw new TypeError('network down')});
+ const write=f.api.postQueued('/api/documents',{tourId:'T'});await started;
+ f.setSession({token:'B-token',refreshToken:'B-refresh',user:{id:'B',companyId:'C',driverId:'E'}});resume();assert.equal((await write).queued,true);
+ const before=f.calls.length;f.setFetch(async()=>new Response(null,{status:204}));await f.api.flushOfflineWrites();assert.equal(f.calls.length,before);
+ f.setSession(original);await f.api.flushOfflineWrites();assert.equal(new Headers(f.calls.at(-1)!.init?.headers).get('Authorization'),'Bearer SYNTHETIC');
+});
+for(const accepted of [false,true])test(`late refresh ${accepted?'success':'failure'} cannot replace or delete another login`,async()=>{
+ const f=fixture();let resume!:()=>void,entered!:()=>void,step=0;
+ const gate=new Promise<void>(r=>resume=r),started=new Promise<void>(r=>entered=r);
+ f.setFetch(async()=>{step++;if(step===1)return new Response('{}',{status:401});entered();await gate;return accepted?new Response('{"data":{"token":"late-A"}}'):new Response('{}',{status:401})});
+ const read=f.api.get('/api/drivers');await started;
+ f.setSession({token:'B-token',refreshToken:'B-refresh',user:{id:'B',companyId:'C',driverId:'E'}});resume();await assert.rejects(read);
+ assert.equal(f.getSession()!.token,'B-token');assert.equal(f.calls.length,2);
+});
+test('late inactive response from old account does not freeze the new login',async()=>{
+ const f=fixture();let inactive=false;f.load('src/lib/api.ts').setAccountInactiveHandler(()=>{inactive=true});
+ f.setFetch(async()=>{f.setSession({token:'B',refreshToken:'RB',user:{id:'B',companyId:'C',driverId:'E'}});return new Response('{"error":"AccountInactive"}',{status:403})});
+ await assert.rejects(f.api.get('/api/mobile/profile'));assert.equal(inactive,false);assert.equal(f.getSession()!.token,'B');
 });

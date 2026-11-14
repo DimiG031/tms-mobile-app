@@ -6,6 +6,10 @@ on:
       - 'src/services/upload.ts'
       - 'src/lib/api.ts'
       - 'src/lib/offline-queue.ts'
+      - 'src/lib/offline-owner.ts'
+      - 'src/lib/secure-store.ts'
+      - 'src/components/OfflineBanner.tsx'
+      - 'scripts/sessionOwnership.test.mts'
       - 'src/lib/diagnostics*.ts'
       - 'scripts/diagnostics.test.mts'
       - 'scripts/offlineQueue.test.mts'
@@ -23,6 +27,10 @@ on:
       - 'src/services/upload.ts'
       - 'src/lib/api.ts'
       - 'src/lib/offline-queue.ts'
+      - 'src/lib/offline-owner.ts'
+      - 'src/lib/secure-store.ts'
+      - 'src/components/OfflineBanner.tsx'
+      - 'scripts/sessionOwnership.test.mts'
       - 'src/lib/diagnostics*.ts'
       - 'scripts/diagnostics.test.mts'
       - 'scripts/offlineQueue.test.mts'
@@ -45,7 +53,9 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: npm run typecheck
       - run: node --experimental-strip-types --test scripts/diagnostics.test.mts
       - run: node --experimental-strip-types scripts/offlineQueue.test.mts
       - run: node --experimental-strip-types scripts/documentQueue.test.mts
       - run: node --experimental-strip-types scripts/documentDeliveryNotice.test.mts
+      - run: node --experimental-strip-types scripts/sessionOwnership.test.mts

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import NetInfo from "@react-native-community/netinfo";
 import { Text, View } from "@/components/ui";
-import { getOfflineWriteQueueCount, subscribeOfflineQueueCount } from "@/lib/offline-queue";
+import { useAuth } from "@/providers/AuthProvider";
+import { getUnownedOfflineWriteCount, getOfflineWriteQueueCount, subscribeOfflineQueueCount } from "@/lib/offline-queue";
 
 export function OfflineBanner() {
+  const { session } = useAuth();
+  const [hasUnowned, setHasUnowned] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
   const [queueCount, setQueueCount] = useState(0);
 
@@ -18,15 +21,24 @@ export function OfflineBanner() {
   }, []);
 
   useEffect(() => {
-    void getOfflineWriteQueueCount().then(setQueueCount);
-    return subscribeOfflineQueueCount(setQueueCount);
-  }, []);
+    let active = true;
+    setQueueCount(0);
+    setHasUnowned(false);
+    const refresh = () => {
+      void Promise.all([getOfflineWriteQueueCount(), getUnownedOfflineWriteCount()])
+        .then(([count, legacy]) => { if (active) { setQueueCount(count); setHasUnowned(legacy > 0); } })
+        .catch(() => undefined);
+    };
+    refresh();
+    const unsubscribe = subscribeOfflineQueueCount(refresh);
+    return () => { active = false; unsubscribe(); };
+  }, [session?.user.id, session?.user.companyId, session?.user.driverId]);
 
   if (!isConnected) {
     return (
       <View className="bg-amber-100 px-3 py-2">
         <Text className="text-center text-xs font-semibold text-amber-800">
-          Nema interneta - promene se čuvaju lokalno
+          Nema interneta — podržani zahtevi čekaju slanje; novi fajlovi zahtevaju vezu.
         </Text>
       </View>
     );
@@ -42,5 +54,15 @@ export function OfflineBanner() {
     );
   }
 
+  if (hasUnowned) {
+    return (
+      <View className="bg-amber-100 px-3 py-2">
+        <Text className="text-center text-xs font-semibold text-amber-800">
+          Postoje stari zahtevi bez potvrđenog vlasnika. Nisu poslati i zahtevaju proveru.
+        </Text>
+      </View>
+    );
+  }
   return null;
 }
+

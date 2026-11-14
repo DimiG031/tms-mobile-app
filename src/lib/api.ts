@@ -1,7 +1,8 @@
 import { mobileDiagnostic, isTraceId, newTraceId, requestOperation, TRACE_HEADER } from "@/lib/diagnostics";
 import { config } from "@/lib/config";
-import { clearSession, readSession, saveSession } from "@/lib/secure-store";
-import type { MobileRefreshResponse } from "@/lib/types";
+import { readSession, replaceSessionIfCurrent } from "@/lib/secure-store";
+import { offlineOwner } from "@/lib/offline-owner";
+import type { AuthSession, MobileRefreshResponse } from "@/lib/types";
 import {
   enqueueOfflineWrite,
   flushOfflineWriteQueue,
@@ -10,7 +11,7 @@ import {
   isLikelyOfflineError
 } from "@/lib/offline-queue";
 
-let refreshInFlight: Promise<string | null> | null = null;
+const refreshes = new Map<string, Promise<string | null>>();
 let queueFlushInFlight: Promise<void> | null = null;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -66,39 +67,38 @@ function serbianMessageForStatus(status: number): string {
 
 const NETWORK_ERROR_MESSAGE = "Nema veze sa serverom. Proverite internet i pokušajte ponovo.";
 
-async function refreshToken(traceId: string): Promise<string | null> {
-  if (!refreshInFlight) {
-    refreshInFlight = (async () => {
+async function refreshToken(traceId: string, current: AuthSession): Promise<string | null> {
+  if (!current.refreshToken) return null;
+  const active = await readSession();
+  if (!active || active.refreshToken !== current.refreshToken || offlineOwner(active, config.apiUrl) !== offlineOwner(current, config.apiUrl)) return null;
+  if (active.token !== current.token) return active.token;
+  const key = JSON.stringify([offlineOwner(current, config.apiUrl), current.refreshToken]);
+  let pending = refreshes.get(key);
+  if (!pending) {
+    pending = (async () => {
       mobileDiagnostic("debug", "refresh.started", { traceId, operation: "auth.refresh" });
-      const current = await readSession();
-      if (!current?.refreshToken) return null;
-
       const response = await fetch(`${config.apiUrl}/api/auth/mobile-refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json", [TRACE_HEADER]: traceId },
         body: JSON.stringify({ refreshToken: current.refreshToken })
       });
-
       if (!response.ok) {
         mobileDiagnostic("warn", "refresh.failed", { traceId, operation: "auth.refresh", status: response.status });
-        await clearSession();
+        await replaceSessionIfCurrent(current, null);
         return null;
       }
-
       const payload = (await response.json()) as MobileRefreshResponse;
       const nextToken = payload.data.token;
-      await saveSession({ ...current, token: nextToken });
+      if (!(await replaceSessionIfCurrent(current, { ...current, token: nextToken }))) return null;
       mobileDiagnostic("info", "refresh.completed", { traceId, operation: "auth.refresh", status: response.status });
       return nextToken;
-    })().finally(() => {
-      refreshInFlight = null;
-    });
+    })().finally(() => { refreshes.delete(key); });
+    refreshes.set(key, pending);
   }
-
-  return refreshInFlight;
+  return pending;
 }
 
-async function requestUntraced<T>(method: HttpMethod, path: string, body: unknown, traceId: string, onStatus: (status: number) => void): Promise<T> {
+async function requestUntraced<T>(method: HttpMethod, path: string, body: unknown, traceId: string, onStatus: (status: number) => void, expectedOwner?: string): Promise<T> {
   const run = async (token?: string | null) =>
     fetch(`${config.apiUrl}${path}`, {
       method,
@@ -111,6 +111,9 @@ async function requestUntraced<T>(method: HttpMethod, path: string, body: unknow
     });
 
   const session = await readSession();
+  if (expectedOwner && offlineOwner(session, config.apiUrl) !== expectedOwner) {
+    throw new ApiError("Nalog za slanje je promenjen. Zahtev nije poslat pod novim nalogom.", 401);
+  }
   let response: Response;
   try {
     response = await run(session?.token);
@@ -119,9 +122,13 @@ async function requestUntraced<T>(method: HttpMethod, path: string, body: unknow
   }
 
   if (response.status === 401 && session?.refreshToken) {
-    const nextToken = await refreshToken(traceId);
+    const nextToken = await refreshToken(traceId, session);
     if (!nextToken) {
       throw new ApiError("Sesija je istekla. Prijavite se ponovo.", 401);
+    }
+    const refreshedSession = await readSession();
+    if (refreshedSession?.token !== nextToken || offlineOwner(refreshedSession, config.apiUrl) !== offlineOwner(session, config.apiUrl)) {
+      throw new ApiError("Sesija za slanje je promenjena.", 401);
     }
     try {
       response = await run(nextToken);
@@ -144,7 +151,10 @@ async function requestUntraced<T>(method: HttpMethod, path: string, body: unknow
     }
 
     if (backendMessage && /account\s*inactive/i.test(backendMessage)) {
-      accountInactiveHandler?.();
+      const activeSession = await readSession();
+      if (activeSession?.refreshToken === session?.refreshToken && offlineOwner(activeSession, config.apiUrl) === offlineOwner(session, config.apiUrl)) {
+        accountInactiveHandler?.();
+      }
       throw new ApiError("Vaš nalog je neaktivan. Obratite se administratoru firme.", response.status, false, true);
     }
 
@@ -162,13 +172,13 @@ async function requestUntraced<T>(method: HttpMethod, path: string, body: unknow
   return (await response.json()) as T;
 }
 
-async function request<T>(method: HttpMethod, path: string, body?: unknown, suppliedTraceId?: string): Promise<T> {
+async function request<T>(method: HttpMethod, path: string, body?: unknown, suppliedTraceId?: string, expectedOwner?: string): Promise<T> {
   const traceId = isTraceId(suppliedTraceId) ? suppliedTraceId : newTraceId();
   const operation = requestOperation(path); const start = Date.now();
   let status: number | undefined;
   mobileDiagnostic("debug", "request.started", { traceId, operation, method });
   try {
-    const result = await requestUntraced<T>(method, path, body, traceId, value => { status = value; });
+    const result = await requestUntraced<T>(method, path, body, traceId, value => { status = value; }, expectedOwner);
     mobileDiagnostic("info", "request.completed", { traceId, operation, method, status, durationMs: Date.now() - start });
     return result;
   } catch (error) {
@@ -177,8 +187,8 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown, supp
   }
 }
 
-async function requestNoContent(method: HttpMethod, path: string, body?: unknown, traceId?: string): Promise<void> {
-  await request<unknown>(method, path, body, traceId);
+async function requestNoContent(method: HttpMethod, path: string, body?: unknown, traceId?: string, expectedOwner?: string): Promise<void> {
+  await request<unknown>(method, path, body, traceId, expectedOwner);
 }
 
 async function flushQueuedWritesInternal(): Promise<void> {
@@ -187,7 +197,7 @@ async function flushQueuedWritesInternal(): Promise<void> {
     const operation = requestOperation(item.path);
     mobileDiagnostic("debug", "queue.sending", { traceId, operation, method: item.method, attempt: item.retries + 1 });
     try {
-      await requestNoContent(item.method, item.path, item.body, traceId);
+      await requestNoContent(item.method, item.path, item.body, traceId, item.owner);
       mobileDiagnostic("info", "queue.acknowledged", { traceId, operation, method: item.method });
     } catch (error) {
       mobileDiagnostic("warn", "queue.rejected", { traceId, operation, method: item.method, status: error instanceof ApiError ? error.status : undefined });
@@ -210,8 +220,10 @@ function scheduleQueueFlush(): void {
 
 async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: unknown): Promise<QueuedResult<T>> {
   const traceId = newTraceId();
+  const owner = offlineOwner(await readSession(), config.apiUrl);
+  if (!owner) throw new ApiError("Za slanje zahteva potrebna je prijava.", 401);
   try {
-    const data = await request<T>(method, path, body, traceId);
+    const data = await request<T>(method, path, body, traceId, owner);
     scheduleQueueFlush();
     return { queued: false, data };
   } catch (error) {
@@ -219,7 +231,7 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
       throw error;
     }
 
-    await enqueueOfflineWrite({ method, path, body, traceId });
+    await enqueueOfflineWrite({ method, path, body, traceId }, owner);
     mobileDiagnostic("info", "queue.stored", { traceId, operation: requestOperation(path), method });
     return { queued: true, data: null };
   }
@@ -238,3 +250,4 @@ export const api = {
     await flushQueuedWritesInternal();
   }
 };
+

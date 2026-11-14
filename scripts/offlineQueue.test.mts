@@ -5,8 +5,11 @@ import {stripTypeScriptTypes} from 'node:module';
 const source=fs.readFileSync(new URL('../src/lib/offline-queue.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
 const deferred=()=>{let resolve!:()=>void;const promise=new Promise<void>(r=>resolve=r);return {promise,resolve}};
 function setup(){let saved:string|null=null,fail=false;const storage={getItem:async()=>{await Promise.resolve();return saved},setItem:async(_key:string,value:string)=>{await Promise.resolve();if(fail){fail=false;throw new Error('disk full')}saved=value},removeItem:async()=>{saved=null}};
- const c=vm.createContext({AsyncStorage:storage});vm.runInContext(stripTypeScriptTypes(source),c);
- return {c,fail:()=>{fail=true},read:()=>JSON.parse(saved??'[]')};}
+ let session:any={user:{id:'A',companyId:'C',driverId:'D'}};
+ const c=vm.createContext({AsyncStorage:storage,readSession:async()=>session,config:{apiUrl:'https://fixture.invalid'}});
+ const ownerSource=fs.readFileSync(new URL('../src/lib/offline-owner.ts',import.meta.url),'utf8').replace(/export /g,'');
+ vm.runInContext(stripTypeScriptTypes(ownerSource+'\n'+source),c);
+ return {c,setSession:(value:any)=>{session=value},fail:()=>{fail=true},read:()=>JSON.parse(saved??'[]')};}
 const item=(name:string,path='/api/documents')=>({method:'POST',path,body:{name}});
 {
  const {c,read}=setup();await Promise.all(Array.from({length:30},(_,i)=>c.enqueueOfflineWrite(item(String(i)))));assert.equal(read().length,30);assert.equal(new Set(read().map((i:any)=>i.body.name)).size,30);
@@ -45,3 +48,27 @@ console.log('Offline queue: concurrent enqueue/flush, enqueue during network, cl
  await c.enqueueOfflineWrite(item('B'));await c.flushOfflineWriteQueue(async()=>{});assert.equal(notices.length,1);
 }
 console.log('Delivery event: emitted only for acknowledged requests; unsubscribe respected');
+{
+ const {c,read,setSession}=setup();const a={user:{id:'A',companyId:'C',driverId:'D'}},b={user:{id:'B',companyId:'C',driverId:'E'}};
+ await c.enqueueOfflineWrite(item('A'));const ownerA=read()[0].owner;
+ setSession(b);assert.equal((await c.getOfflineWriteQueue()).length,0);let calls=0;
+ await c.flushOfflineWriteQueue(async()=>{calls++});assert.equal(calls,0);
+ await c.enqueueOfflineWrite(item('B'));assert.equal((await c.getOfflineWriteQueueCount()),1);
+ await c.clearOfflineWriteQueue();assert.equal(read().length,1);assert.equal(read()[0].owner,ownerA);
+ setSession(a);await c.flushOfflineWriteQueue(async()=>{calls++});assert.equal(calls,1);assert.equal(read().length,0);
+ setSession(null);await assert.rejects(c.enqueueOfflineWrite(item('guest')),/prijava/);assert.equal((await c.getOfflineWriteQueueCount()),0);
+}
+{
+ const {c,read,setSession}=setup();const entered=deferred(),resume=deferred();let calls=0,notices=0;
+ c.subscribeOfflineWritesDelivered(()=>notices++);await c.enqueueOfflineWrite(item('first'));await c.enqueueOfflineWrite(item('second'));
+ const flush=c.flushOfflineWriteQueue(async()=>{calls++;entered.resolve();await resume.promise});await entered.promise;
+ setSession({user:{id:'B',companyId:'C',driverId:'E'}});await c.enqueueOfflineWrite(item('B'));resume.resolve();await flush;
+ assert.equal(calls,1);assert.equal(notices,0);assert.deepEqual(read().map((x:any)=>x.body.name),['second','B']);
+ assert.equal((await c.getOfflineWriteQueue()).length,1);
+}
+{
+ const {c}=setup();const a={user:{id:'A',companyId:'C',driverId:'D'}};const base=c.offlineOwner(a,'https://one.example');
+ for(const [s,origin] of [[{user:{...a.user,id:'B'}},'https://one.example'],[{user:{...a.user,companyId:'X'}},'https://one.example'],[{user:{...a.user,driverId:'E'}},'https://one.example'],[a,'https://two.example']])assert.notEqual(c.offlineOwner(s,origin),base);
+ assert.equal(c.offlineOwner({user:{}},'https://one.example'),null);
+}
+console.log('Owner boundaries: account/company/driver/server, no guest writes, no cross-account replay or delivery notice passed');

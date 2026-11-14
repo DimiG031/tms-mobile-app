@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import {stripTypeScriptTypes} from 'node:module';
+const source=fs.readFileSync(new URL('../src/lib/secure-store.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
+let saved:string|null=null;
+const SecureStore={getItemAsync:async()=>saved,setItemAsync:async(_k:string,v:string)=>{await Promise.resolve();saved=v},deleteItemAsync:async()=>{saved=null}};
+const c=vm.createContext({SecureStore});vm.runInContext(stripTypeScriptTypes(source),c);
+const a={token:'A',refreshToken:'RA',user:{id:'A',companyId:'C',driverId:'D'}},b={token:'B',refreshToken:'RB',user:{id:'B',companyId:'C',driverId:'E'}};
+await c.saveSession(a);await c.saveSession(b);
+assert.equal(await c.replaceSessionIfCurrent(a,{...a,token:'late-A'}),false);assert.equal(await c.replaceSessionIfCurrent(a,null),false);assert.equal((await c.readSession()).token,'B');
+await c.saveSession(a);assert.equal(await c.replaceSessionIfCurrent(a,{...a,token:'new-A'}),true);assert.equal((await c.readSession()).token,'new-A');
+await Promise.all([c.saveSession(b),c.replaceSessionIfCurrent({...a,token:'new-A'},null)]);assert.equal((await c.readSession()).token,'B');
+await c.clearSession();assert.equal(await c.replaceSessionIfCurrent(b,b),false);assert.equal(await c.readSession(),null);
+console.log('Real session store: conditional refresh cannot resurrect/logout/overwrite another login passed');

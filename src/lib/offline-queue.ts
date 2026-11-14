@@ -1,3 +1,6 @@
+import { readSession } from "@/lib/secure-store";
+import { config } from "@/lib/config";
+import { offlineOwner } from "@/lib/offline-owner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const OFFLINE_QUEUE_KEY = "tms_offline_write_queue_v1";
@@ -9,6 +12,8 @@ export type OfflineWriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 export type OfflineWriteItem = {
   /** Correlation only; optional for items created by previous app versions. */
   traceId?: string;
+  /** Missing on legacy entries: never automatically adopt or replay those. */
+  owner?: string;
   id: string;
   method: OfflineWriteMethod;
   path: string;
@@ -43,6 +48,10 @@ function randomId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+async function currentOwner(): Promise<string | null> {
+  return offlineOwner(await readSession(), config.apiUrl);
+}
+
 async function readQueue(): Promise<OfflineWriteItem[]> {
   const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
   if (!raw) return [];
@@ -57,14 +66,18 @@ async function readQueue(): Promise<OfflineWriteItem[]> {
 
 async function setOfflineWriteQueue(items: OfflineWriteItem[]): Promise<void> {
   await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(items));
-  notifyCount(items.length);
+  const owner = await currentOwner();
+  notifyCount(owner ? items.filter(item => item.owner === owner).length : 0);
 }
 
-export async function enqueueOfflineWrite(item: Omit<OfflineWriteItem, "id" | "createdAt" | "retries">): Promise<void> {
+export async function enqueueOfflineWrite(item: Omit<OfflineWriteItem, "id" | "createdAt" | "retries" | "owner">, owner?: string | null): Promise<void> {
+  const capturedOwner = owner === undefined ? await currentOwner() : owner;
+  if (!capturedOwner) throw new Error("Za čuvanje zahteva potrebna je prijava.");
   await withStorageLock(async () => {
     const queue = await readQueue();
     queue.push({
       ...item,
+      owner: capturedOwner,
       id: randomId(),
       createdAt: new Date().toISOString(),
       retries: 0
@@ -74,14 +87,24 @@ export async function enqueueOfflineWrite(item: Omit<OfflineWriteItem, "id" | "c
 }
 
 export async function clearOfflineWriteQueue(): Promise<void> {
+  const owner = await currentOwner();
+  if (!owner) return;
   await withStorageLock(async () => {
-    await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
+    const remaining = (await readQueue()).filter(item => item.owner !== owner);
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
     notifyCount(0);
   });
 }
 
-export function getOfflineWriteQueue(): Promise<OfflineWriteItem[]> {
-  return withStorageLock(readQueue);
+export async function getOfflineWriteQueue(): Promise<OfflineWriteItem[]> {
+  const owner = await currentOwner();
+  if (!owner) return [];
+  return withStorageLock(async () => (await readQueue()).filter(item => item.owner === owner));
+}
+
+/** Preserve legacy records; surface their existence without exposing their contents. */
+export function getUnownedOfflineWriteCount(): Promise<number> {
+  return withStorageLock(async () => (await readQueue()).filter(item => !item.owner).length);
 }
 
 export async function getOfflineWriteQueueCount(): Promise<number> {
@@ -122,7 +145,9 @@ export function isLikelyOfflineError(error: unknown): boolean {
 async function flushSnapshot(
   executor: (item: OfflineWriteItem) => Promise<void>
 ): Promise<{ processed: number; remaining: number }> {
-  const queue = await getOfflineWriteQueue();
+  const owner = await currentOwner();
+  if (!owner) return { processed: 0, remaining: 0 };
+  const queue = await withStorageLock(async () => (await readQueue()).filter(item => item.owner === owner));
   if (!queue.length) {
     return { processed: 0, remaining: 0 };
   }
@@ -134,7 +159,7 @@ async function flushSnapshot(
   for (let i = 0; i < queue.length; i += 1) {
     const item = queue[i];
 
-    if (hardStop) {
+    if (hardStop || await currentOwner() !== owner) {
       nextQueue.push(item);
       continue;
     }
@@ -152,7 +177,10 @@ async function flushSnapshot(
         cursor += 1;
       }
 
-      const settled = await Promise.allSettled(batch.map((entry) => executor(entry)));
+      const settled = await Promise.allSettled(batch.map(async (entry) => {
+        if (await currentOwner() !== owner) throw new Error("Sesija za slanje je promenjena.");
+        await executor(entry);
+      }));
       let batchWentOffline = false;
 
       for (let idx = 0; idx < settled.length; idx += 1) {
@@ -209,9 +237,9 @@ async function flushSnapshot(
       ...current.filter(item => !snapshotIds.has(item.id))
     ];
     await setOfflineWriteQueue(merged);
-    return { processed, remaining: merged.length };
+    return { processed, remaining: merged.filter(item => item.owner === owner).length };
   });
-  if (processed) {
+  if (processed && await currentOwner() === owner) {
     const pendingIds = new Set(nextQueue.map(item => item.id));
     const paths = [...new Set(queue.filter(item => !pendingIds.has(item.id)).map(item => item.path))];
     for (const listener of deliveryListeners) {
