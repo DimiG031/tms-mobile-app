@@ -41,6 +41,7 @@ export default function TourDocumentsScreen() {
   async function uploadPickedAsset(asset: ImagePicker.ImagePickerAsset) {
     try {
       setIsUploading(true);
+      setFileUrl("");
 
       const mimeType = asset.mimeType || "image/jpeg";
       const ext = mimeType === "image/png" ? "png" : "jpg";

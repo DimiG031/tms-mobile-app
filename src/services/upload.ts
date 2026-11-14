@@ -2,6 +2,13 @@ import { diagnosticMobileFetch } from "@/lib/diagnostics";
 import { toAbsoluteUrl } from "@/lib/urls";
 import { readSession } from "@/lib/secure-store";
 
+const UPLOAD_CONNECTION_MESSAGE = "Nije moguće potvrditi otpremanje fajla. Proveri vezu sa serverom i pokušaj ponovo. Fajl nije dodat u red za kasnije slanje.";
+
+async function uploadTransport<T>(send: () => Promise<T>): Promise<T> {
+  try { return await send(); }
+  catch { throw new Error(UPLOAD_CONNECTION_MESSAGE); }
+}
+
 type PresignResponse = {
   ok: true;
   data: {
@@ -20,14 +27,14 @@ export async function requestUploadTarget(params: {
   tourId?: string;
 }): Promise<PresignResponse["data"]> {
   const session = await readSession();
-  const response = await diagnosticMobileFetch("/api/upload/presign", {
+  const response = await uploadTransport(() => diagnosticMobileFetch("/api/upload/presign", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(session?.token ? { Authorization: `Bearer ${session.token}` } : {})
     },
     body: JSON.stringify(params)
-  });
+  }));
 
   if (!response.ok) {
     throw new Error(await uploadErrorMessage(response, "Nije moguće zatražiti upload lokaciju."));
@@ -67,13 +74,13 @@ export async function uploadFromFileUri(params: {
       type: mimeType
     } as unknown as Blob);
 
-    const localRes = await diagnosticMobileFetch("/api/upload/local", {
+    const localRes = await uploadTransport(() => diagnosticMobileFetch("/api/upload/local", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.token}`
       },
       body: formData
-    });
+    }));
 
     if (!localRes.ok) {
       throw new Error(await uploadErrorMessage(localRes, "Lokalno otpremanje nije uspelo."));
@@ -86,16 +93,21 @@ export async function uploadFromFileUri(params: {
     };
   }
 
-  const fileResponse = await fetch(uri);
-  const fileBlob = await fileResponse.blob();
+  let fileBlob: Blob;
+  try {
+    const fileResponse = await fetch(uri);
+    fileBlob = await fileResponse.blob();
+  } catch {
+    throw new Error("Izabrani fajl nije moguće pročitati. Izaberi ga ponovo.");
+  }
 
-  const uploadRes = await fetch(target.uploadUrl, {
+  const uploadRes = await uploadTransport(() => fetch(target.uploadUrl, {
     method: "PUT",
     headers: {
       "Content-Type": mimeType
     },
     body: fileBlob
-  });
+  }));
 
   if (!uploadRes.ok) {
     throw new Error(await uploadErrorMessage(uploadRes, "Direktno otpremanje nije uspelo."));

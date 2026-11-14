@@ -31,3 +31,21 @@ for(const [body,status,expected] of [
 ] as const)assert.equal(await exports.uploadErrorMessage({status,text:async()=>body},"Otpremanje nije uspelo."),expected);
 assert.equal(await exports.uploadErrorMessage({status:500,text:async()=>{throw new Error("read failure")}},"Otpremanje nije uspelo."),"Otpremanje nije uspelo.");
 console.log("Tour ID reaches presign/local; JSON/HTML/auth upload errors render readable messages.");
+
+for (const stage of ['presign','local','put','read'] as const) {
+ const diagnostic=async(path:string)=>{
+  if((stage==='presign'&&path.includes('presign'))||(stage==='local'&&path.includes('local')))throw new TypeError('Network request failed: sensitive transport details');
+  return response({useLocal:stage==='local',key:'documents/A/f.pdf',uploadUrl:'https://signed.example/put',fileUrl:'/api/files/documents/A/f.pdf'});
+ };
+ const transport=async(_path:string,options?:any)=>{
+  if(stage==='read'&&!options)throw new TypeError('file disappeared');
+  if(stage==='put'&&options?.method==='PUT')throw new TypeError('Failed to fetch signed URL');
+  return {ok:true,blob:async()=>({})};
+ };
+ const helpers=new Function('diagnosticMobileFetch','toAbsoluteUrl','readSession','fetch','FormData',stripTypeScriptTypes(source)+';return {uploadFromFileUri};')(diagnostic,(s:string)=>s,async()=>({token:'TEST_ONLY'}),transport,Form);
+ await assert.rejects(helpers.uploadFromFileUri({uri:'file:///f.pdf',filename:'f.pdf',mimeType:'application/pdf',tourId:'t'}), (error:Error)=>{
+  assert.ok(error.message.includes(stage==='read'?'Izabrani fajl nije moguće pročitati':'Proveri vezu sa serverom'));
+  assert.ok(!error.message.includes('sensitive'));assert.ok(!error.message.includes('signed.example'));return true;
+ });
+}
+console.log('Upload network failures: presign/local/PUT translated; local file read error separate');

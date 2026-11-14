@@ -25,3 +25,12 @@ for(const mimeType of ['image/gif','text/html']) {const r=await run({name:'fake.
 const cancel=await run(null,true);assert.equal(cancel.calls.length,0);assert.equal(cancel.alerts.length,0);assert.deepEqual(cancel.state,{});
 const failed=await run({name:'test.png',mimeType:'image/png',uri:'file:///test'},false,true);assert.equal(failed.state.url,'');assert.equal(failed.state.loading,false);assert.equal(failed.alerts.length,1);
 console.log('Document picker: PDF/JPEG/PNG, missing MIME fallback, cancel, unsupported MIME and failed upload passed');
+
+const imageStart=source.indexOf('async function uploadPickedAsset(');
+const imageEnd=source.indexOf('  async function onCapturePhoto()',imageStart);
+const imageState:any={url:'previous-file',loading:false};const imageAlerts:any[]=[];
+const imageContext=vm.createContext({fileName:'old.jpg',tourId:'t',setIsUploading:(v:any)=>imageState.loading=v,setFileUrl:(v:any)=>imageState.url=v,setFileName:()=>{},setFileType:()=>{},uploadFromFileUri:async()=>{throw new Error('network down')},Alert:{alert:(...args:any[])=>imageAlerts.push(args)}});
+vm.runInContext(stripTypeScriptTypes(source.slice(imageStart,imageEnd)),imageContext);
+await imageContext.uploadPickedAsset({uri:'file:///new.jpg',mimeType:'image/jpeg'});
+assert.equal(imageState.url,'');assert.equal(imageState.loading,false);assert.equal(imageAlerts.length,1);
+console.log('Camera/gallery failed replacement clears the previous file URL');
