@@ -159,11 +159,13 @@ export default function TourDocumentsScreen() {
         fileType: fileType.trim().toUpperCase()
       },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
           setFileName("");
           setFileUrl("");
           setFileType("JPG");
-          Alert.alert("Dokumenta", "Dokument je uspešno sačuvan.");
+          Alert.alert("Dokumenta", result.queued
+            ? "Zahtev je sačuvan na uređaju i čeka slanje serveru. Dokument još nije potvrđen u listi."
+            : "Dokument je uspešno sačuvan na serveru.");
         },
         onError: (error) => {
           const message = error instanceof Error ? error.message : "Kreiranje dokumenta nije uspelo";

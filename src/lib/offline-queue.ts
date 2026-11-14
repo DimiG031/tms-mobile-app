@@ -19,12 +19,31 @@ export type OfflineWriteItem = {
 
 type QueueCountListener = (count: number) => void;
 const queueCountListeners = new Set<QueueCountListener>();
+const deliveryListeners = new Set<(paths: readonly string[]) => void>();
+export function subscribeOfflineWritesDelivered(listener: (paths: readonly string[]) => void): () => void {
+  deliveryListeners.add(listener);
+  return () => { deliveryListeners.delete(listener); };
+}
+
+// Storage mutations are serialized, but network requests never hold this lock.
+let storageTail: Promise<unknown> = Promise.resolve();
+let flushInFlight: Promise<{ processed: number; remaining: number }> | null = null;
+function withStorageLock<T>(work: () => Promise<T>): Promise<T> {
+  const result = storageTail.then(work);
+  storageTail = result.catch(() => undefined);
+  return result;
+}
+function notifyCount(count: number): void {
+  for (const listener of queueCountListeners) {
+    try { listener(count); } catch { /* A view cannot fail a persisted write. */ }
+  }
+}
 
 function randomId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function getOfflineWriteQueue(): Promise<OfflineWriteItem[]> {
+async function readQueue(): Promise<OfflineWriteItem[]> {
   const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
   if (!raw) return [];
   try {
@@ -38,27 +57,31 @@ export async function getOfflineWriteQueue(): Promise<OfflineWriteItem[]> {
 
 async function setOfflineWriteQueue(items: OfflineWriteItem[]): Promise<void> {
   await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(items));
-  for (const listener of queueCountListeners) {
-    listener(items.length);
-  }
+  notifyCount(items.length);
 }
 
 export async function enqueueOfflineWrite(item: Omit<OfflineWriteItem, "id" | "createdAt" | "retries">): Promise<void> {
-  const queue = await getOfflineWriteQueue();
-  queue.push({
-    ...item,
-    id: randomId(),
-    createdAt: new Date().toISOString(),
-    retries: 0
+  await withStorageLock(async () => {
+    const queue = await readQueue();
+    queue.push({
+      ...item,
+      id: randomId(),
+      createdAt: new Date().toISOString(),
+      retries: 0
+    });
+    await setOfflineWriteQueue(queue);
   });
-  await setOfflineWriteQueue(queue);
 }
 
 export async function clearOfflineWriteQueue(): Promise<void> {
-  await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
-  for (const listener of queueCountListeners) {
-    listener(0);
-  }
+  await withStorageLock(async () => {
+    await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
+    notifyCount(0);
+  });
+}
+
+export function getOfflineWriteQueue(): Promise<OfflineWriteItem[]> {
+  return withStorageLock(readQueue);
 }
 
 export async function getOfflineWriteQueueCount(): Promise<number> {
@@ -70,9 +93,9 @@ export function subscribeOfflineQueueCount(listener: QueueCountListener): () => 
   queueCountListeners.add(listener);
   void getOfflineWriteQueueCount().then((count) => {
     if (queueCountListeners.has(listener)) {
-      listener(count);
+      try { listener(count); } catch { /* Isolate view callbacks. */ }
     }
-  });
+  }).catch(() => { /* The next queue operation can retry storage. */ });
 
   return () => {
     queueCountListeners.delete(listener);
@@ -96,7 +119,7 @@ export function isLikelyOfflineError(error: unknown): boolean {
   );
 }
 
-export async function flushOfflineWriteQueue(
+async function flushSnapshot(
   executor: (item: OfflineWriteItem) => Promise<void>
 ): Promise<{ processed: number; remaining: number }> {
   const queue = await getOfflineWriteQueue();
@@ -176,6 +199,34 @@ export async function flushOfflineWriteQueue(
     }
   }
 
-  await setOfflineWriteQueue(nextQueue);
-  return { processed, remaining: nextQueue.length };
+  const result = await withStorageLock(async () => {
+    const current = await readQueue();
+    const snapshotIds = new Set(queue.map(item => item.id));
+    const currentIds = new Set(current.map(item => item.id));
+    // Preserve new enqueues, and never revive entries cleared during the request.
+    const merged = [
+      ...nextQueue.filter(item => currentIds.has(item.id)),
+      ...current.filter(item => !snapshotIds.has(item.id))
+    ];
+    await setOfflineWriteQueue(merged);
+    return { processed, remaining: merged.length };
+  });
+  if (processed) {
+    const pendingIds = new Set(nextQueue.map(item => item.id));
+    const paths = [...new Set(queue.filter(item => !pendingIds.has(item.id)).map(item => item.path))];
+    for (const listener of deliveryListeners) {
+      try { listener(paths); } catch { /* Delivery remains acknowledged. */ }
+    }
+  }
+  return result;
 }
+
+export function flushOfflineWriteQueue(
+  executor: (item: OfflineWriteItem) => Promise<void>
+): Promise<{ processed: number; remaining: number }> {
+  if (!flushInFlight) {
+    flushInFlight = flushSnapshot(executor).finally(() => { flushInFlight = null; });
+  }
+  return flushInFlight;
+}
+

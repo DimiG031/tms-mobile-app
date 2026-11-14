@@ -8,6 +8,10 @@ on:
       - 'src/lib/offline-queue.ts'
       - 'src/lib/diagnostics*.ts'
       - 'scripts/diagnostics.test.mts'
+      - 'scripts/offlineQueue.test.mts'
+      - 'scripts/documentQueue.test.mts'
+      - 'src/queries/useTourDocuments.ts'
+      - 'app/**/documents.tsx'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/diagnostics.yml'
@@ -19,6 +23,10 @@ on:
       - 'src/lib/offline-queue.ts'
       - 'src/lib/diagnostics*.ts'
       - 'scripts/diagnostics.test.mts'
+      - 'scripts/offlineQueue.test.mts'
+      - 'scripts/documentQueue.test.mts'
+      - 'src/queries/useTourDocuments.ts'
+      - 'app/**/documents.tsx'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/diagnostics.yml'
@@ -36,3 +44,5 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: node --experimental-strip-types --test scripts/diagnostics.test.mts
+      - run: node --experimental-strip-types scripts/offlineQueue.test.mts
+      - run: node --experimental-strip-types scripts/documentQueue.test.mts

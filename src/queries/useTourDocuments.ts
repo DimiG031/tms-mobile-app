@@ -1,9 +1,21 @@
+import { useEffect } from "react";
+import { subscribeOfflineWritesDelivered } from "@/lib/offline-queue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { AppDocument } from "@/lib/types";
 import { normalizePagedPayload } from "@/lib/api-normalizers";
 
 export function useTourDocuments(tourId?: string) {
+  const queryClient = useQueryClient();
+  useEffect(() => subscribeOfflineWritesDelivered((paths) => {
+    if (!paths.includes("/api/documents")) return;
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["tour-documents"] }),
+      queryClient.invalidateQueries({ queryKey: ["documents"] }),
+      queryClient.invalidateQueries({ queryKey: ["tour-details"] }),
+      queryClient.invalidateQueries({ queryKey: ["notifications"] })
+    ]).catch(() => undefined);
+  }), [queryClient]);
   return useQuery({
     queryKey: ["tour-documents", tourId],
     queryFn: async () => {
@@ -27,7 +39,7 @@ export function useCreateTourDocument(tourId?: string) {
       checksum?: string | null;
     }) => {
       if (!tourId) throw new Error("Missing tour id");
-      await api.postQueued("/api/documents", {
+      return await api.postQueued("/api/documents", {
         fileName: params.fileName,
         fileUrl: params.fileUrl,
         fileType: params.fileType,
@@ -38,9 +50,13 @@ export function useCreateTourDocument(tourId?: string) {
         checksum: params.checksum ?? null
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      if (result.queued) return;
       await queryClient.invalidateQueries({ queryKey: ["tour-documents", tourId] });
+      await queryClient.invalidateQueries({ queryKey: ["documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["tour-details", tourId] });
       await queryClient.invalidateQueries({ queryKey: ["notifications"] });
     }
   });
 }
+
