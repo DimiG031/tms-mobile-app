@@ -1,3 +1,4 @@
+import { documentReadState } from "@/lib/documentReadState";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSessionRevision, assertSessionRevision, SessionChangedError } from "@/lib/secure-store";
 import { openDocument } from "@/services/openDocument";
@@ -23,7 +24,7 @@ export default function TourDocumentsScreen() {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
-  const { data, isLoading, isError, isRefetching, refetch } = useTourDocuments(tourId);
+  const { data, error: documentsError, isLoading, isError, isRefetching, refetch } = useTourDocuments(tourId);
   const createDocument = useCreateTourDocument(tourId);
   const queryClient = useQueryClient();
   const pendingDocuments = usePendingTourDocuments(tourId);
@@ -39,12 +40,12 @@ export default function TourDocumentsScreen() {
   const canSave = Boolean(fileName.trim() && fileUrl.trim()) && !createDocument.isPending && !isUploading;
 
   const sortedDocs = useMemo(() => {
-    return [...(data ?? [])].sort((a, b) => {
+    return [...documentReadState(data, documentsError).items].sort((a, b) => {
       const aTs = new Date(a.createdAt).getTime();
       const bTs = new Date(b.createdAt).getTime();
       return bTs - aTs;
     });
-  }, [data]);
+  }, [data, documentsError]);
 
   async function uploadPickedAsset(asset: ImagePicker.ImagePickerAsset) {
     try {
@@ -319,7 +320,7 @@ export default function TourDocumentsScreen() {
 
         {isError ? (
           <View className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
-            <Text className="text-red-700">Učitavanje dokumenata nije uspelo.</Text>
+            <Text className="text-red-700">{documentReadState(data, documentsError).message}</Text>
             <Pressable onPress={() => void refetch()} className="mt-2 self-start rounded-lg border border-red-300 px-3 py-2">
               <Text className="text-red-700">Pokušaj ponovo</Text>
             </Pressable>
@@ -335,7 +336,7 @@ export default function TourDocumentsScreen() {
           </Pressable>
         ))}
 
-        {!isLoading && !sortedDocs.length ? <Text style={styles.loading}>Nema dokumenata za ovu turu.</Text> : null}
+        {!isLoading && !isError && !sortedDocs.length ? <Text style={styles.loading}>Nema dokumenata za ovu turu.</Text> : null}
       </IOSCard>
     </ScrollView>
   );

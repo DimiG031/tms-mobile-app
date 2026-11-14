@@ -3,6 +3,7 @@ export type DocumentOpenDependencies = {
  apiUrl: string;
  get: (path: string) => Promise<unknown>;
  openUrl: (url: string) => Promise<unknown>;
+ openPrivate: (path: string) => Promise<unknown>;
  shareHtml: (html: string, title: string) => Promise<unknown>;
 };
 function httpUrl(value: string, base?: string): URL {
@@ -57,7 +58,14 @@ export async function openDocumentReference(reference: string, deps: DocumentOpe
  if (privatePath) {
   const result = payload(await deps.get(`${privatePath}?resolve=1`));
   if (typeof result.url !== "string") throw new Error("Server nije vratio adresu dokumenta.");
-  await deps.openUrl(httpUrl(result.url, base.origin).toString());
+  const target = httpUrl(result.url, base.origin);
+  if (target.origin === base.origin) {
+   if (result.local !== true || target.searchParams.get("local") !== "1"
+    || decodeURIComponent(target.pathname) !== decodeURIComponent(privatePath)) throw new Error("Server ne podržava bezbedno lokalno otvaranje. Ažurirajte web aplikaciju.");
+   await deps.openPrivate(target.pathname + "?local=1");
+  } else {
+   await deps.openUrl(target.toString());
+  }
   return;
  }
  throw new Error("Ovaj prikaz dokumenta još nije podržan u aplikaciji.");

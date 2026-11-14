@@ -1,9 +1,9 @@
 name: Document opening logic
 on:
   push:
-    paths: ['src/lib/documentOpen.ts', 'src/lib/pdf.ts', 'scripts/pdfModules.test.mts', 'scripts/documentPicker.test.mts', 'src/services/openDocument.ts', 'src/services/upload.ts', 'scripts/uploadTarget.test.mts', 'scripts/documentOpen.test.mts', 'app/**/documents.tsx', 'app/**/details.tsx', '.github/workflows/document-open.yml']
+    paths: ['src/lib/documentReadState.ts', 'scripts/documentReadState.test.mts', 'src/lib/documentOpen.ts', 'src/lib/pdf.ts', 'scripts/pdfModules.test.mts', 'scripts/documentPicker.test.mts', 'src/services/openDocument.ts', 'src/services/privateDocument.ts', 'scripts/privateDocument.test.mts', 'package.json', 'package-lock.json', 'src/services/upload.ts', 'scripts/uploadTarget.test.mts', 'scripts/documentOpen.test.mts', 'app/**/documents.tsx', 'app/**/details.tsx', '.github/workflows/document-open.yml']
   pull_request:
-    paths: ['src/lib/documentOpen.ts', 'src/lib/pdf.ts', 'scripts/pdfModules.test.mts', 'src/services/openDocument.ts', 'src/services/upload.ts', 'scripts/uploadTarget.test.mts', 'scripts/documentOpen.test.mts', 'app/**/documents.tsx', 'app/**/details.tsx', '.github/workflows/document-open.yml']
+    paths: ['src/lib/documentReadState.ts', 'scripts/documentReadState.test.mts', 'src/lib/documentOpen.ts', 'src/lib/pdf.ts', 'scripts/pdfModules.test.mts', 'src/services/openDocument.ts', 'src/services/privateDocument.ts', 'scripts/privateDocument.test.mts', 'package.json', 'package-lock.json', 'src/services/upload.ts', 'scripts/uploadTarget.test.mts', 'scripts/documentOpen.test.mts', 'app/**/documents.tsx', 'app/**/details.tsx', '.github/workflows/document-open.yml']
 permissions:
   contents: read
 jobs:
@@ -15,6 +15,8 @@ jobs:
         with:
           node-version: 22
       - run: node --experimental-strip-types scripts/documentOpen.test.mts
+      - run: node --experimental-strip-types scripts/privateDocument.test.mts
+      - run: node --experimental-strip-types scripts/documentReadState.test.mts
       - run: node --experimental-strip-types scripts/uploadTarget.test.mts
       - run: node --experimental-strip-types scripts/pdfModules.test.mts
       - run: node --experimental-strip-types scripts/documentPicker.test.mts

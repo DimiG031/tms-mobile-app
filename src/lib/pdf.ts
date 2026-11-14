@@ -170,11 +170,15 @@ function loadPdfModules() {
   return { Print, Sharing };
 }
 
-export async function sharePdfFromHtml(html: string, dialogTitle: string): Promise<void> {
+export async function sharePdfFromHtml(html: string, dialogTitle: string, assertCurrent: () => void = () => {}): Promise<void> {
+  assertCurrent();
   const { Print, Sharing } = loadPdfModules();
   if (!(await Sharing.isAvailableAsync())) {
     throw new Error("Deljenje PDF dokumenta nije dostupno na ovom uređaju.");
   }
+  assertCurrent();
   const { uri } = await Print.printToFileAsync({ html });
+  assertCurrent();
   await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle, UTI: "com.adobe.pdf" });
+  assertCurrent();
 }

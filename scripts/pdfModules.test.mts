@@ -18,3 +18,10 @@ await run({'expo-print':{}},/nisu ispravni/);
 await run({'expo-sharing':{isAvailableAsync:async()=>false,shareAsync:async()=>{}}},/Deljenje PDF/);
 await run({'expo-print':{printToFileAsync:async()=>{throw new Error('print failed')}}},/print failed/);
 console.log('PDF modules: lazy load, missing module, malformed exports, unavailable sharing and print failure passed');
+{
+ let current=true,shared=0;
+ const context=vm.createContext({require:(name:string)=>name==="expo-print"?{printToFileAsync:async()=>{current=false;return {uri:"file:///old-A.pdf"}}}:{isAvailableAsync:async()=>true,shareAsync:async()=>{shared++}},formatMoney:()=>""});
+ vm.runInContext(stripTypeScriptTypes(source),context);
+ await assert.rejects(context.sharePdfFromHtml("<p>fixture</p>","CMR",()=>{if(!current)throw new Error("Session changed")}),/Session changed/);assert.equal(shared,0);
+}
+console.log("PDF modules: a document session change during PDF generation prevents sharing");

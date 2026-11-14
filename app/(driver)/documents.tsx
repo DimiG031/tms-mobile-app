@@ -1,3 +1,5 @@
+import { documentReadState } from "@/lib/documentReadState";
+import { SessionChangedError } from "@/lib/secure-store";
 import { openDocument as openDocumentFile } from "@/services/openDocument";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, RefreshControl, ScrollView } from "react-native";
@@ -30,10 +32,11 @@ export default function DocumentsScreen() {
 
   async function openDocument(url: string) {
     try { await openDocumentFile(url); }
-    catch (error) { Alert.alert("Dokument", error instanceof Error ? error.message : "Otvaranje dokumenta nije uspelo."); }
+    catch (error) { if (error instanceof SessionChangedError) return; Alert.alert("Dokument", error instanceof Error ? error.message : "Otvaranje dokumenta nije uspelo."); }
   }
 
-  const documents = documentsQuery.data ?? [];
+  const readState = documentReadState(documentsQuery.data, documentsQuery.error);
+  const documents = readState.items;
 
   return (
     <ScrollView
@@ -54,7 +57,7 @@ export default function DocumentsScreen() {
           Dokumenta
         </Text>
         <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
-          {documents.length} ukupno
+          {documentsQuery.isError ? "Pregled nije dostupan" : `${documents.length} ukupno`}
         </Text>
       </View>
 
@@ -65,7 +68,7 @@ export default function DocumentsScreen() {
           </View>
         ) : documentsQuery.isError ? (
           <View className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 dark:border-red-900 dark:bg-red-950">
-            <Text className="font-semibold text-red-700 dark:text-red-300">Greška pri učitavanju dokumenata</Text>
+            <Text className="font-semibold text-red-700 dark:text-red-300">{readState.message}</Text>
             <Text className="mt-1 text-sm text-red-600 dark:text-red-400">Povucite ekran nadole za ponovno učitavanje.</Text>
           </View>
         ) : documents.length === 0 ? (
