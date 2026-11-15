@@ -1,3 +1,5 @@
+> Završna provera obe aplikacije vodi se samo u [centralnom web folderu](https://github.com/DimiG031/transport-website-app/blob/main/docs/glavnipregledprojekta/README.md). Novi razgovor počinje od [POCETAK_RAZGOVORA.md](https://github.com/DimiG031/transport-website-app/blob/main/docs/glavnipregledprojekta/POCETAK_RAZGOVORA.md) i [AGENTS.md](AGENTS.md). „Implemented foundation”, offline napomene i naredni koraci niže su raniji referentni opis, ne aktuelni prijem ili drugi plan. API koristi i zajedničke /api/tours, /api/documents i /api/gps-logs rute. Aktuelne skripte su u package.json i .github/workflows/.
+
 # TMS Mobile App (Driver)
 
 React Native + Expo Router mobile client for drivers, designed to consume the existing TMS REST API.

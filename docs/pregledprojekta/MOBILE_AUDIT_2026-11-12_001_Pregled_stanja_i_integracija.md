@@ -1,3 +1,5 @@
+> Istorijski pregled ili predlog, bez aktivnog statusa završavanja. Važeći plan, kriterijumi i rezultati su isključivo u [centralnoj evidenciji web repozitorijuma](https://github.com/DimiG031/transport-website-app/blob/main/docs/glavnipregledprojekta/POCETAK_RAZGOVORA.md). Sačuvani tekst nije odobrenje buduće implementacije niti novi dokaz ručnog prijema.
+
 # Mobilna aplikacija — 001. pregled stanja i integracija
 
 Datum: 12.11.2026. Repozitorijum: `DimiG031/tms-mobile-app`.

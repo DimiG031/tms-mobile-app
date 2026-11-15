@@ -1,3 +1,5 @@
+> Istorijski pregled ili predlog, bez aktivnog statusa završavanja. Važeći plan, kriterijumi i rezultati su isključivo u [centralnoj evidenciji web repozitorijuma](https://github.com/DimiG031/transport-website-app/blob/main/docs/glavnipregledprojekta/POCETAK_RAZGOVORA.md). Sačuvani tekst nije odobrenje buduće implementacije niti novi dokaz ručnog prijema.
+
 # Predlog: praktični alati za vozača i slice navigacija
 
 ## Status
