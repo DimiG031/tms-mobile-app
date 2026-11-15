@@ -1,4 +1,4 @@
-import { isSessionChangedError } from "@/lib/secure-store";
+import { SessionChangedError } from "@/lib/secure-store";
 import { stopActionNotice } from "@/lib/tourStatusChange";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
@@ -200,7 +200,7 @@ export default function DriverHomeScreen() {
           Alert.alert("Stanica", stopActionNotice(result.queued, action));
         },
         onError: (error) => {
-          if (isSessionChangedError(error)) return;
+          if (error instanceof SessionChangedError) return;
           Alert.alert("Stanica", error instanceof Error ? error.message : "Akcija na stanici nije uspela.");
         },
         onSettled: () => setPendingAction(null)

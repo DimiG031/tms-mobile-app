@@ -1,4 +1,4 @@
-import { isSessionChangedError } from "@/lib/secure-store";
+import { SessionChangedError } from "@/lib/secure-store";
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -73,7 +73,7 @@ export default function TourDetailsScreen() {
       {
         onSuccess: (result) => { if (result.warning) Alert.alert("Status ture i GPS", result.warning); },
         onError: (error) => {
-          if (isSessionChangedError(error)) return;
+          if (error instanceof SessionChangedError) return;
           const message = error instanceof Error ? error.message : "Promena statusa nije uspela";
           Alert.alert("Status ture", message);
         }
@@ -137,7 +137,7 @@ export default function TourDetailsScreen() {
           <Pressable disabled={gpsAction.isPending || updateStatus.isPending} className="mt-3 rounded-xl border px-4 py-3 disabled:opacity-60"
             onPress={() => gpsAction.mutate({ stop: data.status === "COMPLETED", vehicleId: data.vehicleId }, {
               onSuccess: () => Alert.alert("GPS", data.status === "COMPLETED" ? "GPS praćenje je zaustavljeno." : "GPS praćenje je pokrenuto na uređaju. Potvrda prijema pozicija proverava se na serveru."),
-              onError: error => { if (!isSessionChangedError(error)) Alert.alert("GPS", error instanceof Error ? error.message : "GPS operacija nije potvrđena."); }
+              onError: error => { if (!(error instanceof SessionChangedError)) Alert.alert("GPS", error instanceof Error ? error.message : "GPS operacija nije potvrđena."); }
             })}>
             <Text className="text-center font-semibold" style={{ color: theme.accent.primary }}>{gpsAction.isPending ? "GPS..." : data.status === "COMPLETED" ? "Zaustavi GPS" : "Pokreni / obnovi GPS"}</Text>
           </Pressable>

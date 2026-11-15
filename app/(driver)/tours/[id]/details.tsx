@@ -1,4 +1,4 @@
-import { isSessionChangedError } from "@/lib/secure-store";
+import { SessionChangedError } from "@/lib/secure-store";
 import { stopActionNotice } from "@/lib/tourStatusChange";
 import { openDocument as openDocumentFile } from "@/services/openDocument";
 import { useMemo, useState, type ReactNode } from "react";
@@ -417,7 +417,7 @@ export default function TourMoreDetailsScreen() {
           Alert.alert("Stanice", stopActionNotice(result.queued, action));
         },
         onError: (error) => {
-          if (isSessionChangedError(error)) return;
+          if (error instanceof SessionChangedError) return;
           const message = error instanceof Error ? error.message : "Akcija na stanici nije uspela.";
           Alert.alert("Stanice", message);
         },
