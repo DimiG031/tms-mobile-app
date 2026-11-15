@@ -1,3 +1,5 @@
+import { isSessionChangedError } from "@/lib/secure-store";
+import { stopActionNotice } from "@/lib/tourStatusChange";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -194,10 +196,11 @@ export default function DriverHomeScreen() {
     routeStopAction.mutate(
       { stopId: nextStop.id, action, timestamp: new Date().toISOString() },
       {
-        onSuccess: () => {
-          Alert.alert("Stanica", action === "ARRIVED" ? "Dolazak je zabeležen." : "Odlazak je zabeležen.");
+        onSuccess: (result) => {
+          Alert.alert("Stanica", stopActionNotice(result.queued, action));
         },
         onError: (error) => {
+          if (isSessionChangedError(error)) return;
           Alert.alert("Stanica", error instanceof Error ? error.message : "Akcija na stanici nije uspela.");
         },
         onSettled: () => setPendingAction(null)

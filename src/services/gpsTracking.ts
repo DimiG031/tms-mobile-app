@@ -1,3 +1,4 @@
+import { gpsMeasurement } from "@/lib/gpsMeasurement";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo, { type NetInfoSubscription } from "@react-native-community/netinfo";
 import * as Location from "expo-location";
@@ -15,13 +16,6 @@ type GpsTrackingState = {
   vehicleId: string;
 };
 
-type GpsLogPayload = {
-  vehicleId: string;
-  timestamp: string;
-  latitude: number;
-  longitude: number;
-  speedKmH: number | null;
-};
 
 let gpsQueueSyncInterval: ReturnType<typeof setInterval> | null = null;
 let gpsQueueNetInfoUnsubscribe: NetInfoSubscription | null = null;
@@ -32,28 +26,30 @@ function trackingLock<T>(work: () => Promise<T>): Promise<T> {
   trackingTail = result.catch(() => undefined);
   return result;
 }
-export async function startGpsTracking(params: { tourId: string; vehicleId: string }): Promise<void> {
-  const revision = getSessionRevision();
+export async function startGpsTracking(params: { tourId: string; vehicleId: string }, expectedRevision = getSessionRevision()): Promise<void> {
+  const revision = expectedRevision;
   const owner = offlineOwner(await readSession(), config.apiUrl);
   assertSessionRevision(revision);
   if (!owner) throw new Error("Za GPS praćenje potrebna je prijava.");
   const fg = await Location.requestForegroundPermissionsAsync();
+  assertSessionRevision(revision);
   if (fg.status !== "granted") {
-    throw new Error("Location permission is required.");
+    throw new Error("Za GPS je potrebna dozvola za lokaciju.");
   }
 
   const bg = await Location.requestBackgroundPermissionsAsync();
+  assertSessionRevision(revision);
   if (bg.status !== "granted") {
-    throw new Error("Background location permission is required.");
+    throw new Error("Za GPS je potrebna dozvola za lokaciju u pozadini.");
   }
 
   await trackingLock(async () => {
     assertSessionRevision(revision);
-    await AsyncStorage.setItem(TRACKING_STATE_KEY, JSON.stringify({ ...params, owner }));
 
     const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(GPS_TASK_NAME);
     assertSessionRevision(revision);
     if (alreadyStarted) {
+      await AsyncStorage.setItem(TRACKING_STATE_KEY, JSON.stringify({ ...params, owner }));
       return;
     }
 
@@ -68,6 +64,8 @@ export async function startGpsTracking(params: { tourId: string; vehicleId: stri
         notificationBody: "Sending vehicle position while tour is in transit."
       }
   });
+    assertSessionRevision(revision);
+    await AsyncStorage.setItem(TRACKING_STATE_KEY, JSON.stringify({ ...params, owner }));
   });
 }
 
@@ -102,13 +100,8 @@ export async function sendGpsLog(location: Location.LocationObject): Promise<voi
     return;
   }
 
-  const payload: GpsLogPayload = {
-    vehicleId: state.vehicleId,
-    timestamp: new Date().toISOString(),
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
-    speedKmH: typeof location.coords.speed === "number" ? location.coords.speed * 3.6 : null
-  };
+  const payload = gpsMeasurement(location, state.vehicleId, state.tourId);
+  if (!payload) return;
 
   await api.postQueuedForOwner("/api/gps-logs", payload, owner);
 }

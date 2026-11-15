@@ -62,7 +62,7 @@ export function useRouteStopAction(tourId?: string) {
 
   return useMutation({
     mutationFn: async ({ stopId, action, timestamp, latitude, longitude, note }: RouteStopActionInput) => {
-      await api.postQueued(`/api/mobile/route-stops/${encodeURIComponent(stopId)}/actions`, {
+      return api.postQueued(`/api/mobile/route-stops/${encodeURIComponent(stopId)}/actions`, {
         action,
         timestamp: timestamp ?? new Date().toISOString(),
         latitude: latitude ?? null,

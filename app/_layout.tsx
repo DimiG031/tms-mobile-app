@@ -169,7 +169,11 @@ function OfflineDocumentDeliveryNotice() {
       Alert.alert("Dokumenta", "Dokumenti su uspešno sačuvani na serveru.");
     };
     const unsubscribe = subscribeOfflineWritesDelivered((paths) => {
-      if (getSessionRevision() !== revision || !paths.includes("/api/documents")) return;
+      if (getSessionRevision() !== revision) return;
+      if (paths.some(path => /^\/api\/mobile\/route-stops\/[^/]+\/actions$/.test(path))) {
+        void Promise.all(["tour-stops", "tour-details", "dashboard", "notifications"].map(key => queryClient.invalidateQueries({ queryKey: [key] }))).catch(() => undefined);
+      }
+      if (!paths.includes("/api/documents")) return;
       void Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tour-documents"] }),
         queryClient.invalidateQueries({ queryKey: ["documents"] }),

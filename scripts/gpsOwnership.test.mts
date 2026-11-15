@@ -2,10 +2,22 @@ import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 
 const clean=(p:string)=>fs.readFileSync(new URL(p,import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
 let session:any={token:'A',user:{id:'A',companyId:'C',driverId:'D'}},revision=0,stops=0;const storage=new Map<string,string>(),sent:any[]=[];
 const ctx=vm.createContext({readSession:async()=>session,getSessionRevision:()=>revision,assertSessionRevision:(r:number)=>{if(r!==revision)throw new Error('session changed')},config:{apiUrl:'https://fixture.invalid'},AsyncStorage:{getItem:async(k:string)=>storage.get(k)??null,setItem:async(k:string,v:string)=>storage.set(k,v),removeItem:async(k:string)=>storage.delete(k)},api:{postQueuedForOwner:async(...args:any[])=>sent.push(args)},Location:{Accuracy:{Balanced:1},requestForegroundPermissionsAsync:async()=>({status:'granted'}),requestBackgroundPermissionsAsync:async()=>({status:'granted'}),hasStartedLocationUpdatesAsync:async()=>false,startLocationUpdatesAsync:async()=>{},stopLocationUpdatesAsync:async()=>{stops++}}});
-vm.runInContext(stripTypeScriptTypes(clean('../src/lib/offline-owner.ts')+'\n'+clean('../src/services/gpsTracking.ts')),ctx);
+vm.runInContext(stripTypeScriptTypes(clean('../src/lib/gpsMeasurement.ts')+'\n'+clean('../src/lib/offline-owner.ts')+'\n'+clean('../src/services/gpsTracking.ts')),ctx);
 await ctx.startGpsTracking({tourId:'T',vehicleId:'V'});const ownerA=(await ctx.getGpsTrackingState()).owner;assert.ok(ownerA);
 session={token:'B',user:{id:'B',companyId:'C',driverId:'E'}};revision++;
-await ctx.sendGpsLog({coords:{latitude:1,longitude:2,speed:0}});assert.equal(sent.length,0);
+await ctx.sendGpsLog({timestamp:1700000000000,coords:{latitude:1,longitude:2,speed:0}});assert.equal(sent.length,0);
 await ctx.startGpsTracking({tourId:'TB',vehicleId:'VB'});await ctx.stopGpsTracking(ownerA);assert.equal((await ctx.getGpsTrackingState()).vehicleId,'VB');assert.equal(stops,0);
-await ctx.sendGpsLog({coords:{latitude:1,longitude:2,speed:0}});assert.equal(sent.length,1);assert.equal(sent[0][1].vehicleId,'VB');assert.notEqual(sent[0][2],ownerA);
+await ctx.sendGpsLog({timestamp:1700000000000,coords:{latitude:1,longitude:2,speed:0}});assert.equal(sent.length,1);assert.equal(sent[0][1].vehicleId,'VB');assert.notEqual(sent[0][2],ownerA);
 console.log('GPS ownership: stale tracking not sent by another login and late old cleanup preserves new tracking passed');
+// Failed native start must not persist a new tracking target.
+await ctx.stopGpsTracking();
+ctx.Location.startLocationUpdatesAsync = async () => { throw new Error('native start failed'); };
+await assert.rejects(ctx.startGpsTracking({tourId:'FAILED',vehicleId:'VF'}), /native start failed/);
+assert.equal(await ctx.getGpsTrackingState(), null);
+// A logout during foreground permission must not continue into background/native startup.
+let backgroundRequests = 0;
+ctx.Location.requestForegroundPermissionsAsync = async () => { revision++; return {status:'granted'}; };
+ctx.Location.requestBackgroundPermissionsAsync = async () => { backgroundRequests++; return {status:'granted'}; };
+await assert.rejects(ctx.startGpsTracking({tourId:'STALE',vehicleId:'VS'}), /session changed/);
+assert.equal(backgroundRequests,0); assert.equal(await ctx.getGpsTrackingState(),null);
+console.log('GPS permission race and failed native startup leave no new tracking target passed');

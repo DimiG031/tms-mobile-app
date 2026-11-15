@@ -1,3 +1,5 @@
+import { isSessionChangedError } from "@/lib/secure-store";
+import { stopActionNotice } from "@/lib/tourStatusChange";
 import { openDocument as openDocumentFile } from "@/services/openDocument";
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, ScrollView } from "react-native";
@@ -411,10 +413,11 @@ export default function TourMoreDetailsScreen() {
         timestamp: new Date().toISOString()
       },
       {
-        onSuccess: () => {
-          Alert.alert("Stanice", action === "ARRIVED" ? "Dolazak je zabeležen." : "Odlazak je zabeležen.");
+        onSuccess: (result) => {
+          Alert.alert("Stanice", stopActionNotice(result.queued, action));
         },
         onError: (error) => {
+          if (isSessionChangedError(error)) return;
           const message = error instanceof Error ? error.message : "Akcija na stanici nije uspela.";
           Alert.alert("Stanice", message);
         },
