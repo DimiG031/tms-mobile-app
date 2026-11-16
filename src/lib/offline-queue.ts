@@ -1,9 +1,11 @@
+import { isStopMovement, isStopActionPath, stopRank } from "@/lib/stopActionState";
 import { readSession } from "@/lib/secure-store";
 import { config } from "@/lib/config";
 import { offlineOwner } from "@/lib/offline-owner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const OFFLINE_QUEUE_KEY = "tms_offline_write_queue_v1";
+const STOP_RECEIPTS_KEY = "route_stop_receipts_v1";
 const GPS_LOG_PATH = "/api/gps-logs";
 const GPS_BATCH_SIZE = 50;
 
@@ -80,6 +82,12 @@ export async function enqueueOfflineWrite(item: Omit<OfflineWriteItem, "id" | "c
   if (!capturedOwner) throw new Error("Za čuvanje zahteva potrebna je prijava.");
   return withStorageLock(async () => {
     const queue = await readQueue();
+    if (isStopMovement(item.path, item.body)) {
+      if (queue.some(entry => entry.owner === capturedOwner && entry.path === item.path && entry.method === "POST")) throw new Error("Zahtev za ovu stanicu već čeka potvrdu servera.");
+      const receipt = (await readStopReceipts()).find(entry => entry.owner === capturedOwner && entry.path === item.path);
+      const action = (item.body as { action: string }).action;
+      if (receipt && (stopRank(receipt.status) >= 2 || (action === "ARRIVED" && stopRank(receipt.status) >= 1))) throw new Error("Ova akcija stanice je već potvrđena. Osvežite prikaz.");
+    }
     const record: OfflineWriteItem = {
       ...item,
       owner: capturedOwner,
@@ -239,7 +247,7 @@ async function flushSnapshot(
       processed += 1;
     } catch (error) {
       const status = (error as { status?: number })?.status;
-      if (item.method === "POST" && item.path === "/api/documents"
+      if (item.method === "POST" && (item.path === "/api/documents" || isStopMovement(item.path, item.body))
         && typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429) {
         nextQueue.push({ ...item, blocked: true, failureStatus: status,
           failureMessage: error instanceof Error ? error.message : "Zahtev nije prihvaćen.",
@@ -287,3 +295,46 @@ export function flushOfflineWriteQueue(
   return flushInFlight;
 }
 
+
+export type StopReceipt = { owner: string; path: string; status: string };
+async function readStopReceipts(): Promise<StopReceipt[]> {
+  const raw = await AsyncStorage.getItem(STOP_RECEIPTS_KEY);
+  if (!raw) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error("Neispravno lokalno stanje potvrda stanica.");
+  return parsed.filter((entry): entry is StopReceipt => Boolean(entry && typeof entry.owner === "string" && typeof entry.path === "string" && isStopActionPath(entry.path) && ["PLANNED", "ARRIVED", "DEPARTED", "CANCELED"].includes(entry.status)));
+}
+/** Persist the acknowledgement BEFORE removing the queued write, under the same storage lock. */
+export async function acknowledgeStopAction(item: OfflineWriteItem, status: string): Promise<void> {
+  if (!item.owner || !isStopMovement(item.path, item.body) || !["ARRIVED", "DEPARTED", "CANCELED"].includes(status)) throw new Error("Neispravna potvrda stanice.");
+  await withStorageLock(async () => {
+    const receipts = await readStopReceipts();
+    const old = receipts.find(entry => entry.owner === item.owner && entry.path === item.path);
+    if (old && stopRank(old.status) > stopRank(status)) return;
+    await AsyncStorage.setItem(STOP_RECEIPTS_KEY, JSON.stringify([...receipts.filter(entry => entry !== old), { owner: item.owner, path: item.path, status }]));
+  });
+}
+export async function getStopActionSnapshot(): Promise<{ queue: OfflineWriteItem[]; receipts: StopReceipt[] }> {
+  const owner = await currentOwner();
+  if (!owner) return { queue: [], receipts: [] };
+  return withStorageLock(async () => ({ queue: (await readQueue()).filter(item => item.owner === owner && isStopMovement(item.path, item.body)), receipts: (await readStopReceipts()).filter(item => item.owner === owner) }));
+}
+export async function retryOfflineStop(id: string, expectedOwner: string, operationKey: string): Promise<OfflineWriteItem> {
+  if (flushInFlight) await flushInFlight;
+  return withStorageLock(async () => {
+    if (await currentOwner() !== expectedOwner) throw new Error("Nalog za slanje je promenjen.");
+    const queue = await readQueue(); const item = queue.find(entry => entry.id === id && entry.owner === expectedOwner);
+    if (!item || !isStopMovement(item.path, item.body)) throw new Error("Zahtev stanice više nije na čekanju. Osvežite prikaz.");
+    const next = { ...item, operationKey: item.operationKey ?? operationKey, blocked: false, failureStatus: undefined, failureMessage: undefined };
+    await setOfflineWriteQueue(queue.map(entry => entry.id === id ? next : entry)); return next;
+  });
+}
+export async function dismissRejectedStop(id: string, expectedOwner: string): Promise<void> {
+  if (flushInFlight) await flushInFlight;
+  await withStorageLock(async () => {
+    if (await currentOwner() !== expectedOwner) throw new Error("Nalog je promenjen.");
+    const queue = await readQueue(); const item = queue.find(entry => entry.id === id && entry.owner === expectedOwner);
+    if (!item || !isStopMovement(item.path, item.body) || !item.blocked) throw new Error("Zahtev bez potvrđenog odbijanja ne može se odbaciti.");
+    await setOfflineWriteQueue(queue.filter(entry => entry !== item));
+  });
+}

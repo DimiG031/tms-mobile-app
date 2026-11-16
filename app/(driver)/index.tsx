@@ -1,11 +1,12 @@
-import { SessionChangedError } from "@/lib/secure-store";
-import { stopActionNotice } from "@/lib/tourStatusChange";
+import { StopActionControls } from "@/components/StopActionControls";
+import { useStopActionSnapshot } from "@/queries/useStopActionState";
+import { stopActionState, stopIdFromPath } from "@/lib/stopActionState";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import type { ComponentProps } from "react";
 import { useState } from "react";
-import { Alert, RefreshControl, ScrollView } from "react-native";
+import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Pressable, Text, View } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
@@ -22,7 +23,7 @@ import { useMobileDriverProfile } from "@/queries/useMobileDriverProfile";
 import { useMobileProfile } from "@/queries/useMobileProfile";
 import { useToursSummary } from "@/queries/useToursSummary";
 import { useTourChecklist } from "@/queries/useTourChecklist";
-import { useRouteStopAction, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
+import { useTourStops } from "@/queries/useTourStops";
 import { openMapsNavigation, stopMapsQuery } from "@/lib/maps";
 import type { TourStop } from "@/lib/types";
 
@@ -83,7 +84,7 @@ function nextStopOf(stops: TourStop[]): TourStop | null {
   return (
     stops.find((stop) => {
       const status = stop.status?.toUpperCase();
-      return Boolean(stop.id) && status !== "COMPLETED" && status !== "CANCELLED" && status !== "CANCELED" && status !== "SKIPPED";
+      return Boolean(stop.id) && status !== "DEPARTED" && status !== "COMPLETED" && status !== "CANCELLED" && status !== "CANCELED" && status !== "SKIPPED";
     }) ?? null
   );
 }
@@ -152,10 +153,9 @@ export default function DriverHomeScreen() {
   const stopsQuery = useTourStops(activeId);
   const checklistQuery = useTourChecklist(activeId);
   const expenseQuery = useExpenseSheet(activeId);
-  const routeStopAction = useRouteStopAction(activeId);
+  const actionSnapshot = useStopActionSnapshot();
   const access = useTourAccess(active);
   const readOnlyCrew = !access.canWrite;
-  const [pendingAction, setPendingAction] = useState<RouteStopAction | null>(null);
   const [isRefreshing, setRefreshing] = useState(false);
 
   async function onRefresh() {
@@ -186,27 +186,10 @@ export default function DriverHomeScreen() {
 
   const month = summaryQuery.data?.month;
   const stops = stopsQuery.data ?? [];
-  const nextStop = nextStopOf(stops);
+  const nextStop = nextStopOf(stops.map(stop => ({ ...stop, status: stopActionState(stop.status, actionSnapshot.data?.receipts.find(receipt => stopIdFromPath(receipt.path) === stop.id)?.status).status ?? stop.status })));
   const checklist = checklistQuery.data;
   const sheet = expenseQuery.data;
 
-  function onStopAction(action: RouteStopAction) {
-    if (!nextStop?.id) return;
-    setPendingAction(action);
-    routeStopAction.mutate(
-      { stopId: nextStop.id, action, timestamp: new Date().toISOString() },
-      {
-        onSuccess: (result) => {
-          Alert.alert("Stanica", stopActionNotice(result.queued, action));
-        },
-        onError: (error) => {
-          if (error instanceof SessionChangedError) return;
-          Alert.alert("Stanica", error instanceof Error ? error.message : "Akcija na stanici nije uspela.");
-        },
-        onSettled: () => setPendingAction(null)
-      }
-    );
-  }
 
   return (
     <ScrollView
@@ -309,30 +292,7 @@ export default function DriverHomeScreen() {
                       {[nextStop.city, nextStop.country].filter(Boolean).join(", ")}
                     </Text>
                   ) : null}
-                  {readOnlyCrew ? null : (
-                  <View className="mt-3 flex-row gap-2">
-                    <Pressable
-                      onPress={() => onStopAction("ARRIVED")}
-                      disabled={routeStopAction.isPending}
-                      className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
-                      style={{ backgroundColor: theme.accent.primarySoft }}
-                    >
-                      <Text className="text-center text-sm font-semibold" style={{ color: theme.accent.primaryDark }}>
-                        {pendingAction === "ARRIVED" ? "Slanje..." : "Stigao"}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => onStopAction("DEPARTED")}
-                      disabled={routeStopAction.isPending}
-                      className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
-                      style={{ backgroundColor: theme.accent.primary }}
-                    >
-                      <Text className="text-center text-sm font-semibold text-white">
-                        {pendingAction === "DEPARTED" ? "Slanje..." : "Krenuo"}
-                      </Text>
-                    </Pressable>
-                  </View>
-                  )}
+                  {readOnlyCrew ? null : <StopActionControls stop={nextStop} tourId={activeId} />}
                   {(() => {
                     const mapsQuery = stopMapsQuery(nextStop);
                     return mapsQuery ? (

@@ -1,3 +1,4 @@
+import { isStopMovement, stopIdFromPath } from "@/lib/stopActionState";
 import { mobileDiagnostic, isTraceId, newTraceId, requestOperation, TRACE_HEADER } from "@/lib/diagnostics";
 import { config } from "@/lib/config";
 import { readSession, replaceSessionIfCurrent, getSessionRevision, assertSessionRevision, SessionChangedError } from "@/lib/secure-store";
@@ -7,6 +8,9 @@ import {
   enqueueOfflineWrite,
   getOfflineWriteQueue,
   retryOfflineDocument,
+  retryOfflineStop,
+  dismissRejectedStop,
+  acknowledgeStopAction,
   flushOfflineWriteQueue,
   type OfflineWriteItem,
   type OfflineWriteMethod,
@@ -18,6 +22,7 @@ let queueFlushInFlight: Promise<void> | null = null;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type QueuedResult<T> = { queued: false; data: T; noticeScheduled?: boolean } | { queued: true; data: null; delivery?: "pending" | "blocked"; message?: string };
+const stationAttempts = new Map<string, { data?: unknown; acknowledged?: boolean }>();
 const documentAttempts = new Map<string, { data?: unknown; acknowledged?: boolean }>();
 const DOCUMENT_PENDING_MESSAGE = "Zahtev je sačuvan na uređaju. Potvrda servera još nije stigla. Aplikacija će automatski pokušati ponovo.";
 
@@ -225,6 +230,13 @@ async function flushQueuedWritesInternal(): Promise<void> {
         }
         const attempt = documentAttempts.get(item.operationKey);
         if (attempt) { attempt.data = result; attempt.acknowledged = true; }
+      } else if (item.method === "POST" && isStopMovement(item.path, item.body)) {
+        const result = await request<{ ok?: boolean; data?: { routeStop?: { id?: string; status?: string } } }>(item.method, item.path, item.body, traceId, item.owner, true);
+        const stop = result?.data?.routeStop;
+        if (result?.ok !== true || stop?.id !== stopIdFromPath(item.path) || !["ARRIVED", "DEPARTED", "CANCELED"].includes(stop?.status ?? "") || ((item.body as { action: string }).action === "DEPARTED" && stop?.status === "ARRIVED")) throw new ApiError("Nismo dobili ispravnu potvrdu stanice.", 0, true);
+        await acknowledgeStopAction(item, stop!.status!);
+        const attempt = item.operationKey ? stationAttempts.get(item.operationKey) : undefined;
+        if (attempt) { attempt.data = result; attempt.acknowledged = true; }
       } else {
         await requestNoContent(item.method, item.path, item.body, traceId, item.owner);
       }
@@ -296,6 +308,39 @@ async function retryDocument(id: string): Promise<QueuedResult<unknown>> {
   } finally { documentAttempts.delete(item.operationKey); }
 }
 
+async function sendStation<T>(item: OfflineWriteItem, attempt: { data?: unknown; acknowledged?: boolean }): Promise<QueuedResult<T>> {
+  try { await flushQueuedWritesInternal(); } catch { /* Durable request remains locked until acknowledgement. */ }
+  if (attempt.acknowledged) return { queued: false, data: attempt.data as T };
+  const current = (await getOfflineWriteQueue()).find(entry => entry.id === item.id);
+  return { queued: true, data: null, delivery: current?.blocked ? "blocked" : "pending", message: current?.failureMessage };
+}
+async function writeStation<T>(path: string, body: unknown, traceId: string, owner: string, revision: number): Promise<QueuedResult<T>> {
+  const operationKey = newTraceId(); const attempt = {}; stationAttempts.set(operationKey, attempt);
+  try {
+    let item: OfflineWriteItem;
+    try { item = await enqueueOfflineWrite({ method: "POST", path, body, traceId, operationKey }, owner); }
+    catch (error) {
+      const message = typeof (error as { message?: unknown })?.message === "string" ? (error as { message: string }).message : "";
+      if (/već čeka|već potvrđena/.test(message)) throw new ApiError(message, 409);
+      throw new ApiError("Zahtev nije sačuvan na uređaju i nije poslat serveru. Pokušajte ponovo.", 0);
+    }
+    assertSessionRevision(revision);
+    const result = await sendStation<T>(item, attempt); assertSessionRevision(revision); return result;
+  } finally { stationAttempts.delete(operationKey); }
+}
+async function retryStation(id: string): Promise<QueuedResult<unknown>> {
+  const revision = getSessionRevision(); const owner = offlineOwner(await readSession(), config.apiUrl); assertSessionRevision(revision);
+  if (!owner) throw new ApiError("Potrebna je prijava.", 401);
+  const item = await retryOfflineStop(id, owner, newTraceId()); assertSessionRevision(revision); const key = item.operationKey!; const attempt = {}; stationAttempts.set(key, attempt);
+  try { const result = await sendStation(item, attempt); assertSessionRevision(revision); return result; }
+  finally { stationAttempts.delete(key); }
+}
+async function dismissStation(id: string): Promise<void> {
+  const revision = getSessionRevision(); const owner = offlineOwner(await readSession(), config.apiUrl); assertSessionRevision(revision);
+  if (!owner) throw new ApiError("Potrebna je prijava.", 401);
+  await dismissRejectedStop(id, owner); assertSessionRevision(revision);
+}
+
 async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: unknown, requiredOwner?: string): Promise<QueuedResult<T>> {
   const revision = getSessionRevision();
   const traceId = newTraceId();
@@ -304,6 +349,7 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
   if (requiredOwner && owner !== requiredOwner) throw new SessionChangedError();
   if (!owner) throw new ApiError("Za slanje zahteva potrebna je prijava.", 401);
   if (method === "POST" && path === "/api/documents") return writeDocument<T>(body, traceId, owner, revision);
+  if (method === "POST" && isStopMovement(path, body)) return writeStation<T>(path, body, traceId, owner, revision);
   try {
     const data = await request<T>(method, path, body, traceId, owner);
     scheduleQueueFlush();
@@ -321,6 +367,8 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
 
 export const api = {
   retryDocument,
+  retryStation,
+  dismissStation,
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   postForOwner: <T>(path: string, body: unknown, owner: string) => request<T>("POST", path, body, undefined, owner),

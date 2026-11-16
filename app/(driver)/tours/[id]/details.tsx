@@ -1,5 +1,4 @@
-import { SessionChangedError } from "@/lib/secure-store";
-import { stopActionNotice } from "@/lib/tourStatusChange";
+import { StopActionControls } from "@/components/StopActionControls";
 import { openDocument as openDocumentFile } from "@/services/openDocument";
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, ScrollView } from "react-native";
@@ -14,7 +13,7 @@ import { crewBadgeLabel } from "@/lib/crew";
 import { useTourAccess } from "@/queries/useCrew";
 import { useTourDocuments } from "@/queries/useTourDocuments";
 import * as Location from "expo-location";
-import { useRouteStopAction, useSaveStopCoords, useTourStops, type RouteStopAction } from "@/queries/useTourStops";
+import { useSaveStopCoords, useTourStops } from "@/queries/useTourStops";
 import { useCustomsAmenities } from "@/queries/useCustomsAmenities";
 import { openMapsNavigation, stopMapsQuery } from "@/lib/maps";
 
@@ -82,30 +81,6 @@ function NoteBlock({ label, value }: Readonly<{ label: string; value?: string | 
   );
 }
 
-function StopActionButton({
-  label,
-  disabled,
-  onPress,
-  variant = "primary"
-}: Readonly<{ label: string; disabled?: boolean; onPress: () => void; variant?: "primary" | "secondary" }>) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      className="flex-1 rounded-xl px-3 py-2 disabled:opacity-50"
-      style={{ backgroundColor: variant === "primary" ? theme.accent.primary : theme.accent.primarySoft }}
-    >
-      <Text
-        className="text-center text-sm font-semibold"
-        style={{ color: variant === "primary" ? "#fff" : theme.accent.primaryDark }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function CustomsAmenities({ customsOfficeId }: Readonly<{ customsOfficeId: string }>) {
   const theme = useTheme();
   const { data, isLoading } = useCustomsAmenities(customsOfficeId);
@@ -149,27 +124,23 @@ function CustomsAmenities({ customsOfficeId }: Readonly<{ customsOfficeId: strin
 function StopCard({
   stop,
   index,
-  isPending,
+  tourId,
   readOnlyCrew,
   savingCoords,
-  onSaveCoords,
-  onAction
+  onSaveCoords
 }: Readonly<{
   stop: TourStop;
   index: number;
-  isPending: boolean;
+  tourId?: string;
   readOnlyCrew: boolean;
   savingCoords: boolean;
   onSaveCoords: (stop: TourStop) => void;
-  onAction: (stop: TourStop, action: RouteStopAction) => void;
 }>) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const title = stop.locationName ?? stop.companyName ?? `Stanica ${stop.sequence ?? index + 1}`;
   const place = [stop.city, stop.country].filter(Boolean).join(", ");
   const heading = place || title;
-  const normalizedStatus = stop.status?.toUpperCase();
-  const canAct = Boolean(stop.id) && normalizedStatus !== "COMPLETED" && normalizedStatus !== "CANCELLED" && normalizedStatus !== "CANCELED";
   const mapsQuery = stopMapsQuery(stop);
 
   return (
@@ -222,21 +193,7 @@ function StopCard({
           {stop.customsOfficeId ? <CustomsAmenities customsOfficeId={stop.customsOfficeId} /> : null}
           <NoteBlock label="Napomena za vozača" value={stop.driverNote} />
 
-          {readOnlyCrew ? null : (
-          <View className="mt-3 flex-row gap-2">
-            <StopActionButton
-              label={isPending ? "Slanje..." : "Stigao"}
-              disabled={!canAct || isPending}
-              onPress={() => onAction(stop, "ARRIVED")}
-              variant="secondary"
-            />
-            <StopActionButton
-              label={isPending ? "Slanje..." : "Krenuo"}
-              disabled={!canAct || isPending}
-              onPress={() => onAction(stop, "DEPARTED")}
-            />
-          </View>
-          )}
+          {readOnlyCrew ? null : <StopActionControls stop={stop} tourId={tourId} />}
 
           {/* GPS tacku sme cela posada — onaj na rampi ima najbolju tacku
               (backend 2026-10-23); losa ocitavanja idu kao predlog dispeceru. */}
@@ -358,9 +315,7 @@ export default function TourMoreDetailsScreen() {
   const readOnlyCrew = !access.canWrite;
   const { data: endpointDocuments = [] } = useTourDocuments(tourId);
   const { data: endpointStops = [] } = useTourStops(tourId);
-  const routeStopAction = useRouteStopAction(tourId);
   const [activeSection, setActiveSection] = useState<SectionKey>("Osnovno");
-  const [pendingStopId, setPendingStopId] = useState<string | null>(null);
 
   const documents = useMemo(() => mergeDocuments(tour?.documents ?? [], endpointDocuments), [endpointDocuments, tour?.documents]);
   const stops = endpointStops.length ? endpointStops : (tour?.stops ?? []);
@@ -399,34 +354,6 @@ export default function TourMoreDetailsScreen() {
     }
   }
 
-  function onStopAction(stop: TourStop, action: RouteStopAction) {
-    if (!stop.id) {
-      Alert.alert("Stanice", "Nedostaje ID stanice.");
-      return;
-    }
-
-    setPendingStopId(stop.id);
-    routeStopAction.mutate(
-      {
-        stopId: stop.id,
-        action,
-        timestamp: new Date().toISOString()
-      },
-      {
-        onSuccess: (result) => {
-          Alert.alert("Stanice", stopActionNotice(result.queued, action));
-        },
-        onError: (error) => {
-          if (error instanceof SessionChangedError) return;
-          const message = error instanceof Error ? error.message : "Akcija na stanici nije uspela.";
-          Alert.alert("Stanice", message);
-        },
-        onSettled: () => {
-          setPendingStopId(null);
-        }
-      }
-    );
-  }
 
   function renderSection() {
     if (activeSection === "Osnovno") {
@@ -465,11 +392,10 @@ export default function TourMoreDetailsScreen() {
                 key={`${stop.id ?? stop.sequence ?? index}-${stop.locationName ?? index}`}
                 stop={stop}
                 index={index}
-                isPending={pendingStopId === stop.id && routeStopAction.isPending}
+                tourId={tourId}
                 readOnlyCrew={readOnlyCrew}
                 savingCoords={coordsStopId === stop.id}
                 onSaveCoords={onSaveStopCoords}
-                onAction={onStopAction}
               />
             ))
           ) : (

@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {stripTypeScriptTypes} from 'node:module';
+const stopSource=fs.readFileSync(new URL('../src/lib/stopActionState.ts',import.meta.url),'utf8').replace(/export /g,'');
 const source=fs.readFileSync(new URL('../src/lib/offline-queue.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
 const deferred=()=>{let resolve!:()=>void;const promise=new Promise<void>(r=>resolve=r);return {promise,resolve}};
 function setup(){let saved:string|null=null,fail=false;const storage={getItem:async()=>{await Promise.resolve();return saved},setItem:async(_key:string,value:string)=>{await Promise.resolve();if(fail){fail=false;throw new Error('disk full')}saved=value},removeItem:async()=>{saved=null}};
  let session:any={user:{id:'A',companyId:'C',driverId:'D'}};
  const c=vm.createContext({AsyncStorage:storage,readSession:async()=>session,config:{apiUrl:'https://fixture.invalid'}});
  const ownerSource=fs.readFileSync(new URL('../src/lib/offline-owner.ts',import.meta.url),'utf8').replace(/export /g,'');
- vm.runInContext(stripTypeScriptTypes(ownerSource+'\n'+source),c);
+ vm.runInContext(stripTypeScriptTypes(stopSource+'\n'+ownerSource+'\n'+source),c);
  return {c,setSession:(value:any)=>{session=value},fail:()=>{fail=true},read:()=>JSON.parse(saved??'[]')};}
 const item=(name:string,path='/api/documents')=>({method:'POST',path,body:{name}});
 {
