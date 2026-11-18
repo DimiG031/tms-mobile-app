@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';import ts from 'typescript';
 const root=new URL('../',import.meta.url),modules=new Map<string,any>(),storage=new Map<string,string>();let raw:string|null=null;
-let fetcher:any=async()=>new Response('{}',{status:401}),biometric:any=async()=>({success:true});
+let fetcher:any=async()=>new Response('{}',{status:401}),biometric:any=async()=>({success:true}),hardwareAvailable=true;
 const states:any[]=[],dependencies:any[]=[],cleanups=new Map<number,any>();let cursor=0,effects:any[]=[],routes:string[]=[];
 const react={
  createContext:()=>({Provider:'auth-context'}),useContext:()=>null,
@@ -17,7 +17,7 @@ function load(file:string):any {
  if(name==='react')return react;if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};
  if(name==='expo-router')return {usePathname:()=>'/login',useRouter:()=>({replace:(route:string)=>routes.push(route)}),useRootNavigationState:()=>({key:'root'})};
  if(name==='expo-secure-store')return secureNative;
- if(name==='expo-local-authentication')return {hasHardwareAsync:async()=>true,isEnrolledAsync:async()=>true,authenticateAsync:(...args:any[])=>biometric(...args)};
+ if(name==='expo-local-authentication')return {hasHardwareAsync:async()=>hardwareAvailable,isEnrolledAsync:async()=>true,authenticateAsync:(...args:any[])=>biometric(...args)};
  if(name==='@react-native-async-storage/async-storage')return {default:{getItem:async(k:string)=>storage.get(k)??null,setItem:async(k:string,v:string)=>storage.set(k,v),removeItem:async(k:string)=>storage.delete(k)}};
  if(name==='@/lib/config')return {config:{apiUrl:'https://fixture.invalid'}};
  if(name==='@/lib/diagnostics')return {diagnosticMobileFetch:(path:string,options:any)=>fetcher(path,options),mobileDiagnostic:()=>{},isTraceId:()=>true,newTraceId:()=> '00000000-0000-4000-8000-000000000000',requestOperation:()=> 'api.other',TRACE_HEADER:'x-tms-trace-id'};
@@ -48,5 +48,22 @@ await secure.saveSession(b);resume({success:true});await assert.rejects(unlock);
 await secure.saveSession(a);context=render();fetcher=async()=>new Response('{"error":"AccountInactive"}',{status:403});await assert.rejects(api.get('/api/mobile/profile'));context=render();assert.equal(context.inactive,true);
 const before=await secure.readSession();await secure.replaceSessionIfCurrent(before,{...before,token:'rotated'});context=render();assert.equal(context.inactive,true);
 fetcher=async()=>new Response('{"ok":true,"data":{}}');await context.recheckActivation();context=render();assert.equal(context.inactive,false);assert.equal((await secure.readSession()).user.active,true);
+// O-007: replacement pair stays in the current store/provider; a late response cannot replace B or logout.
+const password=load('src/services/password.ts');
+await secure.saveSession(a);context=render();
+fetcher=async()=>new Response(JSON.stringify({ok:true,data:{updated:true,token:'password-access',refreshToken:'password-refresh'}}));
+await password.changeOwnPassword({currentPassword:'fixture-old',newPassword:'fixture-new'});context=render();
+assert.equal(context.session.token,'password-access');assert.equal((await secure.readSession()).refreshToken,'password-refresh');
+hardwareAvailable=false;assert.equal(await context.unlockWithBiometrics(),false);assert.equal((await secure.readSession()).token,'password-access');hardwareAvailable=true;
+for(const replacement of [b,null]) {
+ await secure.saveSession(a);context=render();let finish!:(value:any)=>void;
+ fetcher=()=>new Promise(r=>finish=r);const pending=password.changeOwnPassword({currentPassword:'fixture-old',newPassword:'fixture-new'});await tick();
+ if(replacement)await secure.saveSession(replacement);else await secure.clearSession();
+ finish(new Response(JSON.stringify({ok:true,data:{updated:true,token:'late-access',refreshToken:'late-refresh'}})));
+ await assert.rejects(pending);context=render();assert.equal(context.session?.user.id??null,replacement?.user.id??null);
+}
+await secure.saveSession(a);fetcher=async()=>new Response(JSON.stringify({ok:true,data:{updated:true}}));
+await assert.rejects(password.changeOwnPassword({currentPassword:'fixture-old',newPassword:'fixture-new'}),/Lozinka je promenjena/);
+assert.equal(await secure.readSession(),null);
 for(const cleanup of cleanups.values())if(typeof cleanup==='function')cleanup();
 console.log('AuthProvider/service/store integration: hydration, login race, non-blocking logout, refresh expiry and stale biometric result passed');

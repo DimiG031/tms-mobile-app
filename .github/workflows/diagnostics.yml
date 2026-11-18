@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'src/services/auth.ts'
+      - 'src/services/password.ts'
+      - 'src/queries/useMobileAccount.ts'
       - 'src/services/upload.ts'
       - 'src/lib/documentReadState.ts'
       - 'scripts/documentReadState.test.mts'
@@ -49,6 +51,8 @@ on:
   pull_request:
     paths:
       - 'src/services/auth.ts'
+      - 'src/services/password.ts'
+      - 'src/queries/useMobileAccount.ts'
       - 'src/services/upload.ts'
       - 'src/lib/documentReadState.ts'
       - 'scripts/documentReadState.test.mts'

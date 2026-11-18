@@ -1,15 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { MobileThemePreference } from "@/lib/types";
+import { changeOwnPassword } from "@/services/password";
 
 export function useChangePassword() {
   return useMutation({
-    mutationFn: async (params: { currentPassword: string; newPassword: string }) => {
-      await api.patch("/api/mobile/account/password", {
-        currentPassword: params.currentPassword,
-        newPassword: params.newPassword
-      });
-    }
+    mutationFn: changeOwnPassword
   });
 }
 
