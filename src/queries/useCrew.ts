@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { invalidateCrewSwitchViews } from "@/lib/crewSwitchCache";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMobileProfile } from "@/queries/useMobileProfile";
 import {
@@ -61,9 +62,8 @@ export function useTourAccess(tour?: Tour | null): TourAccess {
  * Smena vožnje na PUTNOM NALOGU.
  *
  * Putni nalog ne mora da bude vezan za turu (odluka vlasnika 2026-10-23), pa
- * swap mora da postoji i na nivou naloga. Backend ovaj endpoint JOŠ NEMA —
- * zatraženo u docs/forcodexagent/todo.md. Dok ne stigne, dugme se na nalogu
- * bez `tourId` ne prikazuje, da vozač ne dobije 404.
+ * smena postoji i na nivou naloga. Povezani nalog i tura dele aktivnog vozača;
+ * nezavisni nalog menja samo svoj aktivni unos.
  */
 export function useSwitchTravelOrderDriver() {
   const queryClient = useQueryClient();
@@ -74,10 +74,7 @@ export function useSwitchTravelOrderDriver() {
         {}
       ),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["travel-orders"] }),
-        queryClient.invalidateQueries({ queryKey: ["travel-order-lines"] })
-      ]);
+      await invalidateCrewSwitchViews(queryClient);
     }
   });
 }
@@ -93,13 +90,7 @@ export function useSwitchDriver() {
       ),
     onSuccess: async () => {
       // Smena menja dozvole na svim ekranima ture, pa osvežavamo sve što ih čita.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["tours"] }),
-        queryClient.invalidateQueries({ queryKey: ["tour-details"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["travel-orders"] }),
-        queryClient.invalidateQueries({ queryKey: ["travel-order-lines"] })
-      ]);
+      await invalidateCrewSwitchViews(queryClient);
     }
   });
 }

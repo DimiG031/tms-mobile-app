@@ -4,6 +4,9 @@ on:
     paths:
       - 'src/services/auth.ts'
       - 'src/services/password.ts'
+      - 'src/queries/useCrew.ts'
+      - 'src/lib/crewSwitchCache.ts'
+      - 'scripts/crewSwitch.test.mts'
       - 'src/queries/useMobileAccount.ts'
       - 'src/services/upload.ts'
       - 'src/lib/documentReadState.ts'
@@ -52,6 +55,9 @@ on:
     paths:
       - 'src/services/auth.ts'
       - 'src/services/password.ts'
+      - 'src/queries/useCrew.ts'
+      - 'src/lib/crewSwitchCache.ts'
+      - 'scripts/crewSwitch.test.mts'
       - 'src/queries/useMobileAccount.ts'
       - 'src/services/upload.ts'
       - 'src/lib/documentReadState.ts'
@@ -118,6 +124,7 @@ jobs:
       - run: node --experimental-strip-types scripts/sessionOwnership.test.mts
       - run: node --experimental-strip-types scripts/queryScope.test.mts
       - run: node --experimental-strip-types scripts/authBoundary.test.mts
+      - run: node --experimental-strip-types scripts/crewSwitch.test.mts
       - run: node --experimental-strip-types scripts/gpsOwnership.test.mts
       - run: node --experimental-strip-types scripts/tourStatusGps.test.mts
       - run: node --experimental-strip-types scripts/pushOwnership.test.mts
