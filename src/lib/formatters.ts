@@ -51,6 +51,15 @@ export function translateTourStatus(status?: string | null): string {
   return status ?? "-";
 }
 
+export function translateStopStatus(status?: string | null): string {
+  const labels: Record<string, string> = {
+    PLANNED: "Planirano", ARRIVED: "Stigao", DEPARTED: "Otišao",
+    IN_PROGRESS: "U toku", COMPLETED: "Završeno", SKIPPED: "Preskočeno",
+    CANCELLED: "Otkazano", CANCELED: "Otkazano",
+  };
+  return labels[status?.toUpperCase() ?? ""] ?? (status?.trim() || "Nije uneto");
+}
+
 export function tourStatusClass(status?: string | null): string {
   const normalized = status?.toUpperCase();
   if (normalized === "PLANNED") return "bg-slate-100 text-slate-700";

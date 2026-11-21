@@ -7,7 +7,7 @@ import { Link, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, Text, View } from "@/components/ui";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { AppDocument, TourForwarderInfo, TourNotes, TourStop } from "@/lib/types";
-import { formatDateTime, formatRouteLabel, translateTourStatus } from "@/lib/formatters";
+import { formatDateTime, formatRouteLabel, translateTourStatus, translateStopStatus } from "@/lib/formatters";
 import { useTourDetails } from "@/queries/useTourDetails";
 import { crewBadgeLabel } from "@/lib/crew";
 import { useTourAccess } from "@/queries/useCrew";
@@ -35,17 +35,6 @@ function translateStopType(type?: string | null): string {
   if (normalized === "BREAK" || normalized === "PAUSE" || normalized === "PAUZA") return "Pauza";
   if (normalized === "OTHER" || normalized === "OSTALO") return "Ostalo";
   return valueOrEmpty(type);
-}
-
-function translateStopStatus(status?: string | null): string {
-  const normalized = status?.toUpperCase();
-  if (normalized === "PLANNED") return "Planirano";
-  if (normalized === "ARRIVED") return "Stigao";
-  if (normalized === "IN_PROGRESS") return "U toku";
-  if (normalized === "COMPLETED") return "Završeno";
-  if (normalized === "SKIPPED") return "Preskočeno";
-  if (normalized === "CANCELLED" || normalized === "CANCELED") return "Otkazano";
-  return valueOrEmpty(status);
 }
 
 function Section({ title, children }: Readonly<{ title: string; children: ReactNode }>) {
