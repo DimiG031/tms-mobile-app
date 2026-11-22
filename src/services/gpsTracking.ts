@@ -46,13 +46,9 @@ export async function startGpsTracking(params: { tourId: string; vehicleId: stri
   await trackingLock(async () => {
     assertSessionRevision(revision);
 
-    const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(GPS_TASK_NAME);
-    assertSessionRevision(revision);
-    if (alreadyStarted) {
-      await AsyncStorage.setItem(TRACKING_STATE_KEY, JSON.stringify({ ...params, owner }));
-      return;
-    }
-
+    // Registration alone does not prove that native updates are still running.
+    // Reapply options on every explicit start/recovery. Expo updates an existing
+    // task and renews its location subscription without deleting queued writes.
     await Location.startLocationUpdatesAsync(GPS_TASK_NAME, {
       accuracy: Location.Accuracy.Balanced,
       timeInterval: 30_000,

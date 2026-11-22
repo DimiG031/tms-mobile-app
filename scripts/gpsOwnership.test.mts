@@ -21,3 +21,19 @@ ctx.Location.requestBackgroundPermissionsAsync = async () => { backgroundRequest
 await assert.rejects(ctx.startGpsTracking({tourId:'STALE',vehicleId:'VS'}), /session changed/);
 assert.equal(backgroundRequests,0); assert.equal(await ctx.getGpsTrackingState(),null);
 console.log('GPS permission race and failed native startup leave no new tracking target passed');
+
+// A registered task can have a stalled native subscription: recovery must call
+// native start again, keep queued measurements, and propagate renewal failure.
+ctx.Location.requestForegroundPermissionsAsync = async () => ({status:'granted'});
+ctx.Location.requestBackgroundPermissionsAsync = async () => ({status:'granted'});
+let starts = 0;
+ctx.Location.hasStartedLocationUpdatesAsync = async () => true;
+ctx.Location.startLocationUpdatesAsync = async () => { starts++; };
+await ctx.startGpsTracking({tourId:'RECOVERY',vehicleId:'VR'});
+await ctx.startGpsTracking({tourId:'RECOVERY',vehicleId:'VR'});
+assert.equal(starts,2);
+const beforeFailure = await ctx.getGpsTrackingState();
+ctx.Location.startLocationUpdatesAsync = async () => { throw new Error('renewal failed'); };
+await assert.rejects(ctx.startGpsTracking({tourId:'OTHER',vehicleId:'VO'}), /renewal failed/);
+assert.deepEqual(await ctx.getGpsTrackingState(),beforeFailure);
+console.log('GPS registered-task recovery renews native subscription and exposes failure passed');
