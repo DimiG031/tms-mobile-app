@@ -56,7 +56,8 @@ export async function startGpsTracking(params: { tourId: string; vehicleId: stri
     mobileDiagnostic("info", "operation.started", { operation: "gps.native.start" });
     try {
     await Location.startLocationUpdatesAsync(GPS_TASK_NAME, {
-      accuracy: Location.Accuracy.Balanced,
+      // Vehicle tracking needs fresh precise fixes, including a GPS-only emulator.
+      accuracy: Location.Accuracy.High,
       timeInterval: 30_000,
       distanceInterval: 0,
       pausesUpdatesAutomatically: false,
