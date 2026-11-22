@@ -1,3 +1,4 @@
+import { mobileDiagnostic } from "@/lib/diagnostics";
 import { gpsMeasurement } from "@/lib/gpsMeasurement";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo, { type NetInfoSubscription } from "@react-native-community/netinfo";
@@ -31,13 +32,16 @@ export async function startGpsTracking(params: { tourId: string; vehicleId: stri
   const owner = offlineOwner(await readSession(), config.apiUrl);
   assertSessionRevision(revision);
   if (!owner) throw new Error("Za GPS praćenje potrebna je prijava.");
+  mobileDiagnostic("info", "operation.started", { operation: "gps.start" });
   const fg = await Location.requestForegroundPermissionsAsync();
+  mobileDiagnostic("info", "operation.completed", { operation: fg.status === "granted" ? "gps.permission.foreground.granted" : "gps.permission.foreground.denied" });
   assertSessionRevision(revision);
   if (fg.status !== "granted") {
     throw new Error("Za GPS je potrebna dozvola za lokaciju.");
   }
 
   const bg = await Location.requestBackgroundPermissionsAsync();
+  mobileDiagnostic("info", "operation.completed", { operation: bg.status === "granted" ? "gps.permission.background.granted" : "gps.permission.background.denied" });
   assertSessionRevision(revision);
   if (bg.status !== "granted") {
     throw new Error("Za GPS je potrebna dozvola za lokaciju u pozadini.");
@@ -49,6 +53,8 @@ export async function startGpsTracking(params: { tourId: string; vehicleId: stri
     // Registration alone does not prove that native updates are still running.
     // Reapply options on every explicit start/recovery. Expo updates an existing
     // task and renews its location subscription without deleting queued writes.
+    mobileDiagnostic("info", "operation.started", { operation: "gps.native.start" });
+    try {
     await Location.startLocationUpdatesAsync(GPS_TASK_NAME, {
       accuracy: Location.Accuracy.Balanced,
       timeInterval: 30_000,
@@ -60,8 +66,14 @@ export async function startGpsTracking(params: { tourId: string; vehicleId: stri
         notificationBody: "Sending vehicle position while tour is in transit."
       }
   });
+    } catch (error) {
+      mobileDiagnostic("warn", "operation.failed", { operation: "gps.native.start", errorKind: "unexpected" });
+      throw error;
+    }
+    mobileDiagnostic("info", "operation.completed", { operation: "gps.native.start" });
     assertSessionRevision(revision);
     await AsyncStorage.setItem(TRACKING_STATE_KEY, JSON.stringify({ ...params, owner }));
+    mobileDiagnostic("info", "operation.completed", { operation: "gps.target.saved" });
   });
 }
 
@@ -93,13 +105,20 @@ export async function sendGpsLog(location: Location.LocationObject): Promise<voi
   const session = await readSession();
   const owner = offlineOwner(session, config.apiUrl);
   if (!state?.vehicleId || !session?.token || !owner || state.owner !== owner) {
+    mobileDiagnostic("warn", "operation.failed", { operation: "gps.measurement.owner", errorKind: "aborted" });
     return;
   }
 
   const payload = gpsMeasurement(location, state.vehicleId, state.tourId);
-  if (!payload) return;
+  if (!payload) {
+    mobileDiagnostic("warn", "operation.failed", { operation: "gps.measurement.invalid" });
+    return;
+  }
 
+  mobileDiagnostic("info", "operation.started", { operation: "gps.measurement.submit" });
   await api.postQueuedForOwner("/api/gps-logs", payload, owner);
+  // The queue can return before server acceptance; HTTP diagnostics prove delivery.
+  mobileDiagnostic("info", "operation.completed", { operation: "gps.measurement.handedoff" });
 }
 
 export async function flushGpsQueue(): Promise<void> {
