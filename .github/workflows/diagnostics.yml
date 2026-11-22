@@ -29,6 +29,11 @@ on:
       - 'scripts/queryScope.test.mts'
       - 'scripts/authBoundary.test.mts'
       - 'scripts/gpsOwnership.test.mts'
+      - 'scripts/gpsNativeProbe.mts'
+      - 'scripts/gpsNativeProbe.test.mts'
+      - 'scripts/lib/gpsNativeProbe.mts'
+      - 'scripts/gpsEntry.test.mts'
+      - 'index.ts'
       - 'scripts/pushOwnership.test.mts'
       - 'src/services/notifications.ts'
       - 'src/lib/query-scope.ts'
@@ -83,6 +88,11 @@ on:
       - 'scripts/queryScope.test.mts'
       - 'scripts/authBoundary.test.mts'
       - 'scripts/gpsOwnership.test.mts'
+      - 'scripts/gpsNativeProbe.mts'
+      - 'scripts/gpsNativeProbe.test.mts'
+      - 'scripts/lib/gpsNativeProbe.mts'
+      - 'scripts/gpsEntry.test.mts'
+      - 'index.ts'
       - 'scripts/pushOwnership.test.mts'
       - 'src/services/notifications.ts'
       - 'src/lib/query-scope.ts'
@@ -133,5 +143,7 @@ jobs:
       - run: node --experimental-strip-types scripts/authBoundary.test.mts
       - run: node --experimental-strip-types scripts/crewSwitch.test.mts
       - run: node --experimental-strip-types scripts/gpsOwnership.test.mts
+      - run: node --experimental-strip-types scripts/gpsEntry.test.mts
+      - run: node --experimental-strip-types scripts/gpsNativeProbe.test.mts
       - run: node --experimental-strip-types scripts/tourStatusGps.test.mts
       - run: node --experimental-strip-types scripts/pushOwnership.test.mts
