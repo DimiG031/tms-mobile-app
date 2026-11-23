@@ -31,7 +31,10 @@ on:
       - 'scripts/gpsOwnership.test.mts'
       - 'scripts/gpsNativeProbe.mts'
       - 'scripts/gpsNativeProbe.test.mts'
+      - 'scripts/gpsNativeRepair.mts'
+      - 'scripts/gpsNativeRepair.test.mts'
       - 'scripts/lib/gpsNativeProbe.mts'
+      - 'scripts/lib/gpsNativeRepair.mts'
       - 'scripts/gpsEntry.test.mts'
       - 'index.ts'
       - 'scripts/pushOwnership.test.mts'
@@ -91,7 +94,10 @@ on:
       - 'scripts/gpsOwnership.test.mts'
       - 'scripts/gpsNativeProbe.mts'
       - 'scripts/gpsNativeProbe.test.mts'
+      - 'scripts/gpsNativeRepair.mts'
+      - 'scripts/gpsNativeRepair.test.mts'
       - 'scripts/lib/gpsNativeProbe.mts'
+      - 'scripts/lib/gpsNativeRepair.mts'
       - 'scripts/gpsEntry.test.mts'
       - 'index.ts'
       - 'scripts/pushOwnership.test.mts'
@@ -148,5 +154,6 @@ jobs:
       - run: node --experimental-strip-types scripts/gpsOwnership.test.mts
       - run: node --experimental-strip-types scripts/gpsEntry.test.mts
       - run: node --experimental-strip-types scripts/gpsNativeProbe.test.mts
+      - run: node --experimental-strip-types scripts/gpsNativeRepair.test.mts
       - run: node --experimental-strip-types scripts/tourStatusGps.test.mts
       - run: node --experimental-strip-types scripts/pushOwnership.test.mts
