@@ -23,6 +23,9 @@ export const repairs = [
       return;
     } // tms.gps.repair.host`]
   ] },
+  { path: 'expo-location/android/src/main/java/expo/modules/location/records/LocationArguments.kt', edits: [
+    ['timeInterval = map["timeInterval"] as? Long', 'timeInterval = (map["timeInterval"] as? Number)?.toLong() // tms.gps.repair.interval']
+  ] },
   { path: root + 'TaskManagerInternalModule.java', edits: [
     ['  private WeakReference<Context> mContextRef;', '  private volatile boolean mTmsHasHostActivity = false; // tms.gps.repair.activity\n  private WeakReference<Context> mContextRef;'],
     ['  public void onHostResume() {', '  public void onHostResume() {\n    mTmsHasHostActivity = true; // tms.gps.repair.resume'],
