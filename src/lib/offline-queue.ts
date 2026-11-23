@@ -7,7 +7,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const OFFLINE_QUEUE_KEY = "tms_offline_write_queue_v1";
 const STOP_RECEIPTS_KEY = "route_stop_receipts_v1";
 const GPS_LOG_PATH = "/api/gps-logs";
-const GPS_BATCH_SIZE = 50;
+const GPS_SEND_INTERVAL_MS = 5_000;
+const gpsNextSendAt = new Map<string, number>();
 
 export type OfflineWriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -27,6 +28,8 @@ export type OfflineWriteItem = {
   body?: unknown;
   createdAt: string;
   retries: number;
+  /** Persisted retry deadline; GPS entries retain cooldown across reloads. */
+  nextAttemptAt?: number;
 };
 
 type QueueCountListener = (count: number) => void;
@@ -186,6 +189,7 @@ async function flushSnapshot(
   const nextQueue: OfflineWriteItem[] = [];
   let processed = 0;
   let hardStop = false;
+  let gpsDeadline = queue.reduce((deadline, item) => item.path === GPS_LOG_PATH ? Math.max(deadline, item.nextAttemptAt ?? 0) : deadline, gpsNextSendAt.get(owner) ?? 0);
 
   for (let i = 0; i < queue.length; i += 1) {
     const item = queue[i];
@@ -195,51 +199,14 @@ async function flushSnapshot(
       continue;
     }
 
-    if (item.method === "POST" && item.path === GPS_LOG_PATH) {
-      const batch: OfflineWriteItem[] = [item];
-      let cursor = i + 1;
-      while (
-        cursor < queue.length &&
-        batch.length < GPS_BATCH_SIZE &&
-        queue[cursor].method === "POST" &&
-        queue[cursor].path === GPS_LOG_PATH
-      ) {
-        batch.push(queue[cursor]);
-        cursor += 1;
-      }
-
-      const settled = await Promise.allSettled(batch.map(async (entry) => {
-        if (await currentOwner() !== owner) throw new Error("Sesija za slanje je promenjena.");
-        await executor(entry);
-      }));
-      let batchWentOffline = false;
-
-      for (let idx = 0; idx < settled.length; idx += 1) {
-        const result = settled[idx];
-        const batchItem = batch[idx];
-
-        if (result.status === "fulfilled") {
-          processed += 1;
-          continue;
-        }
-
-        if (isLikelyOfflineError(result.reason)) {
-          batchWentOffline = true;
-          nextQueue.push(batchItem);
-        } else {
-          nextQueue.push({
-            ...batchItem,
-            retries: batchItem.retries + 1
-          });
-        }
-      }
-
-      if (batchWentOffline) {
-        hardStop = true;
-      }
-
-      i = cursor - 1;
+    const isGps = item.method === "POST" && item.path === GPS_LOG_PATH;
+    if ((item.nextAttemptAt ?? 0) > Date.now() || (isGps && gpsDeadline > Date.now())) {
+      nextQueue.push(item);
       continue;
+    }
+    if (isGps) {
+      gpsDeadline = Date.now() + GPS_SEND_INTERVAL_MS;
+      gpsNextSendAt.set(owner, gpsDeadline);
     }
 
     try {
@@ -247,6 +214,14 @@ async function flushSnapshot(
       processed += 1;
     } catch (error) {
       const status = (error as { status?: number })?.status;
+      if (isGps && status === 429) {
+        const delay = (error as { retryAfterMs?: number })?.retryAfterMs;
+        const deadline = Date.now() + (typeof delay === "number" && Number.isFinite(delay) && delay > 0 ? delay : 60_000);
+        if (isGps) { gpsDeadline = Math.max(gpsDeadline, deadline); gpsNextSendAt.set(owner, gpsDeadline); }
+        nextQueue.push({ ...item, retries: item.retries + 1, nextAttemptAt: deadline });
+        hardStop = true;
+        continue;
+      }
       if (item.method === "POST" && (item.path === "/api/documents" || isStopMovement(item.path, item.body))
         && typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429) {
         nextQueue.push({ ...item, blocked: true, failureStatus: status,
@@ -273,6 +248,9 @@ async function flushSnapshot(
       ...nextQueue.filter(item => currentIds.has(item.id)),
       ...current.filter(item => !snapshotIds.has(item.id))
     ];
+    for (const entry of merged) {
+      if (entry.owner === owner && entry.method === "POST" && entry.path === GPS_LOG_PATH) entry.nextAttemptAt = Math.max(entry.nextAttemptAt ?? 0, gpsDeadline);
+    }
     await setOfflineWriteQueue(merged);
     return { processed, remaining: merged.filter(item => item.owner === owner).length };
   });

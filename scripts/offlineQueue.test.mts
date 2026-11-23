@@ -39,9 +39,9 @@ const item=(name:string,path='/api/documents')=>({method:'POST',path,body:{name}
 }
 {
  const {c,read}=setup();for(let i=0;i<55;i++)await c.enqueueOfflineWrite(item(String(i),'/api/gps-logs'));
- let calls=0;await c.flushOfflineWriteQueue(async(i:any)=>{calls++;if(i.body.name==='4')throw new Error('HTTP 500')});assert.equal(calls,55);assert.equal(read().length,1);assert.equal(read()[0].body.name,'4');assert.equal(read()[0].retries,1);
+ let calls=0;await c.flushOfflineWriteQueue(async(i:any)=>{calls++;if(i.body.name==='4')throw new Error('HTTP 500')});assert.equal(calls,1);assert.equal(read().length,54);await c.flushOfflineWriteQueue(async()=>{calls++});assert.equal(calls,1);assert.ok(read().every((entry:any)=>entry.nextAttemptAt > Date.now()));
 }
-console.log('Offline queue: concurrent enqueue/flush, enqueue during network, clear during flush, storage/listener failure, retries and GPS batches passed');
+console.log('Offline queue: concurrent enqueue/flush, enqueue during network, clear during flush, storage/listener failure, retries and paced GPS preservation passed');
 {
  const {c}=setup();const notices:any[]=[];const unsubscribe=c.subscribeOfflineWritesDelivered((paths:any)=>notices.push(Array.from(paths)));
  await c.enqueueOfflineWrite(item('A'));await c.flushOfflineWriteQueue(async()=>{throw new Error('HTTP 403')});assert.equal(notices.length,0);

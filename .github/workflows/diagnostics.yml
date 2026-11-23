@@ -51,6 +51,7 @@ on:
       - 'src/lib/diagnostics*.ts'
       - 'scripts/diagnostics.test.mts'
       - 'scripts/offlineQueue.test.mts'
+      - 'scripts/gpsDelivery.test.mts'
       - 'scripts/documentQueue.test.mts'
       - 'scripts/documentDeliveryNotice.test.mts'
       - 'app/_layout.tsx'
@@ -110,6 +111,7 @@ on:
       - 'src/lib/diagnostics*.ts'
       - 'scripts/diagnostics.test.mts'
       - 'scripts/offlineQueue.test.mts'
+      - 'scripts/gpsDelivery.test.mts'
       - 'scripts/documentQueue.test.mts'
       - 'src/queries/useTourDocuments.ts'
       - 'app/**/documents.tsx'
@@ -132,6 +134,7 @@ jobs:
       - run: npm run typecheck
       - run: node --experimental-strip-types --test scripts/diagnostics.test.mts
       - run: node --experimental-strip-types scripts/offlineQueue.test.mts
+      - run: node --experimental-strip-types scripts/gpsDelivery.test.mts
       - run: node --experimental-strip-types scripts/stopActionState.test.mts
       - run: node --experimental-strip-types scripts/stopStatusLabels.test.mts
       - run: node --experimental-strip-types scripts/documentQueue.test.mts

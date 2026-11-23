@@ -31,6 +31,7 @@ export class ApiError extends Error {
   status: number;
   isNetwork: boolean;
   isInactive: boolean;
+  retryAfterMs?: number;
   constructor(message: string, status: number, isNetwork = false, isInactive = false) {
     super(message);
     this.name = "ApiError";
@@ -179,7 +180,15 @@ async function requestUntraced<T>(method: HttpMethod, path: string, body: unknow
       ? (backendMessage as string)
       : serbianMessageForStatus(response.status);
 
-    throw new ApiError(message, response.status);
+    const error = new ApiError(message, response.status);
+    if (response.status === 429) {
+      const retryAfter = response.headers?.get?.("Retry-After");
+      const seconds = retryAfter?.trim() ? Number(retryAfter) : NaN;
+      const deadline = retryAfter ? Date.parse(retryAfter) : NaN;
+      error.retryAfterMs = Number.isFinite(seconds) && seconds >= 0 ? Math.max(1000, seconds * 1000)
+        : Number.isFinite(deadline) && deadline > Date.now() ? deadline - Date.now() : 60_000;
+    }
+    throw error;
   }
 
   if (response.status === 204) {
@@ -350,6 +359,15 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
   if (!owner) throw new ApiError("Za slanje zahteva potrebna je prijava.", 401);
   if (method === "POST" && path === "/api/documents") return writeDocument<T>(body, traceId, owner, revision);
   if (method === "POST" && isStopMovement(path, body)) return writeStation<T>(path, body, traceId, owner, revision);
+  if (method === "POST" && path === "/api/gps-logs") {
+    const item = await enqueueOfflineWrite({ method, path, body, traceId }, owner);
+    mobileDiagnostic("info", "queue.stored", { traceId, operation: "gps", method });
+    assertSessionRevision(revision);
+    await flushQueuedWritesInternal();
+    assertSessionRevision(revision);
+    const pending = (await getOfflineWriteQueue()).some(entry => entry.id === item.id);
+    return pending ? { queued: true, data: null } : { queued: false, data: null as T };
+  }
   try {
     const data = await request<T>(method, path, body, traceId, owner);
     scheduleQueueFlush();
