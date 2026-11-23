@@ -3,7 +3,8 @@ const clean=(p:string)=>fs.readFileSync(new URL(p,import.meta.url),'utf8').repla
 let session:any={token:'A',user:{id:'A',companyId:'C',driverId:'D'}},revision=0,stops=0;const storage=new Map<string,string>(),sent:any[]=[];
 const diagnosticEvents:any[]=[];
 const nativeOptions:any[]=[];
-const ctx=vm.createContext({mobileDiagnostic:(...args:any[])=>diagnosticEvents.push(args),readSession:async()=>session,getSessionRevision:()=>revision,assertSessionRevision:(r:number)=>{if(r!==revision)throw new Error('session changed')},config:{apiUrl:'https://fixture.invalid'},AsyncStorage:{getItem:async(k:string)=>storage.get(k)??null,setItem:async(k:string,v:string)=>storage.set(k,v),removeItem:async(k:string)=>storage.delete(k)},api:{postQueuedForOwner:async(...args:any[])=>sent.push(args)},Location:{Accuracy:{Balanced:1,High:2},requestForegroundPermissionsAsync:async()=>({status:'granted'}),requestBackgroundPermissionsAsync:async()=>({status:'granted'}),hasStartedLocationUpdatesAsync:async()=>false,startLocationUpdatesAsync:async(_task:string,options:any)=>{nativeOptions.push(options)},stopLocationUpdatesAsync:async()=>{stops++}}});
+const checkpoints:string[]=[];
+const ctx=vm.createContext({gpsBridgeCheckpoint:(stage:string)=>checkpoints.push(stage),mobileDiagnostic:(...args:any[])=>diagnosticEvents.push(args),readSession:async()=>session,getSessionRevision:()=>revision,assertSessionRevision:(r:number)=>{if(r!==revision)throw new Error('session changed')},config:{apiUrl:'https://fixture.invalid'},AsyncStorage:{getItem:async(k:string)=>storage.get(k)??null,setItem:async(k:string,v:string)=>storage.set(k,v),removeItem:async(k:string)=>storage.delete(k)},api:{postQueuedForOwner:async(...args:any[])=>sent.push(args)},Location:{Accuracy:{Balanced:1,High:2},requestForegroundPermissionsAsync:async()=>({status:'granted'}),requestBackgroundPermissionsAsync:async()=>({status:'granted'}),hasStartedLocationUpdatesAsync:async()=>false,startLocationUpdatesAsync:async(_task:string,options:any)=>{nativeOptions.push(options)},stopLocationUpdatesAsync:async()=>{stops++}}});
 vm.runInContext(stripTypeScriptTypes(clean('../src/lib/gpsMeasurement.ts')+'\n'+clean('../src/lib/offline-owner.ts')+'\n'+clean('../src/services/gpsTracking.ts')),ctx);
 await ctx.startGpsTracking({tourId:'T',vehicleId:'V'});const ownerA=(await ctx.getGpsTrackingState()).owner;assert.ok(ownerA);
 assert.equal(nativeOptions[0].accuracy,ctx.Location.Accuracy.High);
@@ -65,3 +66,5 @@ await assert.rejects(taskCallback({data:{locations:[{}]}}), /SENSITIVE/);
 assert.equal(diagnosticEvents.at(-1)[2].operation,'gps.task.send');
 assert.ok(!JSON.stringify(diagnosticEvents).includes('SENSITIVE'));
 console.log('GPS diagnostics distinguish callback errors, empty fixes and send failure without payloads passed');
+
+assert.ok(checkpoints.includes("received"));assert.ok(checkpoints.includes("identity"));assert.ok(checkpoints.includes("submit"));assert.ok(checkpoints.includes("done"));assert.ok(checkpoints.includes("failed"));

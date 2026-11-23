@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { patches, probeSource } from './lib/gpsNativeProbe.mts';
+import { patches, probeSource, bridgeMethod, wrapperMarker } from './lib/gpsNativeProbe.mts';
 for (const { path, edits } of patches) {
   const original = fs.readFileSync(new URL('../node_modules/' + path, import.meta.url), 'utf8');
   const patched = probeSource(original, edits);
@@ -14,6 +14,7 @@ for (const { path, edits } of patches) {
     assert.ok(patched.indexOf(marker) < patched.indexOf(anchor));
     assert.throws(() => probeSource(original.replace(anchor, ''), edits));
     assert.throws(() => probeSource(original + '\n' + anchor, edits));
+    if (marker === bridgeMethod || marker === wrapperMarker) continue;
     assert.match(marker, /^Log\.i\("TmsGpsBridge", "probe\.v1 [a-z._]+"\);?$/);
   }
 }

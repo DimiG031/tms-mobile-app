@@ -1,3 +1,10 @@
+export const bridgeMethod = `AsyncFunction("tmsGpsProbeAsync") { stage: String ->
+      when (stage) {
+        "received", "identity", "submit", "done", "failed" -> Log.i("TmsGpsBridge", "probe.v1 js." + stage)
+      }
+    }
+`;
+export const wrapperMarker = 'Log.i("TmsGpsBridge", if (weakModule.get() == null) "probe.v1 wrapper.missing" else "probe.v1 wrapper.present")';
 export const versions = { 'expo-task-manager': '14.0.9', 'expo-location': '19.0.8' };
 const manager = 'expo-task-manager/android/src/main/java/expo/modules/taskManager/';
 export const patches = [
@@ -16,6 +23,12 @@ export const patches = [
     ['unregisterTask(task.getName(), appScopeKey, null);', 'Log.i("TmsGpsBridge", "probe.v1 loader.configuration_error");'],
     ['Bundle body = createExecutionEventBody(task, data, error);', 'Log.i("TmsGpsBridge", "probe.v1 service.execute");'],
     ['// The app is not fully loaded as its task manager is not there yet.', 'Log.i("TmsGpsBridge", "probe.v1 service.waiting_for_manager");']
+  ] },
+  { path: manager + 'TaskManagerModule.kt', edits: [
+    ['AsyncFunction<Boolean>("isAvailableAsync") {', bridgeMethod],
+    ['weakModule.get()?.sendEvent(name, body)', wrapperMarker],
+    ['val handler = Handler(Looper.getMainLooper())', 'Log.i("TmsGpsBridge", "probe.v1 observing.start")'],
+    ['taskService.notifyTaskFinished(taskName, appScopeKey, response)', 'Log.i("TmsGpsBridge", "probe.v1 js.notify")']
   ] },
   { path: manager + 'TaskManagerInternalModule.java', edits: [
     ['mTaskService.setTaskManager(this, getAppScopeKey(), getAppUrl());', 'Log.i("TmsGpsBridge", "probe.v1 manager.create");'],

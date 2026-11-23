@@ -29,6 +29,8 @@ on:
       - 'scripts/queryScope.test.mts'
       - 'scripts/authBoundary.test.mts'
       - 'scripts/gpsOwnership.test.mts'
+      - 'scripts/gpsBridgeCheckpoint.test.mts'
+      - 'src/lib/gpsBridgeCheckpoint.ts'
       - 'scripts/gpsNativeProbe.mts'
       - 'scripts/gpsNativeProbe.test.mts'
       - 'scripts/gpsNativeRepair.mts'
@@ -92,6 +94,8 @@ on:
       - 'scripts/queryScope.test.mts'
       - 'scripts/authBoundary.test.mts'
       - 'scripts/gpsOwnership.test.mts'
+      - 'scripts/gpsBridgeCheckpoint.test.mts'
+      - 'src/lib/gpsBridgeCheckpoint.ts'
       - 'scripts/gpsNativeProbe.mts'
       - 'scripts/gpsNativeProbe.test.mts'
       - 'scripts/gpsNativeRepair.mts'
@@ -152,6 +156,7 @@ jobs:
       - run: node --experimental-strip-types scripts/authBoundary.test.mts
       - run: node --experimental-strip-types scripts/crewSwitch.test.mts
       - run: node --experimental-strip-types scripts/gpsOwnership.test.mts
+      - run: node --experimental-strip-types scripts/gpsBridgeCheckpoint.test.mts
       - run: node --experimental-strip-types scripts/gpsEntry.test.mts
       - run: node --experimental-strip-types scripts/gpsNativeProbe.test.mts
       - run: node --experimental-strip-types scripts/gpsNativeRepair.test.mts

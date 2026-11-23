@@ -1,3 +1,4 @@
+import { gpsBridgeCheckpoint } from "@/lib/gpsBridgeCheckpoint";
 import { mobileDiagnostic } from "@/lib/diagnostics";
 import { gpsMeasurement } from "@/lib/gpsMeasurement";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -104,6 +105,7 @@ export async function getGpsTrackingState(): Promise<GpsTrackingState | null> {
 export async function sendGpsLog(location: Location.LocationObject): Promise<void> {
   const state = await getGpsTrackingState();
   const session = await readSession();
+  gpsBridgeCheckpoint("identity");
   const owner = offlineOwner(session, config.apiUrl);
   if (!state?.vehicleId || !session?.token || !owner || state.owner !== owner) {
     mobileDiagnostic("warn", "operation.failed", { operation: "gps.measurement.owner", errorKind: "aborted" });
@@ -117,6 +119,7 @@ export async function sendGpsLog(location: Location.LocationObject): Promise<voi
   }
 
   mobileDiagnostic("info", "operation.started", { operation: "gps.measurement.submit" });
+  gpsBridgeCheckpoint("submit");
   await api.postQueuedForOwner("/api/gps-logs", payload, owner);
   // The queue can return before server acceptance; HTTP diagnostics prove delivery.
   mobileDiagnostic("info", "operation.completed", { operation: "gps.measurement.handedoff" });
