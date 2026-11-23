@@ -7,10 +7,19 @@ export const patches = [
     ['mTask?.execute(data, null, callback)', 'Log.i("TmsGpsBridge", "probe.v1 location.execute")']
   ] },
   { path: manager + 'TaskService.java', edits: [
+    ['sTaskManagers.remove(appScopeKey);\n      return;', 'Log.i("TmsGpsBridge", "probe.v1 service.unregister");'],
+    ['taskManagers.put(appScopeKey, new WeakReference<>(taskManager));', 'Log.i("TmsGpsBridge", "probe.v1 service.register");'],
+    ['getAppLoader().loadApp(mContextRef.get(), new HeadlessAppLoader.Params(appScopeKey, task.getAppUrl()), () -> {', 'Log.i("TmsGpsBridge", "probe.v1 loader.request");'],
+    ['}, success -> {', 'Log.i("TmsGpsBridge", "probe.v1 loader.already_running");'],
+    ['if (!success) {', 'Log.i("TmsGpsBridge", "probe.v1 loader.callback");'],
+    ['sEvents.remove(appScopeKey);\n          mTasksAndEventsRepository.removeEvents(appScopeKey);', 'Log.i("TmsGpsBridge", "probe.v1 loader.failed");'],
+    ['unregisterTask(task.getName(), appScopeKey, null);', 'Log.i("TmsGpsBridge", "probe.v1 loader.configuration_error");'],
     ['Bundle body = createExecutionEventBody(task, data, error);', 'Log.i("TmsGpsBridge", "probe.v1 service.execute");'],
     ['// The app is not fully loaded as its task manager is not there yet.', 'Log.i("TmsGpsBridge", "probe.v1 service.waiting_for_manager");']
   ] },
   { path: manager + 'TaskManagerInternalModule.java', edits: [
+    ['mTaskService.setTaskManager(this, getAppScopeKey(), getAppUrl());', 'Log.i("TmsGpsBridge", "probe.v1 manager.create");'],
+    ['mTaskService.setTaskManager(null, getAppScopeKey(), getAppUrl());', 'Log.i("TmsGpsBridge", "probe.v1 manager.destroy");'],
     ['mEventsQueue.add(body);', 'Log.i("TmsGpsBridge", "probe.v1 manager.queued");'],
     ['// Execute any events that came before this call.', 'Log.i("TmsGpsBridge", "probe.v1 manager.flush");'],
     ['mEmitEventWrapper.emit(TaskManagerInterface.EVENT_NAME, body);', 'Log.i("TmsGpsBridge", "probe.v1 manager.emit");']
