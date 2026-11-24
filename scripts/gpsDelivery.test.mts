@@ -2,18 +2,22 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+for (const useExpo of [false, true]) {
+let expoCalls = 0;
 let now = 1800000000000, calls = 0, active = 0, peak = 0, failStorage = false;
 let session: any = { token: 'fixture', user: { id: 'A', companyId: 'C', driverId: 'D' } };
 const storage = new Map<string,string>();
 class Clock extends Date { static now() { return now; } }
 let response = () => new Response('{}', {status:201});
 function runtime() {
+ const transport=async()=>{calls++;active++;peak=Math.max(peak,active);await Promise.resolve();active--;return response();};
  const modules = new Map<string,any>();
  function load(file:string):any {
   if(modules.has(file)) return modules.get(file);
   const exports:any={};modules.set(file,exports);
   const code=ts.transpileModule(fs.readFileSync(new URL('../'+file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-  vm.runInNewContext(code,{exports,Date:Clock,console,fetch:async()=>{calls++;active++;peak=Math.max(peak,active);await Promise.resolve();active--;return response();},require:(name:string)=>{
+  vm.runInNewContext(code,{exports,Date:Clock,console,__DEV__:true,process:{env:{EXPO_PUBLIC_GPS_EXPO_FETCH:useExpo?"1":"0"}},fetch:transport,require:(name:string)=>{
+   if(name==='expo/fetch')return {fetch:async()=>{expoCalls++;return transport();}};
    if(name==='@react-native-async-storage/async-storage')return {default:{getItem:async(k:string)=>storage.get(k)??null,setItem:async(k:string,v:string)=>{if(failStorage)throw Error('disk full');storage.set(k,v)},removeItem:async(k:string)=>storage.delete(k)}};
    if(name==='@/lib/secure-store')return {readSession:async()=>session,getSessionRevision:()=>0,assertSessionRevision:()=>{},replaceSessionIfCurrent:async()=>false,SessionChangedError:class extends Error{}};
    if(name==='@/lib/config')return {config:{apiUrl:'https://fixture.invalid'}};
@@ -52,3 +56,6 @@ response=()=>new Response('{}',{status:429,headers:{'Retry-After':new Date(now+1
 await assert.rejects(api.get('/fixture'),(e:any)=>e.status===429&&e.retryAfterMs===120000);
 response=()=>new Response('{}',{status:429});await assert.rejects(api.get('/fixture'),(e:any)=>e.retryAfterMs===60000);
 console.log('GPS delivery: durable burst, serial pacing, 429 seconds/date/fallback, reload, storage and owner boundaries pass');
+
+assert.equal(expoCalls, useExpo ? 3 : 0);
+}

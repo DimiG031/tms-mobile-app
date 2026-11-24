@@ -31,6 +31,9 @@ on:
       - 'scripts/gpsOwnership.test.mts'
       - 'scripts/gpsBridgeCheckpoint.test.mts'
       - 'src/lib/gpsBridgeCheckpoint.ts'
+      - 'src/lib/gpsTransport.ts'
+      - 'src/types/env.d.ts'
+      - 'scripts/gpsTransport.test.mts'
       - 'scripts/gpsNativeProbe.mts'
       - 'scripts/gpsNativeProbe.test.mts'
       - 'scripts/gpsNativeRepair.mts'
@@ -96,6 +99,9 @@ on:
       - 'scripts/gpsOwnership.test.mts'
       - 'scripts/gpsBridgeCheckpoint.test.mts'
       - 'src/lib/gpsBridgeCheckpoint.ts'
+      - 'src/lib/gpsTransport.ts'
+      - 'src/types/env.d.ts'
+      - 'scripts/gpsTransport.test.mts'
       - 'scripts/gpsNativeProbe.mts'
       - 'scripts/gpsNativeProbe.test.mts'
       - 'scripts/gpsNativeRepair.mts'
@@ -145,6 +151,7 @@ jobs:
       - run: node --experimental-strip-types --test scripts/diagnostics.test.mts
       - run: node --experimental-strip-types scripts/offlineQueue.test.mts
       - run: node --experimental-strip-types scripts/gpsDelivery.test.mts
+      - run: node --experimental-strip-types scripts/gpsTransport.test.mts
       - run: node --experimental-strip-types scripts/stopActionState.test.mts
       - run: node --experimental-strip-types scripts/stopStatusLabels.test.mts
       - run: node --experimental-strip-types scripts/documentQueue.test.mts

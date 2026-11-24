@@ -1,3 +1,4 @@
+import { fetchForRequest } from "@/lib/gpsTransport";
 import { isStopMovement, stopIdFromPath } from "@/lib/stopActionState";
 import { mobileDiagnostic, isTraceId, newTraceId, requestOperation, TRACE_HEADER } from "@/lib/diagnostics";
 import { config } from "@/lib/config";
@@ -111,7 +112,7 @@ async function refreshToken(traceId: string, current: AuthSession): Promise<stri
 
 async function requestUntraced<T>(method: HttpMethod, path: string, body: unknown, traceId: string, onStatus: (status: number) => void, expectedOwner: string | undefined, revision: number, allowOldAcknowledgement: boolean, operationKey?: string): Promise<T> {
   const run = async (token?: string | null) =>
-    fetch(`${config.apiUrl}${path}`, {
+    fetchForRequest(path, method)(`${config.apiUrl}${path}`, {
       method,
       headers: {
         "Content-Type": "application/json",
