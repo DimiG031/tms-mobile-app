@@ -1,4 +1,5 @@
 import { fetchForRequest } from "@/lib/gpsTransport";
+import { reportGpsQueueSnapshot } from "@/lib/gpsQueueSnapshot";
 import { isStopMovement, stopIdFromPath } from "@/lib/stopActionState";
 import { mobileDiagnostic, isTraceId, newTraceId, requestOperation, TRACE_HEADER } from "@/lib/diagnostics";
 import { config } from "@/lib/config";
@@ -256,6 +257,7 @@ async function flushQueuedWritesInternal(): Promise<void> {
       throw error;
     }
   });
+  void reportGpsQueueSnapshot(getOfflineWriteQueue);
 }
 
 function scheduleQueueFlush(): void {
@@ -363,6 +365,7 @@ async function writeQueued<T>(method: OfflineWriteMethod, path: string, body?: u
   if (method === "POST" && path === "/api/gps-logs") {
     const item = await enqueueOfflineWrite({ method, path, body, traceId }, owner);
     mobileDiagnostic("info", "queue.stored", { traceId, operation: "gps", method });
+    void reportGpsQueueSnapshot(getOfflineWriteQueue);
     assertSessionRevision(revision);
     await flushQueuedWritesInternal();
     assertSessionRevision(revision);

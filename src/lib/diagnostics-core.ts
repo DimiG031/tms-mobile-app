@@ -4,7 +4,7 @@ export type DiagnosticLevel = "debug" | "info" | "warn" | "error" | "off";
 export type DiagnosticEvent =
   | "request.started" | "request.completed" | "request.failed"
   | "refresh.started" | "refresh.completed" | "refresh.failed"
-  | "queue.stored" | "queue.sending" | "queue.acknowledged" | "queue.rejected"
+  | "queue.stored" | "queue.sending" | "queue.acknowledged" | "queue.rejected" | "queue.snapshot"
   | "operation.started" | "operation.completed" | "operation.failed";
 export type DiagnosticFields = {
   traceId?: string;
@@ -13,11 +13,17 @@ export type DiagnosticFields = {
   status?: number;
   durationMs?: number;
   attempt?: number;
+  gpsPending?: number;
+  invalidMeasurementTimes?: number;
+  oldestMeasurementAt?: string;
+  newestMeasurementAt?: string;
+  oldestQueuedAt?: string;
+  newestQueuedAt?: string;
   errorKind?: "network" | "aborted" | "unexpected";
 };
 const events: ReadonlySet<string> = new Set<DiagnosticEvent>([
   "request.started", "request.completed", "request.failed", "refresh.started", "refresh.completed", "refresh.failed",
-  "queue.stored", "queue.sending", "queue.acknowledged", "queue.rejected",
+  "queue.stored", "queue.sending", "queue.acknowledged", "queue.rejected", "queue.snapshot",
   "operation.started", "operation.completed", "operation.failed",
 ]);
 const ranks = { debug: 0, info: 1, warn: 2, error: 3, off: 4 } as const;
@@ -43,6 +49,17 @@ export function diagnosticRecord(layer: "api" | "web" | "mobile", event: Diagnos
     const v = fields[key]; if (typeof v === "number" && Number.isFinite(v) && v >= 0) safe[key] = Math.round(v);
   }
   if (fields.errorKind === "network" || fields.errorKind === "aborted" || fields.errorKind === "unexpected") safe.errorKind = fields.errorKind;
+  if (event === "queue.snapshot" && fields.operation === "gps") {
+    for (const key of ["gpsPending", "invalidMeasurementTimes"] as const) {
+      const value = fields[key];
+      if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) safe[key] = value;
+    }
+    for (const key of ["oldestMeasurementAt", "newestMeasurementAt", "oldestQueuedAt", "newestQueuedAt"] as const) {
+      const value = fields[key];
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+          Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value) safe[key] = value;
+    }
+  }
   return safe;
 }
 export function emitDiagnostic(layer: "api" | "web" | "mobile", minimum: DiagnosticLevel, level: Exclude<DiagnosticLevel, "off">, event: DiagnosticEvent, fields: DiagnosticFields = {}) {
