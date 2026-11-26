@@ -189,18 +189,21 @@ async function flushSnapshot(
   const nextQueue: OfflineWriteItem[] = [];
   let processed = 0;
   let hardStop = false;
+  let gpsWaiting = false;
   let gpsDeadline = queue.reduce((deadline, item) => item.path === GPS_LOG_PATH ? Math.max(deadline, item.nextAttemptAt ?? 0) : deadline, gpsNextSendAt.get(owner) ?? 0);
 
   for (let i = 0; i < queue.length; i += 1) {
     const item = queue[i];
+    const isGps = item.method === "POST" && item.path === GPS_LOG_PATH;
 
     if (item.blocked || hardStop || await currentOwner() !== owner) {
+      if (isGps) gpsWaiting = true;
       nextQueue.push(item);
       continue;
     }
 
-    const isGps = item.method === "POST" && item.path === GPS_LOG_PATH;
-    if ((item.nextAttemptAt ?? 0) > Date.now() || (isGps && gpsDeadline > Date.now())) {
+    if ((item.nextAttemptAt ?? 0) > Date.now() || (isGps && (gpsWaiting || gpsDeadline > Date.now()))) {
+      if (isGps) gpsWaiting = true;
       nextQueue.push(item);
       continue;
     }
@@ -213,6 +216,7 @@ async function flushSnapshot(
       await executor(item);
       processed += 1;
     } catch (error) {
+      if (isGps) gpsWaiting = true;
       const status = (error as { status?: number })?.status;
       if (isGps && status === 429) {
         const delay = (error as { retryAfterMs?: number })?.retryAfterMs;

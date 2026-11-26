@@ -5,9 +5,9 @@ import {stripTypeScriptTypes} from 'node:module';
 const stopSource=fs.readFileSync(new URL('../src/lib/stopActionState.ts',import.meta.url),'utf8').replace(/export /g,'');
 const source=fs.readFileSync(new URL('../src/lib/offline-queue.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
 const deferred=()=>{let resolve!:()=>void;const promise=new Promise<void>(r=>resolve=r);return {promise,resolve}};
-function setup(){let saved:string|null=null,fail=false;const storage={getItem:async()=>{await Promise.resolve();return saved},setItem:async(_key:string,value:string)=>{await Promise.resolve();if(fail){fail=false;throw new Error('disk full')}saved=value},removeItem:async()=>{saved=null}};
+function setup(options: { now?: () => number; onReadSession?: () => void } = {}){let saved:string|null=null,fail=false;const storage={getItem:async()=>{await Promise.resolve();return saved},setItem:async(_key:string,value:string)=>{await Promise.resolve();if(fail){fail=false;throw new Error('disk full')}saved=value},removeItem:async()=>{saved=null}};
  let session:any={user:{id:'A',companyId:'C',driverId:'D'}};
- const c=vm.createContext({AsyncStorage:storage,readSession:async()=>session,config:{apiUrl:'https://fixture.invalid'}});
+ const c=vm.createContext({Date:class extends Date { static now(){return options.now?.() ?? Date.now()} },AsyncStorage:storage,readSession:async()=>{options.onReadSession?.();return session},config:{apiUrl:'https://fixture.invalid'}});
  const ownerSource=fs.readFileSync(new URL('../src/lib/offline-owner.ts',import.meta.url),'utf8').replace(/export /g,'');
  vm.runInContext(stripTypeScriptTypes(stopSource+'\n'+ownerSource+'\n'+source),c);
  return {c,setSession:(value:any)=>{session=value},fail:()=>{fail=true},read:()=>JSON.parse(saved??'[]')};}
@@ -73,3 +73,26 @@ console.log('Delivery event: emitted only for acknowledged requests; unsubscribe
  assert.equal(c.offlineOwner({user:{}},'https://one.example'),null);
 }
 console.log('Owner boundaries: account/company/driver/server, no guest writes, no cross-account replay or delivery notice passed');
+
+// Clock crossing the cooldown during an awaited owner read must not let a newer GPS overtake.
+{
+ let now=0, reads=0, counting=false;
+ const {c,read}=setup({now:()=>now,onReadSession:()=>{if(counting){reads++;if(reads===2)now=4999;if(reads===3)now=5000}}});
+ for(const name of ['older','newer'])await c.enqueueOfflineWrite({...item(name,'/api/gps-logs'),nextAttemptAt:5000});
+ await c.enqueueOfflineWrite(item('expense','/api/expenses'));counting=true;
+ const calls:string[]=[];await c.flushOfflineWriteQueue(async(entry:any)=>{calls.push(entry.body.name)});
+ assert.deepEqual(calls,['expense']);assert.deepEqual(read().map((entry:any)=>entry.body.name),['older','newer']);
+ counting=false;now=6000;await c.flushOfflineWriteQueue(async(entry:any)=>{calls.push(entry.body.name)});
+ assert.deepEqual(calls,['expense','older']);assert.deepEqual(read().map((entry:any)=>entry.body.name),['newer']);
+ now=11000;await c.flushOfflineWriteQueue(async(entry:any)=>{calls.push(entry.body.name)});
+ assert.deepEqual(calls,['expense','older','newer']);assert.equal(read().length,0);
+}
+// A failed GPS remains ahead of newer GPS even if a slow error crosses the pacing deadline.
+{
+ let now=0;const {c,read}=setup({now:()=>now});
+ for(const name of ['older','newer'])await c.enqueueOfflineWrite(item(name,'/api/gps-logs'));
+ await c.enqueueOfflineWrite(item('expense','/api/expenses'));const calls:string[]=[];
+ await c.flushOfflineWriteQueue(async(entry:any)=>{calls.push(entry.body.name);if(entry.body.name==='older'){now=6000;throw Error('server failure')}});
+ assert.deepEqual(calls,['older','expense']);assert.deepEqual(read().map((entry:any)=>entry.body.name),['older','newer']);
+}
+console.log('GPS order: cooldown crossing and slow failure cannot overtake; other writes proceed; oldest sends first');
