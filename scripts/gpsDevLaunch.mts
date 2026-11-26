@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import { target, devLaunchSource } from './lib/gpsDevLaunch.mts';
+const mode = process.argv[2];
+if (mode !== '--development' && mode !== '--remove') throw Error('Use --development or --remove. Development cold-headless GPS will wait for UI.');
+const root = new URL('../node_modules/', import.meta.url);
+if (JSON.parse(fs.readFileSync(new URL('expo-task-manager/package.json', root), 'utf8')).version !== '14.0.9') throw Error('Unsupported expo-task-manager version.');
+const file = new URL(target, root);
+const next = devLaunchSource(fs.readFileSync(file, 'utf8'), mode === '--remove');
+fs.writeFileSync(file, next);
+console.log(mode === '--remove' ? 'Development launch gate removed; rebuild Android.' : 'Development launch gate applied. Rebuild Android from source. GPS without a JS manager waits for UI; persisted JS queue is untouched.');
