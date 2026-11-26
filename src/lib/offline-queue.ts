@@ -30,6 +30,8 @@ export type OfflineWriteItem = {
   retries: number;
   /** Persisted retry deadline; GPS entries retain cooldown across reloads. */
   nextAttemptAt?: number;
+  /** Persist the fair GPS scheduling turn across reloads; never part of the HTTP body. */
+  gpsHistoryNext?: boolean;
 };
 
 type QueueCountListener = (count: number) => void;
@@ -189,34 +191,50 @@ async function flushSnapshot(
   const nextQueue: OfflineWriteItem[] = [];
   let processed = 0;
   let hardStop = false;
-  let gpsWaiting = false;
   let gpsDeadline = queue.reduce((deadline, item) => item.path === GPS_LOG_PATH ? Math.max(deadline, item.nextAttemptAt ?? 0) : deadline, gpsNextSendAt.get(owner) ?? 0);
+  const gps = queue.filter(item => item.method === "POST" && item.path === GPS_LOG_PATH);
+  let gpsHistoryNext = gps.some(item => item.gpsHistoryNext === true);
+  // Reserve one GPS slot before awaited owner reads: cooldown crossing cannot change its choice.
+  let selectedGps: OfflineWriteItem | undefined;
+  if (gpsDeadline <= Date.now()) {
+    selectedGps = gps[0];
+    if (!gpsHistoryNext) {
+      let newest = -Infinity;
+      for (const entry of gps) {
+        const timestamp = (entry.body as { timestamp?: unknown } | null)?.timestamp;
+        const measured = typeof timestamp === "string" ? Date.parse(timestamp) : NaN;
+        if (Number.isFinite(measured) && measured > newest) { newest = measured; selectedGps = entry; }
+      }
+    }
+  }
 
   for (let i = 0; i < queue.length; i += 1) {
     const item = queue[i];
     const isGps = item.method === "POST" && item.path === GPS_LOG_PATH;
-
-    if (item.blocked || hardStop || await currentOwner() !== owner) {
-      if (isGps) gpsWaiting = true;
+    if (isGps && item.id !== selectedGps?.id) {
       nextQueue.push(item);
       continue;
     }
 
-    if ((item.nextAttemptAt ?? 0) > Date.now() || (isGps && (gpsWaiting || gpsDeadline > Date.now()))) {
-      if (isGps) gpsWaiting = true;
+    if (item.blocked || hardStop || await currentOwner() !== owner) {
+      nextQueue.push(item);
+      continue;
+    }
+
+    if ((item.nextAttemptAt ?? 0) > Date.now() || (isGps && gpsDeadline > Date.now())) {
       nextQueue.push(item);
       continue;
     }
     if (isGps) {
       gpsDeadline = Date.now() + GPS_SEND_INTERVAL_MS;
       gpsNextSendAt.set(owner, gpsDeadline);
+      gpsHistoryNext = !gpsHistoryNext;
     }
 
     try {
       await executor(item);
       processed += 1;
     } catch (error) {
-      if (isGps) gpsWaiting = true;
       const status = (error as { status?: number })?.status;
       if (isGps && status === 429) {
         const delay = (error as { retryAfterMs?: number })?.retryAfterMs;
@@ -253,7 +271,10 @@ async function flushSnapshot(
       ...current.filter(item => !snapshotIds.has(item.id))
     ];
     for (const entry of merged) {
-      if (entry.owner === owner && entry.method === "POST" && entry.path === GPS_LOG_PATH) entry.nextAttemptAt = Math.max(entry.nextAttemptAt ?? 0, gpsDeadline);
+      if (entry.owner === owner && entry.method === "POST" && entry.path === GPS_LOG_PATH) {
+        entry.nextAttemptAt = Math.max(entry.nextAttemptAt ?? 0, gpsDeadline);
+        entry.gpsHistoryNext = gpsHistoryNext;
+      }
     }
     await setOfflineWriteQueue(merged);
     return { processed, remaining: merged.filter(item => item.owner === owner).length };

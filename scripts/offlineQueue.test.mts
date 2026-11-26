@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module';
 const stopSource=fs.readFileSync(new URL('../src/lib/stopActionState.ts',import.meta.url),'utf8').replace(/export /g,'');
 const source=fs.readFileSync(new URL('../src/lib/offline-queue.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
 const deferred=()=>{let resolve!:()=>void;const promise=new Promise<void>(r=>resolve=r);return {promise,resolve}};
-function setup(options: { now?: () => number; onReadSession?: () => void } = {}){let saved:string|null=null,fail=false;const storage={getItem:async()=>{await Promise.resolve();return saved},setItem:async(_key:string,value:string)=>{await Promise.resolve();if(fail){fail=false;throw new Error('disk full')}saved=value},removeItem:async()=>{saved=null}};
+function setup(options: { now?: () => number; onReadSession?: () => void; initial?: string } = {}){let saved:string|null=options.initial??null,fail=false;const storage={getItem:async()=>{await Promise.resolve();return saved},setItem:async(_key:string,value:string)=>{await Promise.resolve();if(fail){fail=false;throw new Error('disk full')}saved=value},removeItem:async()=>{saved=null}};
  let session:any={user:{id:'A',companyId:'C',driverId:'D'}};
  const c=vm.createContext({Date:class extends Date { static now(){return options.now?.() ?? Date.now()} },AsyncStorage:storage,readSession:async()=>{options.onReadSession?.();return session},config:{apiUrl:'https://fixture.invalid'}});
  const ownerSource=fs.readFileSync(new URL('../src/lib/offline-owner.ts',import.meta.url),'utf8').replace(/export /g,'');
@@ -96,3 +96,48 @@ console.log('Owner boundaries: account/company/driver/server, no guest writes, n
  assert.deepEqual(calls,['older','expense']);assert.deepEqual(read().map((entry:any)=>entry.body.name),['older','newer']);
 }
 console.log('GPS order: cooldown crossing and slow failure cannot overtake; other writes proceed; oldest sends first');
+
+// Live/history fairness survives reload, preserves every body and keeps other writes independent.
+{
+ let now=0;let f=setup({now:()=>now});
+ const measured=(n:number)=>({...item(String(n),'/api/gps-logs'),body:{name:String(n),timestamp:new Date(1800000000000+n*1000).toISOString()}});
+ for(let n=0;n<6;n++)await f.c.enqueueOfflineWrite(measured(n));
+ const originals=new Map(f.read().map((entry:any)=>[entry.id,JSON.stringify(entry.body)]));const sent:string[]=[];
+ await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name)});assert.deepEqual(sent,['5']);assert.equal(f.read().length,5);
+ f=setup({now:()=>now,initial:JSON.stringify(f.read())});now=5000;
+ await f.c.enqueueOfflineWrite(measured(6));await f.c.enqueueOfflineWrite(item('expense','/api/expenses'));
+ await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name)});assert.deepEqual(sent,['5','0','expense']);
+ now=10000;await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name)});assert.equal(sent.at(-1),'6');
+ now=15000;await f.c.enqueueOfflineWrite(measured(7));await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name)});assert.equal(sent.at(-1),'1');
+ for(const entry of f.read())if(originals.has(entry.id))assert.equal(JSON.stringify(entry.body),originals.get(entry.id));
+ assert.equal(f.read().length,4);
+}
+
+// A failed live send does not discard it or starve history; 429 cooldown still applies to both.
+{
+ let now=0;const f=setup({now:()=>now});
+ for(let n=0;n<3;n++)await f.c.enqueueOfflineWrite({...item(String(n),'/api/gps-logs'),body:{name:String(n),timestamp:new Date(1800000000000+n*1000).toISOString()}});
+ const sent:string[]=[];
+ await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name);throw Object.assign(Error('limit'),{status:429,retryAfterMs:90000})});
+ assert.deepEqual(sent,['2']);assert.equal(f.read().length,3);
+ now=89999;await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name)});assert.equal(sent.length,1);
+ now=90000;await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name)});assert.deepEqual(sent,['2','0']);assert.equal(f.read().length,2);
+ now=95000;await f.c.flushOfflineWriteQueue(async(entry:any)=>{sent.push(entry.body.name)});assert.equal(sent.at(-1),'2');assert.equal(f.read().length,1);
+}
+console.log('GPS fair scheduling: live/history alternation, restart, new arrivals, immutable payloads, other writes and 429 preserved');
+
+// A large retained backlog drains while live measurements continue; no coalescing or parallel sends.
+{
+ let now=0;let peak=0,active=0;const f=setup({now:()=>now});
+ await f.c.enqueueOfflineWrite({...item('seed','/api/gps-logs'),body:{timestamp:'2026-01-01T00:00:00.000Z'}});
+ const template=f.read()[0];const backlog=Array.from({length:1493},(_,i)=>({...template,id:'fixture-'+i,body:{name:String(i),timestamp:new Date(1800000000000+i*1000).toISOString()}}));
+ let loaded=setup({now:()=>now,initial:JSON.stringify(backlog)});const sent:string[]=[];
+ for(let round=0;round<6;round++) {
+  await loaded.c.enqueueOfflineWrite({...item('live-'+round,'/api/gps-logs'),body:{name:'live-'+round,timestamp:new Date(1900000000000+round*1000).toISOString()}});
+  await Promise.all([loaded.c.flushOfflineWriteQueue(async(entry:any)=>{active++;peak=Math.max(peak,active);sent.push(entry.body.name);await Promise.resolve();active--}),loaded.c.flushOfflineWriteQueue(async()=>{throw Error('duplicate concurrent executor')})]);
+  now+=5000;
+ }
+ assert.deepEqual(sent,['live-0','0','live-2','1','live-4','2']);assert.equal(peak,1);assert.equal(loaded.read().length,1493);
+ assert.equal(loaded.read().filter((entry:any)=>entry.id.startsWith('fixture-')).length,1490);
+}
+console.log('GPS large backlog: 1493 retained records, live arrivals, history progress and single-flight verified');
